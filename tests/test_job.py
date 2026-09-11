@@ -52,3 +52,10 @@ def test_tts_segment_path_is_zero_padded(tmp_path: Path):
     job = create_job(tmp_path, "https://a/1", "zh", job_id="j1")
     assert job.tts_segment(7) == tmp_path / "j1" / "tts" / "seg_0007.wav"
     assert job.tts_segment(1234) == tmp_path / "j1" / "tts" / "seg_1234.wav"
+
+
+def test_phase3_artifact_paths(tmp_path: Path):
+    job = create_job(tmp_path, "https://a/1", "zh", job_id="j1")
+    assert job.subrect_json == tmp_path / "j1" / "subrect.json"
+    assert job.ocr_json == tmp_path / "j1" / "ocr.json"
+    assert job.sub_ass == tmp_path / "j1" / "sub.ass"

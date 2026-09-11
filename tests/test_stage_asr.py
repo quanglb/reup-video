@@ -36,13 +36,14 @@ def test_asr_writes_asr_json(tmp_path: Path, cfg_fixture, fake_transcribe):
     assert t.segments[0].text_source == "asr"
 
 
-def test_asr_also_seeds_transcript_json(tmp_path: Path, cfg_fixture, fake_transcribe):
+def test_asr_does_not_own_transcript_json(tmp_path: Path, cfg_fixture, fake_transcribe):
+    """transcript.json thuộc về reconcile — asr ghi vào đó là ghi đè bản đã hợp nhất."""
     job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
     job.full_16k.write_bytes(b"")
 
     asr_stage.run(job, cfg_fixture)
 
-    assert Transcript.load(job.transcript_json) == Transcript.load(job.asr_json)
+    assert not job.transcript_json.exists()
 
 
 def test_asr_passes_model_from_profile(tmp_path: Path, cfg_fixture, fake_transcribe):
@@ -76,4 +77,4 @@ def test_asr_rejects_empty_transcript(tmp_path: Path, cfg_fixture, monkeypatch):
 
 def test_spec_declares_its_artifacts():
     assert asr_stage.SPEC.name == "asr"
-    assert set(asr_stage.SPEC.produces) == {"asr.json", "transcript.json"}
+    assert set(asr_stage.SPEC.produces) == {"asr.json"}

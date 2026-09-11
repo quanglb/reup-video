@@ -58,6 +58,18 @@ class Job:
         return self.root / "asr.json"
 
     @property
+    def subrect_json(self) -> Path:
+        return self.root / "subrect.json"
+
+    @property
+    def ocr_json(self) -> Path:
+        return self.root / "ocr.json"
+
+    @property
+    def sub_ass(self) -> Path:
+        return self.root / "sub.ass"
+
+    @property
     def transcript_json(self) -> Path:
         return self.root / "transcript.json"
 

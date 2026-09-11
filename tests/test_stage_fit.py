@@ -72,6 +72,18 @@ def test_fails_on_empty_translation(tmp_path: Path, cfg_fixture):
         fit_stage.run_with(job, cfg_fixture, StubTTS(), NoLLM())
 
 
+def test_subtitles_are_generated_after_the_text_is_final(tmp_path: Path, cfg_fixture):
+    """Sinh sub ở translate thì sub hiện câu cũ còn giọng đọc câu đã viết lại."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _prepare(job, cfg_fixture, [(0, 3000, "Hôm nay nắng")])
+
+    fit_stage.run_with(job, cfg_fixture, StubTTS(), NoLLM())
+
+    ass = job.sub_ass.read_text(encoding="utf-8")
+    assert "Hôm nay nắng" in ass
+    assert "Dialogue:" in ass
+
+
 def test_spec_declares_its_artifacts():
     assert fit_stage.SPEC.name == "fit"
-    assert set(fit_stage.SPEC.produces) == {"dub.wav"}
+    assert set(fit_stage.SPEC.produces) == {"dub.wav", "sub.ass"}

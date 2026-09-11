@@ -83,3 +83,22 @@ def _video_bps(raw: dict, video: dict | None, duration: float) -> int:
         total = int(float(fmt["size"])) * 8 / duration
         return max(0, round(total - audio_bps))
     return 0
+
+
+def has_filter(name: str) -> bool:
+    """ffmpeg có filter này không.
+
+    Bản ffmpeg của Homebrew hiện không build libass nên thiếu `ass`,
+    `subtitles` và `drawtext`. Hỏi trước còn hơn để filtergraph gãy giữa chừng
+    với một thông báo khó hiểu.
+    """
+    proc = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True
+    )
+    if proc.returncode != 0:
+        return False
+    for line in proc.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[1] == name:
+            return True
+    return False

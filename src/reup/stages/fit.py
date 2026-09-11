@@ -18,6 +18,7 @@ from pathlib import Path
 from reup.config import Config
 from reup.core.job import Job
 from reup.core.runner import atomic_write
+from reup.ass import build_ass
 from reup.core.stage import StageSpec
 from reup.fit import decide_fit
 from reup.media.audio import apply_tempo, build_timeline, duration_ms
@@ -90,6 +91,18 @@ def run_with(job: Job, cfg: Config, tts, llm) -> None:
 
     _save_translation(job, translation, report)
     write_manifest(job, voice, manifest)
+    # Sinh phụ đề Ở ĐÂY chứ không ở stage translate: chữ chỉ chốt sau vòng viết
+    # lại, sinh sớm thì sub hiện câu cũ còn giọng đọc câu mới.
+    atomic_write(
+        job.sub_ass,
+        build_ass(
+            translation,
+            font=cfg.subtitle.font,
+            size=cfg.subtitle.size,
+            outline=cfg.subtitle.outline,
+            position=cfg.subtitle.position,
+        ),
+    )
     atomic_write(
         job.tts_dir / "fit.json",
         json.dumps({"segments": report}, ensure_ascii=False, indent=2),
@@ -140,4 +153,4 @@ def run(job: Job, cfg: Config) -> None:
     run_with(job, cfg, make_tts(cfg), make_llm(cfg))
 
 
-SPEC = StageSpec(name="fit", produces=("dub.wav",), run=run)
+SPEC = StageSpec(name="fit", produces=("dub.wav", "sub.ass"), run=run)

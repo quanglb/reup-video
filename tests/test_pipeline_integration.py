@@ -1,8 +1,10 @@
 # tests/test_pipeline_integration.py
+import json
 from pathlib import Path
+
 import pytest
 from reup.core.job import create_job
-from reup.core.runner import run_job
+from reup.core.runner import atomic_write, run_job
 from reup.core.stage import StageSpec
 from reup.core.store import Store
 from reup.media.ffmpeg import probe
@@ -13,10 +15,13 @@ from reup.stages import translate as translate_stage
 
 
 class FakeLLM:
-    """Dịch giả lập: trả bản tiếng Việt cố định, và rút ngắn khi bị bảo viết lại."""
+    """Gemini giả: dịch, viết lại, và chọn nguồn khi ASR/OCR lệch nhau."""
 
     def complete_json(self, prompt, schema):
-        if "segments" in schema.get("properties", {}):
+        props = schema.get("properties", {})
+        if "choices" in props:
+            return {"choices": []}  # thiếu lựa chọn -> reconcile giữ ASR
+        if "segments" in props:
             return {
                 "segments": [
                     {"id": 1, "text": "Hôm nay dạy làm thịt kho"},
@@ -55,11 +60,26 @@ def offline_stages(monkeypatch, sample_video: Path, cfg_fixture):
         to_wav(job.full_48k, job.vocals, sample_rate=16000, channels=1)
         to_wav(job.full_48k, job.bgm, sample_rate=48000, channels=2)
 
+    # Apple Vision trên fixture testsrc không có chữ nào, và OCR từng khung rất
+    # chậm. Thay bằng bản rỗng: đường đi qua reconcile vẫn được kiểm tra, luật
+    # "OCR rỗng -> dùng thẳng ASR" chính là nhánh hay gặp nhất ngoài đời.
+    def fake_subdetect_run(job, cfg):
+        atomic_write(
+            job.subrect_json,
+            json.dumps({"video_w": 540, "video_h": 960, "regions": [],
+                        "present_ranges": []}),
+        )
+
+    def fake_ocr_run(job, cfg):
+        atomic_write(job.ocr_json, json.dumps({"lines": []}))
+
     swap = {
         "fetch": StageSpec("fetch", ("source.mp4", "source.info.json"), fake_fetch_run),
         "separate": StageSpec(
             "separate", ("audio/vocals.wav", "audio/bgm.wav"), fake_separate_run
         ),
+        "subdetect": StageSpec("subdetect", ("subrect.json",), fake_subdetect_run),
+        "ocr": StageSpec("ocr", ("ocr.json",), fake_ocr_run),
     }
     return [swap.get(s.name, s) for s in stages_for(cfg_fixture)]
 
@@ -93,9 +113,9 @@ def test_every_intermediate_artifact_exists(tmp_path: Path, cfg_fixture, offline
 
     for path in (
         job.source_video, job.source_info, job.full_16k, job.full_48k,
-        job.vocals, job.bgm,
+        job.vocals, job.bgm, job.subrect_json, job.ocr_json,
         job.asr_json, job.transcript_json, job.translation_json,
-        job.tts_dir / "manifest.json",
+        job.sub_ass, job.tts_dir / "manifest.json",
         job.tts_dir / "fit.json", job.dub_wav, job.final_mp4,
     ):
         assert path.exists(), f"thiếu {path}"

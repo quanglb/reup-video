@@ -28,11 +28,8 @@ def run(job: Job, cfg: Config) -> None:
             "video có thể không có tiếng nói"
         )
 
-    transcript = Transcript(source_lang=detected_lang, segments=segments)
-    transcript.save(job.asr_json)
-    # Phase 1 chưa có stage reconcile, nên asr là nguồn sự thật luôn.
-    # Phase 3 bỏ dòng dưới khi reconcile xuất hiện.
-    transcript.save(job.transcript_json)
+    Transcript(source_lang=detected_lang, segments=segments).save(job.asr_json)
+    # transcript.json thuộc về stage reconcile (phase 3) — nó mới là nguồn sự thật.
 
 
-SPEC = StageSpec(name="asr", produces=("asr.json", "transcript.json"), run=run)
+SPEC = StageSpec(name="asr", produces=("asr.json",), run=run)
