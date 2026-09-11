@@ -34,17 +34,31 @@ def test_transform_combines_in_fixed_order(cfg_fixture):
     assert result.index("scale=") < result.index("hflip") < result.index("setpts=")
 
 
-def test_filter_complex_mixes_background_in_separate_mode(cfg_fixture):
-    chain = compose_stage.build_filter_complex(cfg_fixture)
+def test_filter_complex_mixes_separated_bgm(cfg_fixture):
+    chain = compose_stage.build_filter_complex(cfg_fixture, has_bgm=True)
     assert "volume=0.35" in chain
     assert "amix=inputs=2" in chain
 
 
+def test_bgm_comes_from_input_two_not_the_source(cfg_fixture):
+    """Audio gốc còn nguyên giọng người nói — trộn nó vào là hai giọng chồng nhau."""
+    chain = compose_stage.build_filter_complex(cfg_fixture, has_bgm=True)
+    assert "[2:a]volume=" in chain
+    assert "[0:a]" not in chain
+
+
 def test_filter_complex_drops_original_audio_in_drop_mode(cfg_fixture):
     cfg = replace(cfg_fixture, audio=replace(cfg_fixture.audio, mode="drop_original"))
-    chain = compose_stage.build_filter_complex(cfg)
+    chain = compose_stage.build_filter_complex(cfg, has_bgm=False)
     assert "amix" not in chain
     assert "volume=" not in chain
+
+
+def test_missing_bgm_falls_back_to_dub_only(cfg_fixture):
+    """Chưa chạy separate thì chỉ có giọng lồng — không được trộn nhầm audio gốc."""
+    chain = compose_stage.build_filter_complex(cfg_fixture, has_bgm=False)
+    assert "amix" not in chain
+    assert "[0:a]" not in chain
 
 
 def test_renders_playable_video(tmp_path: Path, sample_video: Path, sample_wav: Path, cfg_fixture):

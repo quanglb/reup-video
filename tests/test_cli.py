@@ -2,18 +2,28 @@
 from pathlib import Path
 import pytest
 from reup.cli import main
-from reup.stages import PHASE2_STAGES
+from reup.stages import ALL_STAGES, stages_for
 
 
-def test_phase2_stage_order():
-    """translate phải đứng giữa asr và tts: tts đọc bản dịch, không đọc bản gốc."""
-    assert [s.name for s in PHASE2_STAGES] == [
-        "fetch", "demux", "asr", "translate", "tts", "fit", "compose",
+def test_stage_order(cfg_fixture):
+    """translate giữa asr và tts; separate TRƯỚC asr để ASR nghe giọng đã tách."""
+    assert [s.name for s in stages_for(cfg_fixture)] == [
+        "fetch", "demux", "separate", "asr", "translate", "tts", "fit", "compose",
     ]
 
 
+def test_drop_original_skips_the_heaviest_stage(cfg_fixture):
+    """Nút thoát hiểm khi máy quá ì (spec §9): bỏ Demucs, mất nhạc nền."""
+    from dataclasses import replace
+
+    cfg = replace(cfg_fixture, audio=replace(cfg_fixture.audio, mode="drop_original"))
+    names = [s.name for s in stages_for(cfg)]
+    assert "separate" not in names
+    assert names[:3] == ["fetch", "demux", "asr"]
+
+
 def test_stage_names_are_unique():
-    names = [s.name for s in PHASE2_STAGES]
+    names = [s.name for s in ALL_STAGES]
     assert len(names) == len(set(names))
 
 

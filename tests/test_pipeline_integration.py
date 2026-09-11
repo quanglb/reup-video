@@ -7,7 +7,7 @@ from reup.core.stage import StageSpec
 from reup.core.store import Store
 from reup.media.ffmpeg import probe
 from reup.models import Segment
-from reup.stages import PHASE2_STAGES
+from reup.stages import stages_for
 from reup.stages import asr as asr_stage
 from reup.stages import translate as translate_stage
 
@@ -27,7 +27,7 @@ class FakeLLM:
 
 
 @pytest.fixture
-def offline_stages(monkeypatch, sample_video: Path):
+def offline_stages(monkeypatch, sample_video: Path, cfg_fixture):
     """Thay fetch bằng copy file local, whisper và Gemini bằng hàm giả.
 
     Không stage nào trong test được chạm vào mạng.
@@ -47,12 +47,21 @@ def offline_stages(monkeypatch, sample_video: Path):
     monkeypatch.setattr(
         "reup.adapters.registry.make_llm", lambda cfg: FakeLLM()
     )
-    stages = [
-        StageSpec("fetch", ("source.mp4", "source.info.json"), fake_fetch_run)
-        if s.name == "fetch" else s
-        for s in PHASE2_STAGES
-    ]
-    return stages
+    # Demucs nạp model và chạy vài giây — quá nặng cho test. Thay bằng bản sao
+    # thẳng: đường trộn bgm vẫn được kiểm tra, chỉ khâu tách là giả.
+    def fake_separate_run(job, cfg):
+        from reup.media.audio import to_wav
+
+        to_wav(job.full_48k, job.vocals, sample_rate=16000, channels=1)
+        to_wav(job.full_48k, job.bgm, sample_rate=48000, channels=2)
+
+    swap = {
+        "fetch": StageSpec("fetch", ("source.mp4", "source.info.json"), fake_fetch_run),
+        "separate": StageSpec(
+            "separate", ("audio/vocals.wav", "audio/bgm.wav"), fake_separate_run
+        ),
+    }
+    return [swap.get(s.name, s) for s in stages_for(cfg_fixture)]
 
 
 def test_full_pipeline_produces_playable_video(
@@ -84,6 +93,7 @@ def test_every_intermediate_artifact_exists(tmp_path: Path, cfg_fixture, offline
 
     for path in (
         job.source_video, job.source_info, job.full_16k, job.full_48k,
+        job.vocals, job.bgm,
         job.asr_json, job.transcript_json, job.translation_json,
         job.tts_dir / "manifest.json",
         job.tts_dir / "fit.json", job.dub_wav, job.final_mp4,

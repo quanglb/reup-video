@@ -8,10 +8,19 @@ from reup.media.whisper import transcribe
 from reup.models import Transcript
 
 
+def pick_audio(job: Job):
+    """Nghe giọng đã tách nếu có — nhạc nền to là nguyên nhân chính làm ASR sai.
+
+    `audio.mode = "drop_original"` bỏ stage separate nên không có vocals.wav;
+    khi đó nghe thẳng bản trộn.
+    """
+    return job.vocals if job.vocals.exists() else job.full_16k
+
+
 def run(job: Job, cfg: Config) -> None:
     language = None if job.source_lang == "auto" else job.source_lang
     detected_lang, segments = transcribe(
-        job.full_16k, cfg.profile.whisper_model, language
+        pick_audio(job), cfg.profile.whisper_model, language
     )
     if not segments:
         raise ValueError(

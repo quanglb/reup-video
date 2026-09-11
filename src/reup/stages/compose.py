@@ -46,17 +46,19 @@ def build_transform(transform: TransformConfig) -> str:
     return ",".join(parts) if parts else "null"
 
 
-def build_filter_complex(cfg: Config) -> str:
-    # Input 0 = video nguồn, input 1 = track lồng tiếng (dub.wav)
+def build_filter_complex(cfg: Config, has_bgm: bool) -> str:
+    """Input 0 = video nguồn, 1 = dub.wav, 2 = bgm.wav (chỉ khi has_bgm)."""
     video = f"[0:v]{build_transform(cfg.transform)}[v]"
     # Phase 3: chèn crop+boxblur+overlay TRƯỚC build_transform,
     #          và ass=sub.ass SAU nó — nếu không chữ Việt sẽ bị hflip lật ngược.
 
-    if cfg.audio.mode == "drop_original":
+    if cfg.audio.mode == "drop_original" or not has_bgm:
         audio = "[1:a]aresample=48000[a]"
     else:
+        # Trộn nhạc nền ĐÃ TÁCH, không phải audio gốc: audio gốc còn nguyên
+        # giọng người nói, nghe chồng lên giọng lồng tiếng.
         audio = (
-            f"[0:a]volume={cfg.audio.bgm_gain}[bg];"
+            f"[2:a]volume={cfg.audio.bgm_gain},aresample=48000[bg];"
             "[bg][1:a]amix=inputs=2:duration=first:normalize=0[a]"
         )
     return f"{video};{audio}"
@@ -67,10 +69,14 @@ def run(job: Job, cfg: Config) -> None:
     bitrate = pick_bitrate(
         probe(job.source_video).video_bps, parse_bitrate(cfg.profile.video_bitrate)
     )
+    has_bgm = job.bgm.exists() and cfg.audio.mode != "drop_original"
+    inputs = ["-i", str(job.source_video), "-i", str(job.dub_wav)]
+    if has_bgm:
+        inputs += ["-i", str(job.bgm)]
+
     run_ffmpeg([
-        "-i", str(job.source_video),
-        "-i", str(job.dub_wav),
-        "-filter_complex", build_filter_complex(cfg),
+        *inputs,
+        "-filter_complex", build_filter_complex(cfg, has_bgm),
         "-map", "[v]", "-map", "[a]",
         "-c:v", cfg.profile.encoder, "-b:v", str(bitrate),
         "-c:a", "aac", "-b:a", "192k",

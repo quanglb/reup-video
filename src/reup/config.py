@@ -38,6 +38,8 @@ class ProfileConfig:
     encoder: str
     video_bitrate: str = "8M"  # trần, không phải mức cố định — xem compose.pick_bitrate
     prefer_h264: bool = False  # chỉ bật trên máy không có hardware AV1 decode
+    demucs_model: str = "htdemucs"
+    demucs_device: str = "mps"  # "mps" | "cpu" — MPS gần như không sinh nhiệt
 
 
 @dataclass(frozen=True)
