@@ -1,53 +1,88 @@
 # reup-video
 
 Pipeline dịch và lồng tiếng video ngắn, chạy local trên macOS.
+Dán một link → ra file `.mp4` tiếng Việt có phụ đề, giữ nhạc nền.
 
 Thiết kế: [`docs/superpowers/specs/2026-09-11-reup-video-design.md`](docs/superpowers/specs/2026-09-11-reup-video-design.md)
 
 ## Trạng thái
 
-**Phase 1** — xương sống pipeline. 6 trong 13 stage đã chạy: `fetch`, `demux`,
-`asr`, `tts`, `fit`, `compose`. Giọng đọc còn là `StubTTS` (wav im lặng), chưa
-có dịch, chưa có blur phụ đề. Xem
-[`docs/superpowers/plans/`](docs/superpowers/plans/) cho các phase sau.
+**Mười hai trong mười ba stage đã chạy.** Còn thiếu duy nhất crawler cho TikTok
+và Douyin — hai nền tảng đó cần cookie và IP Trung Quốc (spec R1).
+
+```
+discover  fetch  demux  separate  asr  subdetect  ocr
+reconcile  translate  [CHỐT A]  tts  fit  compose  [CHỐT B]  export
+```
 
 ## Cài đặt
 
-Cần `ffmpeg` 8.x và `uv` trong PATH.
+Cần `ffmpeg`, `uv`, và source [`capcut-tts-api`](https://github.com/) đặt ở
+đường dẫn khai trong `config.toml`.
 
 ```bash
 uv venv --python 3.12
 uv pip install -e .
-uv pip install pytest
+uv pip install pytest httpx
+cp .env.example .env      # rồi điền GEMINI_API_KEY
 ```
 
 ## Dùng
 
 ```bash
-uv run reup add "https://www.douyin.com/video/..." --lang zh
-uv run reup status
+uv run reup discover --limit 10 --add     # quét YouTube Shorts
+uv run reup add "https://..." --lang zh   # hoặc dán link
 uv run reup run <job_id>
+uv run reup web                           # giao diện duyệt, cổng 8765
+uv run reup approve <job_id>
 uv run reup redo <job_id> --from asr
+uv run reup benchmark                     # đo từng stage trên máy này
 ```
 
-File thành phẩm nằm ở `jobs/<job_id>/render/final.mp4`.
+Video dừng ở **chốt A** sau khi dịch xong. Mở `reup web`, sửa bản dịch, bấm
+duyệt, rồi `reup run` lần nữa. Thành phẩm nằm ở `output/<job_id>.mp4` kèm
+`<job_id>.json` chứa tiêu đề, mô tả và hashtag để chép dán lúc đăng.
+
+## Hiệu năng
+
+Đo trên M4, clip 18 giây 1080×1920:
+
+| Stage | Thời gian | | Stage | Thời gian |
+|---|---|---|---|---|
+| `fetch` | 1.8s | | `translate` | 21s |
+| `demux` | 0.1s | | `tts` | 21s |
+| `separate` | 3.4s | | `fit` | 48s |
+| `asr` | 4.4s | | `compose` | 5.0s |
+| `subdetect` | 8.8s | | `export` | 19s |
+| `ocr` | 8.3s | | **tổng** | **~2 phút** |
 
 ## Cấu hình
 
-Sửa `config.toml`. Đổi `profile.active` sang `studio-24` khi chạy trên máy
-24GB. Đặt `audio.mode = "drop_original"` nếu máy quá chậm — bỏ nhạc nền nhưng
-nhanh hơn nhiều.
+Sửa `config.toml`. Vài knob đáng biết:
 
-Hai knob trong `[profile.*]` đáng để ý:
+- `profile.active` — `air-16` hoặc `studio-24`.
+- `audio.mode = "drop_original"` — bỏ hẳn Demucs. Mất nhạc nền nhưng cắt được
+  stage nặng; nút thoát hiểm khi máy quá ì.
+- `profile.video_bitrate` là **trần**, không phải mức cố định. `compose` chọn
+  `min(trần, max(2.5M, 1.6 × bitrate nguồn))`. Bỏ luật này thì file ra nặng gấp
+  5 lần nguồn mà không thêm chi tiết nào.
+- `profile.prefer_h264` mặc định `false`. YouTube trả AV1 cho Shorts; trên M4
+  hardware AV1 decode gần như miễn phí trong khi bản AV1 nhỏ hơn một nửa. Chỉ
+  bật trên máy không có AV1 decode (Intel, M1, M2).
+- `llm.model` — gói Gemini miễn phí chỉ cho **20 request/ngày mỗi model**.
+- `review.auto_approve_b = true` — bỏ qua chốt duyệt thành phẩm.
 
-- `video_bitrate` là **trần**, không phải mức cố định. `compose` chọn
-  `min(trần, max(2.5M, 1.6 x bitrate nguồn))`, nên một Short 1.5 Mbps ra file
-  2.5 Mbps chứ không phải 8 Mbps. Đo thật: bỏ luật này thì file ra nặng gấp
-  5 lần nguồn (18.6MB cho clip 3.7MB) mà không thêm chi tiết nào.
-- `prefer_h264` mặc định `false`. YouTube trả AV1 cho Shorts, và trên M4
-  hardware AV1 decode gần như miễn phí (`compose` chênh 45ms) trong khi bản
-  AV1 nhỏ hơn một nửa. Chỉ bật knob này trên máy không có AV1 decode
-  (Intel, M1, M2).
+## Hai chỗ môi trường bắt đi chệch thiết kế
+
+**ffmpeg của Homebrew không có libass.** Công thức `homebrew/core` đã bỏ hẳn
+libass khỏi phụ thuộc, nên không có filter `ass`, `subtitles` hay `drawtext`.
+Phụ đề vì thế được vẽ bằng Pillow ra PNG rồi `overlay` — chạy với mọi bản
+ffmpeg. Máy nào có libass thì `compose` tự chuyển sang đường đó.
+
+**`--rate` của CapCut không có tác dụng.** Đo sáu câu cùng 10 âm tiết: rate 1.5
+chỉ ngắn hơn 5.9%, ngang mức dao động giữa các câu. Server còn cache theo text
+và bỏ qua rate. Nên khi câu dài quá khe, cách duy nhất là **đổi chữ** — vòng
+khớp thời lượng chỉ còn hai bậc: viết lại rồi `atempo`.
 
 ## Test
 
@@ -55,5 +90,11 @@ Hai knob trong `[profile.*]` đáng để ý:
 uv run pytest
 ```
 
-Test không gọi mạng và không nạp model: fixture video sinh bằng ffmpeg lúc
-chạy, Whisper và yt-dlp được thay bằng hàm giả.
+427 test, không gọi mạng và không nạp model: fixture video sinh bằng ffmpeg lúc
+chạy; Whisper, Demucs, yt-dlp, CapCut và Gemini đều được thay bằng hàm giả.
+
+## Bản quyền
+
+Pipeline này xử lý video do người khác sản xuất. Rủi ro nhận strike hoặc mất
+kiếm tiền là có thật và thuộc về người vận hành. Hướng an toàn hơn: xin phép
+tác giả gốc, hoặc chọn nguồn có giấy phép cho phép sử dụng lại.
