@@ -81,3 +81,11 @@ def build_timeline(
         "-c:a", "pcm_s16le", str(out),
     ]
     run_ffmpeg(args)
+
+
+def to_wav(src: Path, out: Path, sample_rate: int = 48000, channels: int = 2) -> None:
+    """Chuyển audio bất kỳ sang wav PCM đúng định dạng timeline dùng.
+
+    CapCut trả mp3 24kHz mono; `build_timeline` cần wav 48kHz stereo.
+    """
+    extract_audio(src, out, sample_rate=sample_rate, channels=channels)
