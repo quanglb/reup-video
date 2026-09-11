@@ -20,6 +20,12 @@
 - Tên file audio: `full_16k.wav` (16kHz mono) và `full_48k.wav` (48kHz stereo). Không có file nào tên `full.wav`.
 - Test **không** so khớp pixel. Kiểm tra: file tồn tại, độ dài ±100ms, đúng độ phân giải, có đủ stream video và audio.
 - Fixture phase 1 **sinh bằng ffmpeg lúc chạy test**, không commit file nhị phân. Clip thật commit vào repo bắt đầu từ phase 3 khi OCR cần hardsub thật.
+- Source CapCut nằm ở `capcut-tts-api/` (Python thuần, CLI, có `requests`). Thư mục
+  này là git repo riêng và đã vào `.gitignore` — **không** commit nó vào repo này.
+  Phase 1 không đụng tới; phase 2 mới bọc nó lại.
+- Whisper nằm ở `media/` chứ không phải `adapters/`, vì nó là thư viện chạy local
+  như ffmpeg, không phải dịch vụ mạng. Phase 2 mới dựng `ASRAdapter` khi có
+  implement thứ hai (CapCut STT) để so.
 - Commit sau mỗi task.
 
 ---
@@ -3651,11 +3657,22 @@ git commit -m "test: pipeline chạy thông đầu cuối, kèm README"
 Sau task 18, `reup add <url>` rồi `reup run <job_id>` cho ra một file mp4 đã
 thay audio, đi qua đúng kiến trúc stage rời nhau, có resume và có nhật ký.
 
-**Phase 2 bắt đầu từ đây** — ba thay đổi vào đúng chỗ đã chừa sẵn:
+**Phase 2 bắt đầu từ đây** — năm thay đổi, tất cả vào chỗ đã chừa sẵn:
 
-1. Viết `adapters/capcut_tts.py` implement `TTSAdapter`, đổi một dòng trong
+1. Viết `adapters/capcut_tts.py` implement `TTSAdapter`, bọc
+   `capcut-tts-api/capcut_common_task_client.py` (`tts-new` → poll `tts-query` →
+   tải mp3 về). Giọng đọc từ `capcut-tts-api/Voice.json`: mỗi mục là cặp
+   `voice_type` + `resource_id`, map thẳng sang `Voice`. Đổi một dòng trong
    `stages/tts.py`.
 2. Thêm `stages/translate.py`, đổi `stages/tts.py` đọc `translation.json` thay
-   vì `transcript.json`.
+   vì `transcript.json` — và bỏ `voice_for(source_lang)`, chuyển sang giọng `vi`.
 3. Nối vòng viết lại trong `stages/fit.py`: thay `MAX_REVISIONS` cứng bằng biến
    đếm thật, gọi lại translate cho đoạn nào `decide_fit` trả `"rewrite"`.
+4. Dùng `--rate` của CapCut trước khi dùng `atempo`. Thứ tự ưu tiên khi câu dài
+   quá khe: `rate` lúc tổng hợp → `atempo` sau tổng hợp → Gemini viết lại.
+   `rate` đổi nhịp đọc chứ không nén dạng sóng nên không có tiếng méo tua nhanh.
+   `decide_fit` giữ nguyên; chỉ `stages/fit.py` đổi cách thi hành quyết định.
+5. Dựng `adapters/asr.py` (Protocol `ASRAdapter`), chuyển `media/whisper.py`
+   thành `adapters/whisper_asr.py`, thêm `adapters/capcut_stt.py` gọi `stt-file`
+   rồi đọc `payload.utterances[]`. Chọn bằng `asr.engine` trong config.
+   Đây là lúc interface có ý nghĩa — trước đó chỉ có một implement.

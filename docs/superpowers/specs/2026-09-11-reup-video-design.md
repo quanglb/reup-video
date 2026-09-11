@@ -37,6 +37,7 @@ Người dùng duy nhất là chủ dự án, chạy trên máy Mac cá nhân.
 | Máy | MacBook Air M4 16GB **và** máy M4 24GB — cùng codebase, khác profile |
 | Hệ điều hành | macOS (phụ thuộc Apple Vision cho OCR — xem rủi ro R4) |
 | Mức tự động | Có chốt duyệt của người trước khi render |
+| Source CapCut | `capcut-tts-api/` — Python thuần, CLI, có cả TTS (22 giọng, nhận `--rate`) lẫn STT (timestamp từng từ) |
 
 ## 4. Ngăn xếp kỹ thuật
 
@@ -45,7 +46,8 @@ Người dùng duy nhất là chủ dự án, chạy trên máy Mac cá nhân.
 | Ngôn ngữ | Python 3.12 (venv riêng qua `uv`) | Demucs / Whisper / OCR đều là hệ sinh thái Python. Python hệ thống đang là 3.14, quá mới, nhiều package ML chưa có wheel |
 | Tải video | `yt-dlp` | Hỗ trợ cả ba nền tảng |
 | Tách nhạc/giọng | `demucs` (htdemucs) | Chất lượng tốt nhất trong nhóm chạy được local |
-| ASR | `mlx-whisper`, model `large-v3-turbo` | Nhanh nhất trên Apple Silicon, dùng MPS |
+| ASR (mặc định) | `mlx-whisper`, model `large-v3-turbo` | Nhanh nhất trên Apple Silicon, dùng MPS. Chạy offline, không upload gì |
+| ASR (thay thế) | CapCut STT qua `capcut-tts-api/` | Có sẵn timestamp tới từng từ, không tốn CPU/GPU — hữu ích khi Air quá ì. Đổi bằng `asr.engine` trong config |
 | OCR | `ocrmac` (Apple Vision) | Hỗ trợ tiếng Trung, chạy trên Neural Engine, không phải cài PaddleOCR trên ARM |
 | LLM | Gemini qua `google-genai` | Đã có sẵn API key ở dự án anh em |
 | Dựng video | `ffmpeg` 8.x, encoder `h264_videotoolbox` | Một lượt filter duy nhất; VideoToolbox gần như không sinh nhiệt — thiết yếu cho Air không quạt |
@@ -137,9 +139,16 @@ class TTSAdapter(Protocol):
     def synthesize(self, text: str, lang: str, voice: str, out: Path) -> TTSResult: ...
     # TTSResult.actual_ms là bắt buộc — stage fit cần con số này
 
+class ASRAdapter(Protocol):
+    def transcribe(self, audio: Path, lang: str | None) -> tuple[str, list[Segment]]: ...
+    # trả (ngôn ngữ nhận được, các câu kèm mốc thời gian)
+
 class LLMAdapter(Protocol):
     def complete_json(self, prompt: str, schema: dict) -> dict: ...
 ```
+
+Hai implement của `ASRAdapter`: `WhisperASR` (mặc định, chạy local) và `CapCutSTT`
+(gọi `capcut-tts-api/`, trả `utterances[].words[]` có sẵn mốc từng từ).
 
 **TTS của CapCut nối vào đây.** Source code CapCut TTS đã có sẵn, sẽ được bọc thành
 một implement của `TTSAdapter`. Trong lúc chưa nối, dùng `StubTTS`: sinh file wav
@@ -279,11 +288,15 @@ TTS xong đo lại, so `dài thật / khe`:
 | Tỉ lệ | Xử lý |
 |---|---|
 | ≤ 1.15 | `atempo` nén nhẹ — tai không nghe ra |
-| 1.15 – 1.5 | bắt Gemini viết lại ngắn hơn, tối đa 2 lần; vẫn dài thì chấp nhận nén 1.25 |
+| 1.15 – 1.5 | sinh lại TTS với `rate` cao hơn (CapCut đổi tốc độ ngay lúc tổng hợp, nghe tự nhiên hơn nén tín hiệu); vẫn dài thì bắt Gemini viết lại, tối đa 2 lần |
 | > 1.5 sau 2 lần | gắn cờ `overflow`, đưa job **trở lại trạng thái `needs_review`** ở chốt A |
 | < 0.85 | chèn khoảng lặng ở cuối đoạn. **Không** làm chậm giọng — nghe lè nhè |
 
 Ngân sách 2 lần viết lại là cứng, để một câu hỏng không kéo cả job vào vòng lặp vô tận.
+
+Thứ tự ưu tiên khi câu dài quá khe: `rate` lúc tổng hợp → `atempo` sau tổng hợp →
+Gemini viết lại. `rate` đứng đầu vì nó đổi nhịp đọc chứ không nén dạng sóng, nên
+không có tiếng méo kiểu tua nhanh.
 
 Job bị đẩy ngược về chốt A giữ nguyên mọi file TTS đã sinh; duyệt lại chỉ chạy lại TTS
 cho những đoạn có nội dung thay đổi. Trạng thái `needs_review` mang thêm trường
@@ -418,7 +431,7 @@ Xếp theo "sớm nhất ra được video thật".
 | Phase | Nội dung | Xong thì có gì |
 |---|---|---|
 | 1 | core + stage runner + adapter `manual` + stage 2,3,5,10,11,12 với StubTTS | dán link → ra mp4, chưa có sub, giọng giả |
-| 2 | nối TTSAdapter CapCut thật + stage 9 (dịch) | ra video có giọng Việt thật |
+| 2 | nối TTSAdapter + ASRAdapter CapCut (`capcut-tts-api/`) + stage 9 (dịch) | ra video có giọng Việt thật, và đổi được engine ASR |
 | 3 | stage 6,7,8 + sinh ASS | blur được sub cũ, đè được sub mới |
 | 4 | stage 4 (Demucs) + mix audio | giữ được nhạc nền |
 | 5 | Web UI: hàng đợi + chốt A | sửa được bản dịch trước khi render |
@@ -438,7 +451,7 @@ Crawler xếp gần cuối vì nó là phần dễ gãy nhất và ít giá tr�
 | R2 | Gemini bịa nội dung khi hợp nhất ASR/OCR | Cấm viết mới, chỉ cho chọn một trong hai; gắn cờ ra UI |
 | R3 | Demucs chậm và làm nóng Air | `demucs_segment` nhỏ, concurrency 1, VideoToolbox cho encode, và `drop_original` làm nút thoát |
 | R4 | `ocrmac` khóa dự án vào macOS | OCR nằm sau interface; muốn chạy Linux thì viết implement RapidOCR thay vào |
-| R5 | Whisper sai với tiếng Trung phương ngữ | OCR đối chiếu bắt phần lớn; còn lại chốt A bắt |
+| R5 | Whisper sai với tiếng Trung phương ngữ | OCR đối chiếu bắt phần lớn; còn lại chốt A bắt. Đổi `asr.engine = "capcut"` để thử engine khác |
 | R6 | VideoToolbox chất lượng kém hơn libx264 ở cùng bitrate | Dùng bitrate cao hơn (8M cho 1080×1920); profile studio-24 có thể đổi sang libx264 |
 | R7 | Chưa biết hình thù source CapCut TTS | StubTTS cho phép xây xong mọi thứ khác trước |
 
