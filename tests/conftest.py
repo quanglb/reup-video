@@ -45,3 +45,20 @@ def sample_wav(tmp_path: Path) -> Path:
         "-ac", "2", "-c:a", "pcm_s16le", str(out),
     ])
     return out
+
+
+from reup.config import (  # noqa: E402
+    AudioConfig, Config, ProfileConfig, ReviewConfig, SubtitleConfig, TransformConfig,
+)
+
+
+@pytest.fixture
+def cfg_fixture() -> Config:
+    return Config(
+        profile_name="test",
+        profile=ProfileConfig(1, "tiny", 7, "h264_videotoolbox"),
+        audio=AudioConfig("separate", 0.35),
+        transform=TransformConfig(False, 1.0, 1.0),
+        subtitle=SubtitleConfig("Be Vietnam Pro", 64, 4, "bottom"),
+        review=ReviewConfig(False),
+    )
