@@ -1,0 +1,32 @@
+[profile]
+active = "air-16"
+
+[profile.air-16]
+concurrency    = 1
+whisper_model  = "mlx-community/whisper-large-v3-turbo-q4"
+demucs_segment = 7
+encoder        = "h264_videotoolbox"
+
+[profile.studio-24]
+concurrency    = 2
+whisper_model  = "mlx-community/whisper-large-v3-turbo"
+demucs_segment = 12
+encoder        = "h264_videotoolbox"
+
+[audio]
+mode     = "separate"
+bgm_gain = 0.35
+
+[transform]
+hflip = false
+zoom  = 1.0
+speed = 1.0
+
+[subtitle]
+font     = "Be Vietnam Pro"
+size     = 64
+outline  = 4
+position = "bottom"
+
+[review]
+auto_approve_b = false

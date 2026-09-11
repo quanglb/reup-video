@@ -5,4 +5,5 @@ __pycache__/
 *.pyc
 reup.db
 .env
+.pytest_cache/
 capcut-tts-api/
