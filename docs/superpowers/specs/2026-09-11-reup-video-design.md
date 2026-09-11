@@ -106,8 +106,8 @@ jobs/<job_id>/
 |---|---|---|---|---|
 | 1 | `discover` | — | hàng đợi ứng viên | SourceAdapter |
 | 2 | `fetch` | url | `source.mp4`, `source.info.json` | yt-dlp |
-| 3 | `demux` | source.mp4 | `audio/full.wav` | ffmpeg |
-| 4 | `separate` | full.wav | `vocals.wav`, `bgm.wav` | demucs |
+| 3 | `demux` | source.mp4 | `audio/full_16k.wav`, `full_48k.wav` | ffmpeg |
+| 4 | `separate` | full_16k.wav | `vocals.wav`, `bgm.wav` | demucs |
 | 5 | `asr` | vocals.wav | `asr.json` | mlx-whisper |
 | 6 | `subdetect` | source.mp4 | `subrect.json` | Apple Vision + gom cụm |
 | 7 | `ocr` | source.mp4 + subrect.json | `ocr.json` | Apple Vision |
