@@ -25,6 +25,14 @@ def _build_parser() -> argparse.ArgumentParser:
     add.add_argument("url")
     add.add_argument("--lang", default="auto", help="ngôn ngữ nguồn: zh, en, hoặc auto")
 
+    disc = sub.add_parser("discover", help="quét video ngắn đang thịnh hành")
+    disc.add_argument("--platform", default="youtube", choices=["youtube"])
+    disc.add_argument("--limit", type=int, default=10)
+    disc.add_argument("--region", default="VN")
+    disc.add_argument("--hashtag", default="shorts")
+    disc.add_argument("--lang", default="auto")
+    disc.add_argument("--add", action="store_true", help="tạo job luôn, không chỉ liệt kê")
+
     run_cmd = sub.add_parser("run", help="chạy job tới stage cuối")
     run_cmd.add_argument("job_id")
 
@@ -49,6 +57,34 @@ def _cmd_add(args, store: Store) -> int:
     job = create_job(args.jobs_dir, args.url, args.lang)
     store.upsert_job(job.id, job.source_url, "pending")
     print(job.id)
+    return 0
+
+
+def _cmd_discover(args, store: Store) -> int:
+    from reup.adapters.youtube import DiscoverError, YouTubeSource
+
+    try:
+        found = YouTubeSource(hashtag=args.hashtag).list_trending(args.region, args.limit)
+    except DiscoverError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    fresh = [c for c in found if not store.is_seen(c.platform, c.video_id)]
+    if not fresh:
+        print(f"quét được {len(found)} video, tất cả đều đã xử lý rồi")
+        return 0
+
+    for c in fresh:
+        mark = ""
+        if args.add:
+            job = create_job(args.jobs_dir, c.url, args.lang)
+            store.upsert_job(job.id, job.source_url, "pending")
+            store.mark_seen(c.platform, c.video_id)
+            mark = f"  -> {job.id}"
+        print(f"{c.duration_ms // 1000:>4}s  {c.title[:56]:<58}{c.url}{mark}")
+
+    if not args.add:
+        print(f"\n{len(fresh)} video mới. Thêm `--add` để tạo job.")
     return 0
 
 
@@ -189,6 +225,7 @@ def main(argv: list[str] | None = None) -> int:
             "approve": _cmd_approve,
             "benchmark": _cmd_benchmark,
             "web": _cmd_web,
+            "discover": _cmd_discover,
         }[args.command](args, store)
     finally:
         store.close()
