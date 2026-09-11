@@ -5,3 +5,4 @@ __pycache__/
 *.pyc
 reup.db
 .env
+capcut-tts-api/
