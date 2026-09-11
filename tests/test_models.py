@@ -60,3 +60,35 @@ def test_saved_json_is_readable_utf8(tmp_path: Path):
         segments=[Segment(id=1, start_ms=0, end_ms=100, text="红烧肉")],
     ).save(path)
     assert "红烧肉" in path.read_text(encoding="utf-8")
+
+
+def test_load_ignores_unknown_segment_fields(tmp_path: Path):
+    """translation.json mang thêm slot_ms / syllable_budget / revision.
+
+    Cả hai file dùng chung một bộ đọc, nên trường lạ phải bị bỏ qua chứ không
+    làm gãy.
+    """
+    import json
+
+    path = tmp_path / "translation.json"
+    path.write_text(
+        json.dumps(
+            {
+                "source_lang": "vi",
+                "target_lang": "vi",
+                "segments": [
+                    {
+                        "id": 1, "start_ms": 0, "end_ms": 3200, "text": "Hôm nay",
+                        "slot_ms": 3200, "syllable_budget": 14, "syllables": 2,
+                        "revision": 0, "flags": [],
+                    }
+                ],
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    t = Transcript.load(path)
+    assert t.source_lang == "vi"
+    assert t.segments[0].text == "Hôm nay"
+    assert t.segments[0].slot_ms == 3200
