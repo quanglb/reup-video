@@ -9,7 +9,7 @@ from reup.config import load_config
 from reup.core.job import create_job, load_job
 from reup.core.runner import run_job
 from reup.core.store import Store
-from reup.stages import PHASE1_STAGES
+from reup.stages import PHASE2_STAGES
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -48,7 +48,7 @@ def _cmd_run(args, store: Store) -> int:
         print(str(exc), file=sys.stderr)
         return 1
     cfg = load_config(args.config)
-    status = run_job(job, cfg, store, PHASE1_STAGES)
+    status = run_job(job, cfg, store, PHASE2_STAGES)
     if status == "failed":
         row = store.get_job(job.id)
         print(f"job {job.id} hỏng ở stage {row['stage']}: {row['error']}", file=sys.stderr)
@@ -58,7 +58,7 @@ def _cmd_run(args, store: Store) -> int:
 
 
 def _cmd_redo(args, store: Store) -> int:
-    names = [s.name for s in PHASE1_STAGES]
+    names = [s.name for s in PHASE2_STAGES]
     if args.from_stage not in names:
         print(
             f"không có stage {args.from_stage!r}. Có: {', '.join(names)}",
@@ -72,7 +72,7 @@ def _cmd_redo(args, store: Store) -> int:
         return 1
 
     start = names.index(args.from_stage)
-    for spec in PHASE1_STAGES[start:]:
+    for spec in PHASE2_STAGES[start:]:
         for rel in spec.produces:
             target = job.root / rel
             if target.exists():

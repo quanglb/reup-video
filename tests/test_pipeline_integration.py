@@ -7,13 +7,31 @@ from reup.core.stage import StageSpec
 from reup.core.store import Store
 from reup.media.ffmpeg import probe
 from reup.models import Segment
-from reup.stages import PHASE1_STAGES
+from reup.stages import PHASE2_STAGES
 from reup.stages import asr as asr_stage
+from reup.stages import translate as translate_stage
+
+
+class FakeLLM:
+    """Dịch giả lập: trả bản tiếng Việt cố định, và rút ngắn khi bị bảo viết lại."""
+
+    def complete_json(self, prompt, schema):
+        if "segments" in schema.get("properties", {}):
+            return {
+                "segments": [
+                    {"id": 1, "text": "Hôm nay dạy làm thịt kho"},
+                    {"id": 2, "text": "Trước hết thái thịt ba chỉ"},
+                ]
+            }
+        return {"text": "Câu ngắn"}
 
 
 @pytest.fixture
 def offline_stages(monkeypatch, sample_video: Path):
-    """Thay fetch bằng copy file local, thay whisper bằng transcript cố định."""
+    """Thay fetch bằng copy file local, whisper và Gemini bằng hàm giả.
+
+    Không stage nào trong test được chạm vào mạng.
+    """
 
     def fake_fetch_run(job, cfg):
         job.source_video.write_bytes(sample_video.read_bytes())
@@ -26,10 +44,13 @@ def offline_stages(monkeypatch, sample_video: Path):
         ]
 
     monkeypatch.setattr(asr_stage, "transcribe", fake_transcribe)
+    monkeypatch.setattr(
+        "reup.adapters.registry.make_llm", lambda cfg: FakeLLM()
+    )
     stages = [
         StageSpec("fetch", ("source.mp4", "source.info.json"), fake_fetch_run)
         if s.name == "fetch" else s
-        for s in PHASE1_STAGES
+        for s in PHASE2_STAGES
     ]
     return stages
 
@@ -63,7 +84,8 @@ def test_every_intermediate_artifact_exists(tmp_path: Path, cfg_fixture, offline
 
     for path in (
         job.source_video, job.source_info, job.full_16k, job.full_48k,
-        job.asr_json, job.transcript_json, job.tts_dir / "manifest.json",
+        job.asr_json, job.transcript_json, job.translation_json,
+        job.tts_dir / "manifest.json",
         job.tts_dir / "fit.json", job.dub_wav, job.final_mp4,
     ):
         assert path.exists(), f"thiếu {path}"

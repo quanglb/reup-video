@@ -2,17 +2,18 @@
 from pathlib import Path
 import pytest
 from reup.cli import main
-from reup.stages import PHASE1_STAGES
+from reup.stages import PHASE2_STAGES
 
 
-def test_phase1_stage_order():
-    assert [s.name for s in PHASE1_STAGES] == [
-        "fetch", "demux", "asr", "tts", "fit", "compose",
+def test_phase2_stage_order():
+    """translate phải đứng giữa asr và tts: tts đọc bản dịch, không đọc bản gốc."""
+    assert [s.name for s in PHASE2_STAGES] == [
+        "fetch", "demux", "asr", "translate", "tts", "fit", "compose",
     ]
 
 
 def test_stage_names_are_unique():
-    names = [s.name for s in PHASE1_STAGES]
+    names = [s.name for s in PHASE2_STAGES]
     assert len(names) == len(set(names))
 
 
