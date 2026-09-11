@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · reup</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header>
+  <a class="brand" href="/">reup</a>
+  <form class="add" method="post" action="/jobs">
+    <input name="url" placeholder="Dán link video…" required>
+    <select name="lang">
+      <option value="auto">tự nhận</option>
+      <option value="zh">Trung</option>
+      <option value="en">Anh</option>
+    </select>
+    <button>Thêm</button>
+  </form>
+</header>
+<main>{% block content %}{% endblock %}</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

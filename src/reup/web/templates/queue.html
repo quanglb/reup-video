@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block content %}
+<nav class="filters">
+  <a href="/" class="{{ 'on' if not status }}">tất cả</a>
+  <a href="/?status=needs_review" class="{{ 'on' if status == 'needs_review' }}">chờ duyệt</a>
+  <a href="/?status=running" class="{{ 'on' if status == 'running' }}">đang chạy</a>
+  <a href="/?status=failed" class="{{ 'on' if status == 'failed' }}">lỗi</a>
+  <a href="/?status=done" class="{{ 'on' if status == 'done' }}">xong</a>
+</nav>
+
+{% if not rows %}
+  <p class="empty">Chưa có job nào. Dán một link ở trên để bắt đầu.</p>
+{% else %}
+<table>
+  <thead><tr><th>Job</th><th>Trạng thái</th><th>Stage</th><th>Nguồn</th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td><a href="/jobs/{{ r.id }}">{{ r.id }}</a></td>
+      <td><span class="pill {{ r.status }}">{{ r.status }}</span></td>
+      <td>{{ r.stage }}</td>
+      <td class="url">{{ r.url }}{% if r.error %}<div class="err">{{ r.error }}</div>{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+{% endblock %}

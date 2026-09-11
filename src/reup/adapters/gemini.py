@@ -17,10 +17,30 @@ from reup.adapters.llm import LLMError
 
 API_KEY_ENV = "GEMINI_API_KEY"
 _FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL)
+_RETRY_DELAY = re.compile(r"[\'\"]retryDelay[\'\"]:\s*[\'\"](\d+)s")
+# Chờ lâu hơn mức này thì thà báo lỗi còn hơn treo job.
+MAX_BACKOFF_S = 65.0
+
+
+def _is_daily_quota(message: str) -> bool:
+    """Hạn mức theo ngày khác hạn mức theo phút: chờ không giải quyết được gì."""
+    return "PerDay" in message or "per day" in message.lower()
+
+
+def _suggested_delay(message: str) -> float | None:
+    """Gemini báo sẵn phải chờ bao lâu khi bị giới hạn tốc độ."""
+    m = _RETRY_DELAY.search(message)
+    if not m:
+        return None
+    return min(float(m.group(1)) + 1, MAX_BACKOFF_S)
 
 
 class MissingAPIKey(LLMError):
     pass
+
+
+class QuotaExhausted(LLMError):
+    """Hết hạn mức theo NGÀY — thử lại trong cùng ngày cũng vô ích."""
 
 
 def _strip_fence(text: str) -> str:
@@ -74,9 +94,21 @@ class GeminiLLM:
                 )
                 return resp.text
             except Exception as exc:  # mạng rớt, quá tải, hết hạn mức
+                text = str(exc)
+                if "429" in text and _is_daily_quota(text):
+                    raise QuotaExhausted(
+                        "hết hạn mức Gemini trong ngày cho model "
+                        f"{self.model!r}. Gói miễn phí chỉ cho 20 request/ngày "
+                        "mỗi model.\n"
+                        "Cách đi tiếp: đợi sang ngày mới, đổi llm.model sang "
+                        "model khác trong config.toml, hoặc bật thanh toán ở "
+                        "https://aistudio.google.com/apikey"
+                    ) from exc
                 last = exc
                 if attempt < self.net_retries - 1:
-                    self.sleep(2**attempt)
+                    # Gemini báo sẵn phải chờ bao lâu; backoff 1s rồi 2s của ta
+                    # ngắn hơn nhiều nên thử lại lúc đó chắc chắn lại 429.
+                    self.sleep(_suggested_delay(text) or 2**attempt)
         raise LLMError(f"Gemini lỗi mạng sau {self.net_retries} lần thử: {last}") from last
 
     def complete_json(self, prompt: str, schema: dict) -> dict:

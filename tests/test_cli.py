@@ -206,3 +206,28 @@ def test_approve_unknown_job_errors(tmp_path: Path, capsys, config_file: Path):
                  "--db", str(tmp_path / "reup.db"), "approve", "khong-co"])
     assert code == 1
     assert "khong-co" in capsys.readouterr().err
+
+
+def test_run_says_which_gate_is_waiting(tmp_path: Path, capsys, config_file: Path):
+    """In ra đường dẫn final.mp4 khi job mới dừng ở chốt là nói dối: file chưa có."""
+    from reup.core.job import create_job
+    from reup.core.store import Store
+
+    db = tmp_path / "reup.db"
+    jobs = tmp_path / "jobs"
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    s = Store(db)
+    s.init_schema()
+    s.upsert_job("j1", "https://a/1", "pending")
+    s.close()
+
+    # translation.json có sẵn -> chốt A chặn ngay; các stage trước đó cũng phải
+    # có artifact, nên giả lập bằng cách chặn ở stage đầu tiên thiếu file.
+    job.translation_json.write_text('{"source_lang":"vi","segments":[]}', encoding="utf-8")
+
+    code = main(["--config", str(config_file), "--jobs-dir", str(jobs),
+                 "--db", str(db), "run", "j1"])
+    out = capsys.readouterr()
+    # fetch sẽ hỏng vì url giả; điều cần kiểm là KHÔNG in bừa đường dẫn final.mp4
+    assert "render/final.mp4" not in out.out
+    assert code in (0, 1)

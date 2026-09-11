@@ -110,3 +110,59 @@ def test_non_dict_json_is_rejected():
     llm = GeminiLLM(model="m", client=client, sleep=lambda s: None, json_retries=2)
     with pytest.raises(LLMError):
         llm.complete_json("x", SCHEMA)
+
+
+# --- giới hạn hạn mức -------------------------------------------------------
+
+DAILY_429 = (
+    "429 RESOURCE_EXHAUSTED. {'error': {'code': 429, 'message': 'You exceeded "
+    "your current quota', 'details': [{'violations': [{'quotaId': "
+    "'GenerateRequestsPerDayPerProjectPerModel-FreeTier', 'quotaValue': '20'}]}]}}"
+)
+MINUTE_429 = (
+    "429 RESOURCE_EXHAUSTED. {'error': {'message': 'rate limited', 'details': "
+    "[{'@type': 'type.googleapis.com/google.rpc.RetryInfo', 'retryDelay': '14s'}]}}"
+)
+
+
+def test_daily_quota_fails_fast_with_a_usable_message():
+    """Hạn mức theo NGÀY: thử lại trong ngày cũng vô ích, đừng treo job."""
+    from reup.adapters.gemini import QuotaExhausted
+
+    client = FakeClient([RuntimeError(DAILY_429)])
+    llm = GeminiLLM(model="gemini-3.6-flash", client=client, sleep=lambda s: None)
+    with pytest.raises(QuotaExhausted, match="20 request/ngày"):
+        llm.complete_json("x", SCHEMA)
+    assert len(client.models.calls) == 1  # không thử lại
+
+
+def test_daily_quota_message_names_the_model_and_the_way_out():
+    from reup.adapters.gemini import QuotaExhausted
+
+    llm = GeminiLLM(model="gemini-3.6-flash", client=FakeClient([RuntimeError(DAILY_429)]))
+    with pytest.raises(QuotaExhausted) as err:
+        llm.complete_json("x", SCHEMA)
+    msg = str(err.value)
+    assert "gemini-3.6-flash" in msg
+    assert "llm.model" in msg
+
+
+def test_rate_limit_honours_the_suggested_delay():
+    """Backoff 1s của ta ngắn hơn 14s Gemini yêu cầu, nên chắc chắn lại 429."""
+    waits = []
+    client = FakeClient([RuntimeError(MINUTE_429), '{"text": "ok"}'])
+    GeminiLLM(model="m", client=client, sleep=waits.append).complete_json("x", SCHEMA)
+    assert waits == [15.0]
+
+
+def test_suggested_delay_is_capped():
+    from reup.adapters.gemini import MAX_BACKOFF_S, _suggested_delay
+
+    assert _suggested_delay("'retryDelay': '3600s'") == MAX_BACKOFF_S
+
+
+def test_plain_network_error_uses_exponential_backoff():
+    waits = []
+    client = FakeClient([ConnectionError("mạng rớt"), '{"text": "ok"}'])
+    GeminiLLM(model="m", client=client, sleep=waits.append).complete_json("x", SCHEMA)
+    assert waits == [1]

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block content %}
+<h1>{{ job.id }}
+  <span class="pill {{ row.status if row else 'unknown' }}">{{ row.status if row else '?' }}</span>
+  {% if row and row.stage %}<span class="stage">{{ row.stage }}</span>{% endif %}
+</h1>
+
+<div class="split">
+  <section class="player">
+    <video controls src="/jobs/{{ job.id }}/source"></video>
+    {% if has_video %}
+      <h3>Thành phẩm</h3>
+      <video controls src="/jobs/{{ job.id }}/final"></video>
+    {% endif %}
+  </section>
+
+  <section class="editor" data-job="{{ job.id }}">
+    {% if not rows %}
+      <p class="empty">Chưa có bản dịch. Chạy <code>reup run {{ job.id }}</code> trước.</p>
+    {% else %}
+    <table class="segments">
+      <thead><tr><th>Giờ</th><th>Gốc</th><th>Bản Việt</th><th>Âm tiết</th><th></th></tr></thead>
+      <tbody>
+      {% for s in rows %}
+        <tr class="{{ 'warn' if s.over or s.flags }}">
+          <td class="time">{{ '%d:%02d'|format(s.start_ms // 60000, (s.start_ms // 1000) % 60) }}</td>
+          <td class="src">{{ s.source_text }}
+            {% for f in s.flags %}<span class="flag">{{ f }}</span>{% endfor %}
+          </td>
+          <td><textarea data-seg="{{ s.id }}" rows="2">{{ s.text }}</textarea></td>
+          <td class="count {{ 'over' if s.over }}">
+            <span data-count="{{ s.id }}">{{ s.syllables }}</span>/{{ s.budget }}
+          </td>
+          <td><button class="play" data-seg="{{ s.id }}" title="Nghe thử">🔊</button></td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="actions">
+      <button id="save">Lưu sửa</button>
+      <form method="post" action="/jobs/{{ job.id }}/approve" style="display:inline">
+        <input type="hidden" name="gate" value="a">
+        <button class="primary">Duyệt và chạy tiếp</button>
+      </form>
+      <span id="msg"></span>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

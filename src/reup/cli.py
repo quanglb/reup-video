@@ -38,6 +38,10 @@ def _build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("status", help="liệt kê job")
     sub.add_parser("benchmark", help="đo thời gian từng stage trên máy này")
+
+    web = sub.add_parser("web", help="bật giao diện duyệt")
+    web.add_argument("--host", default="127.0.0.1")
+    web.add_argument("--port", type=int, default=8765)
     return p
 
 
@@ -60,6 +64,13 @@ def _cmd_run(args, store: Store) -> int:
         row = store.get_job(job.id)
         print(f"job {job.id} hỏng ở stage {row['stage']}: {row['error']}", file=sys.stderr)
         return 1
+    if status == "needs_review":
+        gate = (store.get_job(job.id)["stage"] or "gate_?").removeprefix("gate_")
+        print(
+            f"job {job.id} đang chờ duyệt chốt {gate.upper()}.\n"
+            f"Xem và sửa: reup web   |   duyệt nhanh: reup approve {job.id}"
+        )
+        return 0
     print(job.final_mp4)
     return 0
 
@@ -134,6 +145,24 @@ def _cmd_benchmark(args, store: Store) -> int:
     return 0
 
 
+def _cmd_web(args, store: Store) -> int:
+    try:
+        import uvicorn
+    except ImportError:
+        print(
+            "thiếu package web. Cài bằng "
+            "`uv pip install fastapi uvicorn jinja2 python-multipart`",
+            file=sys.stderr,
+        )
+        return 1
+    from reup.web.app import create_app
+
+    app = create_app(args.config, args.jobs_dir, args.db)
+    print(f"giao diện ở http://{args.host}:{args.port}")
+    uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
+    return 0
+
+
 def _cmd_status(args, store: Store) -> int:
     rows = store.list_jobs()
     if not rows:
@@ -159,6 +188,7 @@ def main(argv: list[str] | None = None) -> int:
             "status": _cmd_status,
             "approve": _cmd_approve,
             "benchmark": _cmd_benchmark,
+            "web": _cmd_web,
         }[args.command](args, store)
     finally:
         store.close()
