@@ -118,8 +118,20 @@ def render_line(
     return img.width, img.height
 
 
-def vertical_position(video_h: int, image_h: int, position: str) -> int:
-    """Lề dưới đủ rộng để chữ không dính thanh tương tác của TikTok/Shorts."""
+def vertical_position(
+    video_h: int, image_h: int, position: str, cover: dict | None = None
+) -> int:
+    """Chỗ đặt phụ đề Việt.
+
+    Có vùng phụ đề gốc thì **đè lên chính nó** (spec §7.2): dải blur khi đó bị
+    che gần kín, nên nó không cần đẹp. Đặt sub ở đáy trong khi blur ở giữa
+    khung để lộ một vệt mờ chình ình mà chẳng được gì.
+
+    Không có vùng nào thì lùi về vị trí trong config.
+    """
+    if cover:
+        centre = cover["y"] + cover["h"] / 2
+        return max(0, min(video_h - image_h, round(centre - image_h / 2)))
     if position == "top":
         return int(video_h * 0.08)
     if position == "middle":

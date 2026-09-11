@@ -169,11 +169,18 @@ def load_blur_regions(job: Job) -> list[dict]:
     return [r for r in raw.get("regions", []) if r["kind"] in ("subtitle", "watermark")]
 
 
+def subtitle_cover(job: Job) -> dict | None:
+    """Vùng phụ đề gốc rộng nhất, để đặt sub Việt đè lên (spec §7.2)."""
+    subs = [r for r in load_blur_regions(job) if r["kind"] == "subtitle"]
+    return max(subs, key=lambda r: r["w"] * r["h"]) if subs else None
+
+
 def build_overlays(job: Job, cfg: Config) -> list[Overlay]:
     """Vẽ mỗi câu tiếng Việt ra một PNG trong suốt, kèm mốc thời gian của nó."""
     if not job.translation_json.exists():
         return []
     info = probe(job.source_video)
+    cover = subtitle_cover(job)
     font = find_font(cfg.subtitle.font)
     out_dir = job.root / "subs"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -192,7 +199,7 @@ def build_overlays(job: Job, cfg: Config) -> list[Overlay]:
                 start_ms=seg.start_ms,
                 end_ms=seg.end_ms,
                 x=0,
-                y=vertical_position(info.height, h, cfg.subtitle.position),
+                y=vertical_position(info.height, h, cfg.subtitle.position, cover),
             )
         )
     return overlays

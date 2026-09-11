@@ -121,3 +121,29 @@ def test_middle_position_is_centred():
 def test_position_never_goes_negative():
     """Ảnh cao hơn cả khung thì vẫn phải đặt được, không âm."""
     assert vertical_position(1920, 2500, "bottom") == 0
+
+
+def test_subtitle_sits_on_top_of_the_blurred_region():
+    """spec §7.2: sub Việt đè lên vùng sub gốc, nên chỗ blur không cần đẹp.
+
+    Đặt sub ở đáy trong khi blur ở giữa khung để lộ một vệt mờ chình ình mà
+    chẳng được gì.
+    """
+    cover = {"x": 0, "y": 1152, "w": 1080, "h": 136}
+    y = vertical_position(1920, 100, "bottom", cover)
+    assert 1152 <= y + 50 <= 1152 + 136  # tâm sub nằm trong dải blur
+
+
+def test_cover_wins_over_the_configured_position():
+    cover = {"x": 0, "y": 400, "w": 1080, "h": 120}
+    assert vertical_position(1920, 100, "bottom", cover) < 600
+
+
+def test_without_a_cover_the_configured_position_applies():
+    assert vertical_position(1920, 200, "bottom", None) > 1920 * 0.5
+
+
+def test_cover_position_is_clamped_to_the_frame():
+    cover = {"x": 0, "y": 1880, "w": 1080, "h": 40}
+    y = vertical_position(1920, 300, "bottom", cover)
+    assert 0 <= y <= 1920 - 300

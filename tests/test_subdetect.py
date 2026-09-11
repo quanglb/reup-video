@@ -90,10 +90,11 @@ def test_constant_text_in_a_corner_is_a_watermark():
     assert classify(c, 4, W, H) == "watermark"
 
 
-def test_constant_text_in_the_lower_centre_is_not_a_subtitle():
-    """Bảng điểm hay tên kênh đứng giữa dưới: hiện suốt, chữ không đổi."""
+def test_constant_banner_in_the_lower_centre_is_still_blurred():
+    """Bảng chữ đứng yên ở giữa dưới vẫn phải che — không phân biệt được nó với
+    một caption tĩnh, và che nhầm ở đó thì vô hại vì sub Việt sẽ đè lên."""
     c = Cluster(90, 1500, 900, 90, set(range(10)), ["ĐANG LIVE"] * 10)
-    assert classify(c, 10, W, H) != "subtitle"
+    assert classify(c, 10, W, H) != "scene"
 
 
 def test_text_in_the_upper_half_is_scene_text():
@@ -185,3 +186,37 @@ def test_subtitle_present_in_every_frame_is_still_a_subtitle():
     """
     c = Cluster(90, 1500, 900, 90, set(range(10)), [f"câu {i}" for i in range(10)])
     assert classify(c, 10, W, H) == "subtitle"
+
+
+def test_static_caption_is_still_blurred(tmp_path=None):
+    """Video ngắn hay có MỘT caption tĩnh cháy sẵn suốt clip.
+
+    Bản đầu bắt phụ đề phải đổi chữ nên bỏ sót đúng cái video thật đầu tiên
+    đem ra thử: caption đứng yên 18 giây, distinct_ratio chỉ 0.17.
+    """
+    c = Cluster(90, 1500, 900, 90, set(range(20)), ["Speed gets his ankles broken"] * 20)
+    assert classify(c, 20, W, H) == "subtitle"
+
+
+def test_neighbouring_rows_do_not_merge():
+    """Cụm nở ra làm tâm dịch, rồi hút dần hàng xóm.
+
+    Trên video thật, bảng điểm (cy≈1080) và phụ đề (cy≈1203) đã bị gộp thành
+    một khối cao 206px vì cụm được gán theo tâm của hộp bao thay vì mốc gốc.
+    """
+    frames = [
+        [TextBox("19-13", 1.0, 440, 1060, 200, 40), sub("câu một", y=1163)],
+        [TextBox("19-14", 1.0, 440, 1060, 200, 40), sub("câu hai", y=1163)],
+        [TextBox("20-14", 1.0, 440, 1060, 200, 40), sub("câu ba", y=1163)],
+    ]
+    clusters = cluster_boxes(frames, H)
+    assert len(clusters) == 2
+    assert all(c.h < 150 for c in clusters)
+
+
+def test_anchor_does_not_drift_as_the_box_grows():
+    frames = [[sub("a", y=1500, h=40)], [sub("b", y=1560, h=40)]]
+    c = cluster_boxes(frames, H)[0] if len(cluster_boxes(frames, H)) == 1 else None
+    for cl in cluster_boxes(frames, H):
+        assert cl.anchor_cy == 1520  # tâm hộp đầu tiên, không đổi
+        break

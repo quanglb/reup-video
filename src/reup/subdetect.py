@@ -18,8 +18,10 @@ from dataclasses import dataclass, field
 
 from reup.media.ocr import TextBox
 
-# Hai hộp coi là cùng một vùng nếu tâm lệch không quá ngần này so với chiều cao khung.
-CLUSTER_TOLERANCE = 0.06
+# Hai hộp coi là cùng một vùng nếu tâm lệch không quá ngần này so với chiều cao
+# khung. 0.03 chứ không phải 0.06: trên video thật, hai dòng cách nhau 120px
+# (bảng điểm và phụ đề) bị gộp làm một ở mức 0.06.
+CLUSTER_TOLERANCE = 0.03
 # Phụ đề nằm ở phần dưới khung. 0.55 chứ không phải 0.66: nhiều video đặt sub
 # hơi cao hơn 1/3 dưới để chừa chỗ cho thanh tương tác của nền tảng.
 SUBTITLE_TOP = 0.55
@@ -33,14 +35,25 @@ SUBTITLE_MIN_COVERAGE = 0.25
 # Watermark hiện gần như suốt video và chữ không đổi.
 WATERMARK_MIN_COVERAGE = 0.90
 WATERMARK_MAX_AREA = 0.06  # so với diện tích khung
-# Phụ đề phải đổi chữ. Dưới ngưỡng này là bảng điểm, đồng hồ, tên kênh...
+# Chỉ dùng để nhận watermark, KHÔNG dùng để loại phụ đề.
+#
+# Bản đầu bắt phụ đề phải đổi chữ, và vì thế bỏ sót đúng cái video thật đầu
+# tiên đem ra thử: nó có một caption TĨNH cháy sẵn suốt 18 giây. Caption tĩnh
+# vẫn phải che. Dấu hiệu quyết định cho việc che là **vị trí ổn định**, còn
+# chữ có đổi hay không chỉ nói lên đó là phụ đề chạy hay caption đứng yên.
 MIN_DISTINCT_RATIO = 0.35
 PADDING = 8
 
 
 @dataclass
 class Cluster:
-    """Một vùng chữ ổn định qua nhiều khung."""
+    """Một vùng chữ ổn định qua nhiều khung.
+
+    `anchor_cy` là tâm dọc của hộp ĐẦU TIÊN và không bao giờ đổi. Việc gán hộp
+    mới so với mốc này chứ không so với tâm của hộp bao: nếu so với hộp bao thì
+    cụm nở ra tới đâu, tâm dịch tới đó, và nó hút dần các dòng lân cận. Trên
+    video thật, bảng điểm và phụ đề đã bị gộp thành một khối cao 206px vì lỗi đó.
+    """
 
     x: int
     y: int
@@ -48,6 +61,14 @@ class Cluster:
     h: int
     frames: set[int] = field(default_factory=set)
     texts: list[str] = field(default_factory=list)
+    anchor_cy: float | None = None
+    anchor_cx: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.anchor_cy is None:
+            self.anchor_cy = self.y + self.h / 2
+        if self.anchor_cx is None:
+            self.anchor_cx = self.x + self.w / 2
 
     @property
     def cy(self) -> float:
@@ -95,8 +116,8 @@ def cluster_boxes(
             match = None
             best = limit
             for c in clusters:
-                dy = abs(c.cy - box.cy)
-                dx = abs(c.cx - box.cx)
+                dy = abs(c.anchor_cy - box.cy)
+                dx = abs(c.anchor_cx - box.cx)
                 # Dọc chặt, ngang lỏng: phụ đề đứng yên theo chiều dọc nhưng
                 # co giãn theo chiều ngang vì câu dài ngắn khác nhau.
                 if dy <= limit and dx <= limit * 4 and dy < best:
@@ -119,20 +140,18 @@ def classify(cluster: Cluster, total_frames: int, width: int, height: int) -> st
     in_lower = cluster.cy >= height * SUBTITLE_TOP
     centered = abs(cluster.cx - width / 2) <= width * CENTER_TOLERANCE
 
+    # Xét phụ đề TRƯỚC watermark. Một caption tĩnh ở giữa dưới thoả cả hai luật,
+    # và phải gọi là phụ đề: chỉ vùng "subtitle" mới được stage ocr đọc chữ, mà
+    # chữ đó chính là thứ đem đối chiếu với ASR.
+    if in_lower and centered and coverage >= SUBTITLE_MIN_COVERAGE:
+        return "subtitle"
+
     if (
         coverage >= WATERMARK_MIN_COVERAGE
         and area_ratio <= WATERMARK_MAX_AREA
         and cluster.distinct_ratio() < MIN_DISTINCT_RATIO
     ):
         return "watermark"
-
-    if (
-        in_lower
-        and centered
-        and coverage >= SUBTITLE_MIN_COVERAGE
-        and cluster.distinct_ratio() >= MIN_DISTINCT_RATIO
-    ):
-        return "subtitle"
 
     return "scene"
 
