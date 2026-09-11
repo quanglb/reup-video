@@ -10,6 +10,26 @@
 
 **Spec:** `docs/superpowers/specs/2026-09-11-reup-video-design.md`
 
+## Tiến độ
+
+Cập nhật 2026-09-11.
+
+| Task | Trạng thái | Ghi chú |
+|------|-----------|---------|
+| 1. Scaffold + config | ✅ xong | venv 3.12, `pyproject.toml`, `config.toml`, `src/reup/config.py` |
+| 2. Đếm âm tiết | ✅ xong | `src/reup/text.py` |
+| 3. Segment / Transcript | ✅ xong | `src/reup/models.py` |
+| 4–18 | ⬜ chưa | tiếp tục từ Task 4 (thư mục job và đường dẫn artifact) |
+
+**Test hiện tại:** 22 pass — chạy bằng `.venv/bin/python -m pytest -q` (hoặc `uv run pytest`).
+
+**Môi trường đã dựng sẵn:** `.venv` Python 3.12 với `yt-dlp`, `mlx-whisper`, `pytest`. `ffmpeg` có ở `/opt/homebrew/bin/ffmpeg`. Không cần cài lại.
+
+**Sai sót đã sửa trong chính plan này:** fixture Task 2 ghi câu `"Hôm nay mình dạy mọi người làm thịt kho tàu"` là 9 âm tiết, đếm thật là 10. Đã sửa cả trong plan lẫn trong `tests/test_text.py`. Các task sau nếu gặp con số kỳ vọng lệch thì kiểm lại fixture trước khi sửa code.
+
+**Chưa làm:** `pyproject.toml` khai `reup = "reup.cli:main"` nhưng `src/reup/cli.py` chưa tồn tại (Task 17). Vì vậy chưa chạy được `uv pip install -e .`; test dùng `pythonpath = ["src"]` nên không ảnh hưởng.
+
+
 ## Global Constraints
 
 - Python **3.12** trong venv riêng tạo bằng `uv`. Không dùng `python3` hệ thống (đang là 3.14, nhiều package ML chưa có wheel).
@@ -461,7 +481,7 @@ git commit -m "feat: đếm âm tiết cho tiếng Việt, Trung, Anh"
 - Consumes: —
 - Produces: `Segment(id: int, start_ms: int, end_ms: int, text: str, text_source: str = "asr", confidence: float = 1.0, flags: list[str] = [])` với thuộc tính `slot_ms -> int`; `Transcript(source_lang: str, segments: list[Segment])` với `Transcript.load(path: Path) -> Transcript` và `.save(path: Path) -> None`; `Transcript.total_ms -> int`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_models.py
@@ -528,12 +548,12 @@ def test_saved_json_is_readable_utf8(tmp_path: Path):
     assert "红烧肉" in path.read_text(encoding="utf-8")
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_models.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.models'`
 
-- [ ] **Step 3: Viết `src/reup/models.py`**
+- [x] **Step 3: Viết `src/reup/models.py`**
 
 ```python
 """Cấu trúc dữ liệu đi qua pipeline, kèm đọc ghi JSON."""
@@ -586,12 +606,12 @@ class Transcript:
         )
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_models.py -v`
 Expected: PASS — 7 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/models.py tests/test_models.py
