@@ -1,0 +1,7 @@
+jobs/
+output/
+.venv/
+__pycache__/
+*.pyc
+reup.db
+.env
