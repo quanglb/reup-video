@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from reup.config import load_config
+from reup.dotenv import load_dotenv
 from reup.core.job import create_job, load_job
 from reup.core.runner import run_job
 from reup.core.store import Store
@@ -17,6 +18,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--config", type=Path, default=Path("config.toml"))
     p.add_argument("--jobs-dir", type=Path, default=Path("jobs"))
     p.add_argument("--db", type=Path, default=Path("reup.db"))
+    p.add_argument("--env", type=Path, default=Path(".env"))
     sub = p.add_subparsers(dest="command", required=True)
 
     add = sub.add_parser("add", help="tạo job từ một link")
@@ -95,6 +97,8 @@ def _cmd_status(args, store: Store) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+    # Khoá API đọc từ .env (đã trong .gitignore) để không phải gõ lại mỗi phiên.
+    load_dotenv(args.env)
     store = Store(args.db)
     store.init_schema()
     try:
