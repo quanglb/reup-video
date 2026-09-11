@@ -9,7 +9,7 @@ def test_stage_order(cfg_fixture):
     """translate giữa asr và tts; separate TRƯỚC asr để ASR nghe giọng đã tách."""
     assert [s.name for s in stages_for(cfg_fixture)] == [
         "fetch", "demux", "separate", "asr", "subdetect", "ocr",
-        "reconcile", "translate", "tts", "fit", "compose",
+        "reconcile", "translate", "tts", "fit", "compose", "export",
     ]
 
 
@@ -88,5 +88,79 @@ def test_run_on_missing_job_returns_error(tmp_path: Path, capsys, config_file: P
         "--db", str(tmp_path / "reup.db"),
         "run", "khong-co",
     ])
+    assert code == 1
+    assert "khong-co" in capsys.readouterr().err
+
+
+def test_benchmark_without_runs_says_so(tmp_path: Path, capsys, config_file: Path):
+    code = main([
+        "--config", str(config_file), "--jobs-dir", str(tmp_path / "jobs"),
+        "--db", str(tmp_path / "reup.db"), "benchmark",
+    ])
+    assert code == 0
+    assert "chưa có lần chạy" in capsys.readouterr().out
+
+
+def test_benchmark_reports_per_stage_timing(tmp_path: Path, capsys, config_file: Path):
+    from reup.core.store import Store
+
+    db = tmp_path / "reup.db"
+    s = Store(db)
+    s.init_schema()
+    s.upsert_job("j1", "https://a/1", "done")
+    s.record_stage_run("j1", "asr", 0.0, 6.0, ok=True)
+    s.record_stage_run("j1", "demux", 0.0, 0.2, ok=True)
+    s.close()
+
+    main(["--config", str(config_file), "--jobs-dir", str(tmp_path / "jobs"),
+          "--db", str(db), "benchmark"])
+
+    out = capsys.readouterr().out
+    assert "asr" in out and "demux" in out
+    assert "TỔNG" in out
+    assert out.index("asr") < out.index("demux")  # chậm nhất lên đầu
+
+
+def test_approve_moves_a_reviewing_job_back_to_pending(
+    tmp_path: Path, capsys, config_file: Path
+):
+    from reup.core.store import Store
+
+    db = tmp_path / "reup.db"
+    s = Store(db)
+    s.init_schema()
+    s.upsert_job("j1", "https://a/1", "needs_review", stage="fit")
+    s.close()
+
+    code = main(["--config", str(config_file), "--jobs-dir", str(tmp_path / "jobs"),
+                 "--db", str(db), "approve", "j1"])
+    assert code == 0
+
+    s = Store(db)
+    assert s.get_job("j1")["status"] == "pending"
+    s.close()
+
+
+def test_approve_refuses_a_job_that_is_not_waiting(
+    tmp_path: Path, capsys, config_file: Path
+):
+    """Duyệt một job đang chạy dở sẽ đẩy nó chạy lại từ giữa."""
+    from reup.core.store import Store
+
+    db = tmp_path / "reup.db"
+    s = Store(db)
+    s.init_schema()
+    s.upsert_job("j1", "https://a/1", "running", stage="tts")
+    s.close()
+
+    code = main(["--config", str(config_file), "--jobs-dir", str(tmp_path / "jobs"),
+                 "--db", str(db), "approve", "j1"])
+    assert code == 1
+    assert "running" in capsys.readouterr().err
+
+
+def test_approve_unknown_job_errors(tmp_path: Path, capsys, config_file: Path):
+    code = main(["--config", str(config_file), "--jobs-dir", str(tmp_path / "jobs"),
+                 "--db", str(tmp_path / "reup.db"), "approve", "khong-co"])
     assert code == 1
     assert "khong-co" in capsys.readouterr().err

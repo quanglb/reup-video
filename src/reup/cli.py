@@ -32,7 +32,12 @@ def _build_parser() -> argparse.ArgumentParser:
     redo.add_argument("job_id")
     redo.add_argument("--from", dest="from_stage", required=True)
 
+    approve = sub.add_parser("approve", help="duyệt một chốt để job chạy tiếp")
+    approve.add_argument("job_id")
+    approve.add_argument("--gate", choices=["a", "b"], default="a")
+
     sub.add_parser("status", help="liệt kê job")
+    sub.add_parser("benchmark", help="đo thời gian từng stage trên máy này")
     return p
 
 
@@ -85,6 +90,41 @@ def _cmd_redo(args, store: Store) -> int:
     return 0
 
 
+def _cmd_approve(args, store: Store) -> int:
+    row = store.get_job(args.job_id)
+    if row is None:
+        print(f"không có job {args.job_id!r}", file=sys.stderr)
+        return 1
+    if row["status"] != "needs_review":
+        print(
+            f"job {args.job_id} đang ở trạng thái {row['status']!r}, "
+            "không chờ duyệt",
+            file=sys.stderr,
+        )
+        return 1
+    store.upsert_job(args.job_id, row["url"], "pending", stage=row["stage"])
+    print(f"đã duyệt chốt {args.gate.upper()} cho {args.job_id}")
+    return 0
+
+
+def _cmd_benchmark(args, store: Store) -> int:
+    rows = store.stage_summary()
+    if not rows:
+        print("chưa có lần chạy nào để đo")
+        return 0
+    print(f"{'stage':<11}{'lần':>5}{'trung bình':>12}{'nhanh nhất':>12}"
+          f"{'chậm nhất':>12}{'hỏng':>6}")
+    for r in rows:
+        print(
+            f"{r['stage']:<11}{r['runs']:>5}{r['avg_ms'] / 1000:>11.1f}s"
+            f"{r['min_ms'] / 1000:>11.1f}s{r['max_ms'] / 1000:>11.1f}s"
+            f"{r['failures']:>6}"
+        )
+    total = sum(r["avg_ms"] for r in rows) / 1000
+    print(f"{'TỔNG':<11}{'':>5}{total:>11.1f}s  (một video trung bình)")
+    return 0
+
+
 def _cmd_status(args, store: Store) -> int:
     rows = store.list_jobs()
     if not rows:
@@ -108,6 +148,8 @@ def main(argv: list[str] | None = None) -> int:
             "run": _cmd_run,
             "redo": _cmd_redo,
             "status": _cmd_status,
+            "approve": _cmd_approve,
+            "benchmark": _cmd_benchmark,
         }[args.command](args, store)
     finally:
         store.close()

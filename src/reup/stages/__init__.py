@@ -7,6 +7,7 @@ from reup.stages import (
     asr,
     compose,
     demux,
+    export,
     fetch,
     fit,
     ocr,
@@ -17,7 +18,7 @@ from reup.stages import (
     tts,
 )
 
-# Mười một trong mười ba stage của spec. Còn thiếu: discover(1), export(13).
+# Mười hai trong mười ba stage của spec. Còn thiếu: discover(1) — crawler.
 #
 # subdetect và ocr không phụ thuộc nhánh audio (demux/separate/asr) nên về lý
 # thuyết chạy song song được; runner hiện chạy tuần tự nên xếp sau cho dễ đọc.
@@ -33,6 +34,7 @@ ALL_STAGES: list[StageSpec] = [
     tts.SPEC,
     fit.SPEC,
     compose.SPEC,
+    export.SPEC,
 ]
 
 

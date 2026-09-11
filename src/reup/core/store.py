@@ -149,3 +149,20 @@ class Store:
             (platform, video_id),
         ).fetchone()
         return row is not None
+
+    def stage_summary(self) -> list[dict]:
+        """Thống kê thời gian từng stage, để lệnh `benchmark` đo máy hiện tại."""
+        rows = self._conn.execute(
+            """
+            SELECT stage,
+                   COUNT(*)            AS runs,
+                   AVG(duration_ms)    AS avg_ms,
+                   MIN(duration_ms)    AS min_ms,
+                   MAX(duration_ms)    AS max_ms,
+                   SUM(ok = 0)         AS failures
+            FROM stage_runs
+            GROUP BY stage
+            ORDER BY avg_ms DESC
+            """
+        ).fetchall()
+        return [dict(r) for r in rows]

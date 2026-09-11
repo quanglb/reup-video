@@ -85,6 +85,7 @@ class LLMConfig:
 @dataclass(frozen=True)
 class ReviewConfig:
     auto_approve_b: bool
+    output_dir: str = "output"
 
 
 @dataclass(frozen=True)
@@ -96,6 +97,10 @@ class Config:
     subtitle: SubtitleConfig
     review: ReviewConfig
     tts: TTSConfig = TTSConfig()
+
+    def output_dir_path(self) -> Path:
+        return Path(self.review.output_dir)
+
     asr: ASRConfig = ASRConfig()
     llm: LLMConfig = LLMConfig()
 

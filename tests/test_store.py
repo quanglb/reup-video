@@ -81,3 +81,28 @@ def test_mark_seen_twice_does_not_raise(store: Store):
     store.mark_seen("douyin", "v123")
     store.mark_seen("douyin", "v123", phash="abc")
     assert store.is_seen("douyin", "v123") is True
+
+
+def test_stage_summary_aggregates_by_stage(store: Store):
+    store.upsert_job("j1", "https://a/1", "running")
+    store.record_stage_run("j1", "asr", 0.0, 4.0, ok=True)
+    store.record_stage_run("j1", "asr", 0.0, 6.0, ok=True)
+    store.record_stage_run("j1", "demux", 0.0, 0.5, ok=False, error="x")
+
+    rows = {r["stage"]: r for r in store.stage_summary()}
+    assert rows["asr"]["runs"] == 2
+    assert rows["asr"]["avg_ms"] == 5000
+    assert rows["asr"]["min_ms"] == 4000
+    assert rows["asr"]["max_ms"] == 6000
+    assert rows["demux"]["failures"] == 1
+
+
+def test_stage_summary_is_sorted_slowest_first(store: Store):
+    store.upsert_job("j1", "https://a/1", "running")
+    store.record_stage_run("j1", "fast", 0.0, 0.1, ok=True)
+    store.record_stage_run("j1", "slow", 0.0, 10.0, ok=True)
+    assert [r["stage"] for r in store.stage_summary()] == ["slow", "fast"]
+
+
+def test_stage_summary_of_empty_ledger(store: Store):
+    assert store.stage_summary() == []
