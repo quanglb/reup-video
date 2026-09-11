@@ -95,7 +95,7 @@ tests/
 - Consumes: — (task đầu tiên)
 - Produces: `load_config(path: Path) -> Config`; `Config` với các thuộc tính `profile_name: str`, `profile: ProfileConfig`, `audio: AudioConfig`, `transform: TransformConfig`, `subtitle: SubtitleConfig`, `review: ReviewConfig`. `ProfileConfig(concurrency: int, whisper_model: str, demucs_segment: int, encoder: str)`. `AudioConfig(mode: str, bgm_gain: float)`. `TransformConfig(hflip: bool, zoom: float, speed: float)`. `SubtitleConfig(font: str, size: int, outline: int, position: str)`. `ReviewConfig(auto_approve_b: bool)`.
 
-- [ ] **Step 1: Dựng venv và khung dự án**
+- [x] **Step 1: Dựng venv và khung dự án**
 
 ```bash
 cd /Users/admin/Projects/ai-learning/reup-video
@@ -106,7 +106,7 @@ touch src/reup/__init__.py src/reup/core/__init__.py src/reup/adapters/__init__.
       src/reup/media/__init__.py src/reup/stages/__init__.py
 ```
 
-- [ ] **Step 2: Viết `pyproject.toml`**
+- [x] **Step 2: Viết `pyproject.toml`**
 
 ```toml
 [project]
@@ -130,7 +130,7 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 ```
 
-- [ ] **Step 3: Viết `config.toml`**
+- [x] **Step 3: Viết `config.toml`**
 
 ```toml
 [profile]
@@ -167,7 +167,7 @@ position = "bottom"
 auto_approve_b = false
 ```
 
-- [ ] **Step 4: Viết test thất bại**
+- [x] **Step 4: Viết test thất bại**
 
 ```python
 # tests/test_config.py
@@ -232,12 +232,12 @@ def test_rejects_unknown_audio_mode(tmp_path: Path):
         load_config(cfg_file)
 ```
 
-- [ ] **Step 5: Chạy test, xác nhận thất bại**
+- [x] **Step 5: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_config.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.config'`
 
-- [ ] **Step 6: Viết `src/reup/config.py`**
+- [x] **Step 6: Viết `src/reup/config.py`**
 
 ```python
 """Đọc config.toml thành các dataclass bất biến."""
@@ -321,12 +321,12 @@ def load_config(path: Path) -> Config:
     )
 ```
 
-- [ ] **Step 7: Chạy test, xác nhận pass**
+- [x] **Step 7: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_config.py -v`
 Expected: PASS — 3 test
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 printf '%s\n' 'jobs/' 'output/' '.venv/' '__pycache__/' '*.pyc' 'reup.db' '.env' '.pytest_cache/' > .gitignore
@@ -348,7 +348,7 @@ git commit -m "feat: khung dự án và bộ đọc config.toml"
 
 Tiếng Việt viết tách rời từng âm tiết nên đếm theo khoảng trắng. Tiếng Trung không có khoảng trắng nên đếm theo ký tự Hán. Tiếng Anh đếm theo cụm nguyên âm. StubTTS dùng hàm này để bịa độ dài; phase 2 dùng lại để tính ngân sách âm tiết.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_text.py
@@ -359,7 +359,7 @@ from reup.text import count_syllables
 @pytest.mark.parametrize(
     "text,expected",
     [
-        ("Hôm nay mình dạy mọi người làm thịt kho tàu", 9),
+        ("Hôm nay mình dạy mọi người làm thịt kho tàu", 10),
         ("Xin chào!", 2),
         ("  nhiều   khoảng   trắng  ", 3),
         ("", 0),
@@ -398,12 +398,12 @@ def test_unknown_language_falls_back_to_whitespace():
     assert count_syllables("mot hai ba", "xx") == 3
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_text.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.text'`
 
-- [ ] **Step 3: Viết `src/reup/text.py`**
+- [x] **Step 3: Viết `src/reup/text.py`**
 
 ```python
 """Đếm âm tiết theo ngôn ngữ.
@@ -437,12 +437,12 @@ def count_syllables(text: str, lang: str) -> int:
     return sum(1 for token in text.split() if _has_letter(token))
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_text.py -v`
 Expected: PASS — 12 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/text.py tests/test_text.py
