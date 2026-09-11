@@ -34,3 +34,15 @@ position = "bottom"
 
 [review]
 auto_approve_b = false
+
+[tts]
+engine     = "capcut"          # "capcut" | "stub"
+voice      = "BV074_streaming" # Cô Gái Hoạt Ngôn — xem Voice.json của CapCut
+capcut_dir = "/Applications/_QuangLB/Workspace/Agent/capcut-tts-api"
+
+[asr]
+engine = "whisper"             # "whisper" | "capcut"
+
+[llm]
+provider = "gemini"            # "gemini" | "cassette"
+model    = "gemini-2.0-flash"

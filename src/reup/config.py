@@ -6,6 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 AUDIO_MODES = ("separate", "drop_original")
+TTS_ENGINES = ("capcut", "stub")
+ASR_ENGINES = ("whisper", "capcut")
+LLM_PROVIDERS = ("gemini", "cassette")
 
 
 def parse_bitrate(text: str) -> int:
@@ -59,6 +62,25 @@ class SubtitleConfig:
 
 
 @dataclass(frozen=True)
+class TTSConfig:
+    engine: str = "stub"
+    voice: str = "BV074_streaming"
+    capcut_dir: str = ""
+
+
+@dataclass(frozen=True)
+class ASRConfig:
+    engine: str = "whisper"
+
+
+@dataclass(frozen=True)
+class LLMConfig:
+    provider: str = "gemini"
+    model: str = "gemini-2.0-flash"
+    cassette: str = ""
+
+
+@dataclass(frozen=True)
 class ReviewConfig:
     auto_approve_b: bool
 
@@ -71,6 +93,9 @@ class Config:
     transform: TransformConfig
     subtitle: SubtitleConfig
     review: ReviewConfig
+    tts: TTSConfig = TTSConfig()
+    asr: ASRConfig = ASRConfig()
+    llm: LLMConfig = LLMConfig()
 
 
 def load_config(path: Path) -> Config:
@@ -93,6 +118,13 @@ def load_config(path: Path) -> Config:
             f"audio.mode = {audio['mode']!r} không hợp lệ. Chọn một trong {AUDIO_MODES}"
         )
 
+    tts = TTSConfig(**raw.get("tts", {}))
+    _one_of("tts.engine", tts.engine, TTS_ENGINES)
+    asr = ASRConfig(**raw.get("asr", {}))
+    _one_of("asr.engine", asr.engine, ASR_ENGINES)
+    llm = LLMConfig(**raw.get("llm", {}))
+    _one_of("llm.provider", llm.provider, LLM_PROVIDERS)
+
     return Config(
         profile_name=name,
         profile=profile,
@@ -100,4 +132,12 @@ def load_config(path: Path) -> Config:
         transform=TransformConfig(**raw["transform"]),
         subtitle=SubtitleConfig(**raw["subtitle"]),
         review=ReviewConfig(**raw["review"]),
+        tts=tts,
+        asr=asr,
+        llm=llm,
     )
+
+
+def _one_of(field: str, value: str, allowed: tuple[str, ...]) -> None:
+    if value not in allowed:
+        raise ValueError(f"{field} = {value!r} không hợp lệ. Chọn một trong {allowed}")
