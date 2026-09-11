@@ -45,4 +45,4 @@ engine = "whisper"             # "whisper" | "capcut"
 
 [llm]
 provider = "gemini"            # "gemini" | "cassette"
-model    = "gemini-2.0-flash"
+model    = "gemini-3.6-flash"

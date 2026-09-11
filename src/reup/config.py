@@ -76,7 +76,7 @@ class ASRConfig:
 @dataclass(frozen=True)
 class LLMConfig:
     provider: str = "gemini"
-    model: str = "gemini-2.0-flash"
+    model: str = "gemini-3.6-flash"
     cassette: str = ""
 
 
