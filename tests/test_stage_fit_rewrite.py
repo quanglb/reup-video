@@ -169,3 +169,53 @@ def test_rate_is_never_used_to_shorten(tmp_path: Path, cfg_fixture):
 
     # chỉ đọc lại vì CHỮ đổi, không phải vì tốc độ đổi
     assert [c["text"] for c in seen] == [SHORT]
+
+
+def test_over_budget_flag_is_cleared_once_the_rewrite_fits(tmp_path: Path, cfg_fixture):
+    """Câu đã viết lại cho vừa mà vẫn đỏ ở chốt A là bắt người duyệt sửa việc đã xong."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    Transcript(
+        source_lang="vi",
+        segments=[
+            Segment(id=1, start_ms=0, end_ms=1000, text=LONG, flags=["over_budget"])
+        ],
+    ).save(job.translation_json)
+    tts_stage.run_with(job, cfg_fixture, StubTTS())
+
+    fit_stage.run_with(job, cfg_fixture, StubTTS(), ShrinkingLLM([SHORT]))
+
+    seg = json.loads(job.translation_json.read_text(encoding="utf-8"))["segments"][0]
+    assert seg["text"] == SHORT
+    assert "over_budget" not in seg["flags"]
+
+
+def test_over_budget_flag_survives_when_rewrite_still_too_long(tmp_path: Path, cfg_fixture):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    Transcript(
+        source_lang="vi",
+        segments=[Segment(id=1, start_ms=0, end_ms=1000, text=LONG)],
+    ).save(job.translation_json)
+    tts_stage.run_with(job, cfg_fixture, StubTTS())
+
+    fit_stage.run_with(job, cfg_fixture, StubTTS(), StubbornLLM(LONG))
+
+    seg = json.loads(job.translation_json.read_text(encoding="utf-8"))["segments"][0]
+    assert "over_budget" in seg["flags"]
+    assert "overflow" in seg["flags"]
+
+
+def test_flags_are_not_duplicated_across_runs(tmp_path: Path, cfg_fixture):
+    """Chạy fit hai lần không được nhân đôi cờ."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    Transcript(
+        source_lang="vi",
+        segments=[Segment(id=1, start_ms=0, end_ms=1000, text=LONG)],
+    ).save(job.translation_json)
+    tts_stage.run_with(job, cfg_fixture, StubTTS())
+
+    fit_stage.run_with(job, cfg_fixture, StubTTS(), StubbornLLM(LONG))
+    fit_stage.run_with(job, cfg_fixture, StubTTS(), StubbornLLM(LONG))
+
+    flags = json.loads(job.translation_json.read_text(encoding="utf-8"))["segments"][0]["flags"]
+    assert flags.count("over_budget") == 1
+    assert flags.count("overflow") == 1

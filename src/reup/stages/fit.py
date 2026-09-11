@@ -103,6 +103,12 @@ def _save_translation(job: Job, translation: Transcript, report: list[dict]) -> 
     segments = []
     for seg in translation.segments:
         budget = syllable_budget(seg.slot_ms)
+        syllables = count_syllables(seg.text, LANG)
+        # Tính lại `over_budget` chứ không chép cờ cũ: một câu đã viết lại cho
+        # vừa mà vẫn đỏ ở chốt A là bắt người duyệt sửa thứ đã xong rồi.
+        flags = [f for f in seg.flags if f != "over_budget"]
+        if syllables > budget:
+            flags.append("over_budget")
         segments.append(
             {
                 "id": seg.id,
@@ -111,11 +117,11 @@ def _save_translation(job: Job, translation: Transcript, report: list[dict]) -> 
                 "slot_ms": seg.slot_ms,
                 "syllable_budget": budget,
                 "text": seg.text,
-                "syllables": count_syllables(seg.text, LANG),
+                "syllables": syllables,
                 "text_source": seg.text_source,
                 "confidence": seg.confidence,
                 "revision": revisions.get(seg.id, 0),
-                "flags": seg.flags,
+                "flags": flags,
             }
         )
     atomic_write(
