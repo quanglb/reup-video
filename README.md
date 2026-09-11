@@ -38,6 +38,17 @@ Sửa `config.toml`. Đổi `profile.active` sang `studio-24` khi chạy trên m
 24GB. Đặt `audio.mode = "drop_original"` nếu máy quá chậm — bỏ nhạc nền nhưng
 nhanh hơn nhiều.
 
+Hai knob trong `[profile.*]` đáng để ý:
+
+- `video_bitrate` là **trần**, không phải mức cố định. `compose` chọn
+  `min(trần, max(2.5M, 1.6 x bitrate nguồn))`, nên một Short 1.5 Mbps ra file
+  2.5 Mbps chứ không phải 8 Mbps. Đo thật: bỏ luật này thì file ra nặng gấp
+  5 lần nguồn (18.6MB cho clip 3.7MB) mà không thêm chi tiết nào.
+- `prefer_h264` mặc định `false`. YouTube trả AV1 cho Shorts, và trên M4
+  hardware AV1 decode gần như miễn phí (`compose` chênh 45ms) trong khi bản
+  AV1 nhỏ hơn một nửa. Chỉ bật knob này trên máy không có AV1 decode
+  (Intel, M1, M2).
+
 ## Test
 
 ```bash
