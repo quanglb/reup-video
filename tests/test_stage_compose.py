@@ -1,4 +1,5 @@
 # tests/test_stage_compose.py
+import pytest
 from dataclasses import replace
 from pathlib import Path
 from reup.core.job import create_job
@@ -77,3 +78,50 @@ def test_renders_with_transforms_on(tmp_path: Path, sample_video: Path, sample_w
 def test_spec_declares_its_artifacts():
     assert compose_stage.SPEC.name == "compose"
     assert set(compose_stage.SPEC.produces) == {"render/final.mp4"}
+
+
+# --- chọn bitrate: nguồn thấp thì đừng phình file ra vô ích -------------------
+
+def test_low_bitrate_source_gets_headroom_not_the_ceiling():
+    # Short thật của YouTube ~1.6 Mbps: 1.6x = 2.56M, trên sàn 2.5M
+    assert compose_stage.pick_bitrate(1_600_000, 8_000_000) == 2_560_000
+
+
+def test_high_bitrate_source_is_capped_at_ceiling():
+    assert compose_stage.pick_bitrate(20_000_000, 8_000_000) == 8_000_000
+
+
+def test_very_low_bitrate_source_lifts_to_floor():
+    assert compose_stage.pick_bitrate(400_000, 8_000_000) == compose_stage.FLOOR_BPS
+
+
+def test_unknown_source_bitrate_falls_back_to_ceiling():
+    assert compose_stage.pick_bitrate(0, 8_000_000) == 8_000_000
+
+
+def test_ceiling_below_floor_still_wins():
+    """Trần do người dùng đặt là trần thật — sàn không được vượt qua nó."""
+    assert compose_stage.pick_bitrate(1_600_000, 2_000_000) == 2_000_000
+
+
+def test_ceiling_must_be_positive():
+    with pytest.raises(ValueError, match="ceiling_bps"):
+        compose_stage.pick_bitrate(1_600_000, 0)
+
+
+def test_render_respects_bitrate_ceiling_from_profile(
+    tmp_path: Path, sample_video: Path, sample_wav: Path, cfg_fixture
+):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    job.source_video.write_bytes(sample_video.read_bytes())
+    job.dub_wav.write_bytes(sample_wav.read_bytes())
+    cfg = replace(
+        cfg_fixture, profile=replace(cfg_fixture.profile, video_bitrate="2M")
+    )
+
+    compose_stage.run(job, cfg)
+
+    out = probe(job.final_mp4)
+    assert out.has_video is True
+    # trần 2M: file ra không được vượt xa mức đó (cho 20% dao động của encoder)
+    assert out.video_bps <= 2_400_000

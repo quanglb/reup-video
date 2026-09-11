@@ -6,12 +6,16 @@ concurrency    = 1
 whisper_model  = "mlx-community/whisper-large-v3-turbo-q4"
 demucs_segment = 7
 encoder        = "h264_videotoolbox"
+video_bitrate  = "8M"
+prefer_h264    = false   # bật trên máy không có hardware AV1 decode (Intel, M1, M2)
 
 [profile.studio-24]
 concurrency    = 2
 whisper_model  = "mlx-community/whisper-large-v3-turbo"
 demucs_segment = 12
 encoder        = "h264_videotoolbox"
+video_bitrate  = "12M"
+prefer_h264    = false
 
 [audio]
 mode     = "separate"

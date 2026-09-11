@@ -7,10 +7,30 @@ Phase 3 chèn hai khâu kia vào đúng chỗ đã chừa sẵn dưới đây.
 """
 from __future__ import annotations
 
-from reup.config import Config, TransformConfig
+from reup.config import Config, TransformConfig, parse_bitrate
 from reup.core.job import Job
 from reup.core.stage import StageSpec
-from reup.media.ffmpeg import run_ffmpeg
+from reup.media.ffmpeg import probe, run_ffmpeg
+
+# VideoToolbox kém hiệu quả hơn libx264 ở cùng bitrate (spec R6), nên phải cấp
+# thêm chỗ so với nguồn. 1.6x là mức bù đủ mà không phình file.
+HEADROOM = 1.6
+# Sàn cho khung 1080x1920: dưới mức này thì cảnh động bắt đầu vỡ khối.
+FLOOR_BPS = 2_500_000
+
+
+def pick_bitrate(source_bps: int, ceiling_bps: int) -> int:
+    """Chọn bitrate encode: bù headroom trên nguồn, nhưng không vượt trần config.
+
+    Dùng thẳng trần cho mọi clip làm file ra phình vô ích — một Short 1.6 Mbps
+    encode ở 8M cho ra file nặng gấp năm lần mà không thêm chi tiết nào.
+    """
+    if ceiling_bps <= 0:
+        raise ValueError(f"ceiling_bps phải dương, nhận {ceiling_bps}")
+    if source_bps <= 0:
+        # ffprobe không báo được bitrate nguồn: lấy trần cho an toàn.
+        return ceiling_bps
+    return min(ceiling_bps, max(FLOOR_BPS, round(source_bps * HEADROOM)))
 
 
 def build_transform(transform: TransformConfig) -> str:
@@ -44,12 +64,15 @@ def build_filter_complex(cfg: Config) -> str:
 
 def run(job: Job, cfg: Config) -> None:
     job.final_mp4.parent.mkdir(parents=True, exist_ok=True)
+    bitrate = pick_bitrate(
+        probe(job.source_video).video_bps, parse_bitrate(cfg.profile.video_bitrate)
+    )
     run_ffmpeg([
         "-i", str(job.source_video),
         "-i", str(job.dub_wav),
         "-filter_complex", build_filter_complex(cfg),
         "-map", "[v]", "-map", "[a]",
-        "-c:v", cfg.profile.encoder, "-b:v", "8M",
+        "-c:v", cfg.profile.encoder, "-b:v", str(bitrate),
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
         str(job.final_mp4),

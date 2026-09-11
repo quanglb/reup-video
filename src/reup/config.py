@@ -8,12 +8,33 @@ from pathlib import Path
 AUDIO_MODES = ("separate", "drop_original")
 
 
+def parse_bitrate(text: str) -> int:
+    """Đổi cách viết của ffmpeg ("8M", "2500k", "800000") thành bit/giây."""
+    s = str(text).strip()
+    if not s:
+        raise ValueError("bitrate rỗng")
+    factor = 1
+    if s[-1] in "kK":
+        factor, s = 1_000, s[:-1]
+    elif s[-1] in "mM":
+        factor, s = 1_000_000, s[:-1]
+    try:
+        value = float(s)
+    except ValueError:
+        raise ValueError(f"bitrate {text!r} không đọc được. Ví dụ hợp lệ: 8M, 2500k, 800000")
+    if value <= 0:
+        raise ValueError(f"bitrate {text!r} phải dương")
+    return round(value * factor)
+
+
 @dataclass(frozen=True)
 class ProfileConfig:
     concurrency: int
     whisper_model: str
     demucs_segment: int
     encoder: str
+    video_bitrate: str = "8M"  # trần, không phải mức cố định — xem compose.pick_bitrate
+    prefer_h264: bool = False  # chỉ bật trên máy không có hardware AV1 decode
 
 
 @dataclass(frozen=True)
@@ -63,6 +84,9 @@ def load_config(path: Path) -> Config:
             f"Có sẵn: {sorted(profiles)}"
         )
 
+    profile = ProfileConfig(**profiles[name])
+    parse_bitrate(profile.video_bitrate)  # sai cú pháp thì gãy ngay lúc đọc config
+
     audio = raw["audio"]
     if audio["mode"] not in AUDIO_MODES:
         raise ValueError(
@@ -71,7 +95,7 @@ def load_config(path: Path) -> Config:
 
     return Config(
         profile_name=name,
-        profile=ProfileConfig(**profiles[name]),
+        profile=profile,
         audio=AudioConfig(**audio),
         transform=TransformConfig(**raw["transform"]),
         subtitle=SubtitleConfig(**raw["subtitle"]),
