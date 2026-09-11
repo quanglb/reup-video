@@ -7,3 +7,4 @@ reup.db
 .env
 .pytest_cache/
 capcut-tts-api/
+.DS_Store
