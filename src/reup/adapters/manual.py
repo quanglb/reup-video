@@ -11,9 +11,36 @@ from pathlib import Path
 
 from reup.adapters.source import Candidate, FetchResult
 
+# Mặc định: lấy bản mp4 nhỏ nhất, kể cả AV1.
+#
+# Đo thật trên M4 với một Shorts 18 giây 1080x1920:
+#     AV1   nguồn 3.68MB → final 6.17MB, compose 4906ms
+#     h264  nguồn 7.90MB → final 12.74MB, compose 4951ms
+# Hardware AV1 decode làm khâu decode gần như miễn phí (chênh 45ms, trong sai
+# số), trong khi bản h264 của YouTube nặng gấp đôi nên tải lâu hơn và — vì
+# compose chọn bitrate theo nguồn — file ra cũng phình gấp đôi theo.
+FORMAT_SELECTOR = "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b"
+
+# Chỉ dùng cho máy KHÔNG có hardware AV1 decode (Intel, M1, M2), nơi decode AV1
+# rơi xuống CPU. Bật bằng `prefer_h264 = true` trong profile.
+FORMAT_SELECTOR_H264 = (
+    "bv*[vcodec^=avc1]+ba[ext=m4a]"
+    "/b[vcodec^=avc1]"
+    "/bv*[ext=mp4]+ba[ext=m4a]"
+    "/b[ext=mp4]"
+    "/b"
+)
+
+
+def format_selector(prefer_h264: bool) -> str:
+    return FORMAT_SELECTOR_H264 if prefer_h264 else FORMAT_SELECTOR
+
 
 class ManualSource:
     name = "manual"
+
+    def __init__(self, prefer_h264: bool = False) -> None:
+        self.prefer_h264 = prefer_h264
 
     def list_trending(self, region: str, limit: int) -> list[Candidate]:
         raise NotImplementedError(
@@ -30,7 +57,7 @@ class ManualSource:
             "--no-playlist",
             "--write-info-json",
             "--merge-output-format", "mp4",
-            "-f", "bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/b",
+            "-f", format_selector(self.prefer_h264),
             "-o", str(dest),
             url,
         ]
