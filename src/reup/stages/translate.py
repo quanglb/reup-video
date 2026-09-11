@@ -131,7 +131,10 @@ def run(job: Job, cfg: Config) -> None:
     run_with(job, cfg, make_llm(cfg))
 
 
-SPEC = StageSpec(name="translate", produces=("translation.json",), run=run)
+# Chốt A đứng sau đây: duyệt bản dịch TRƯỚC khi tốn TTS và render (spec §8.2).
+SPEC = StageSpec(
+    name="translate", produces=("translation.json",), run=run, gate="a"
+)
 
 
 REWRITE_SCHEMA = {

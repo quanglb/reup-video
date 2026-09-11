@@ -102,8 +102,17 @@ def _cmd_approve(args, store: Store) -> int:
             file=sys.stderr,
         )
         return 1
+    try:
+        job = load_job(args.jobs_dir, args.job_id)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+
+    # Chốt đang chặn mới là chốt được duyệt; --gate chỉ để người dùng nói rõ ý.
+    gate = (row["stage"] or "").removeprefix("gate_") or args.gate
+    job.approve_gate(gate)
     store.upsert_job(args.job_id, row["url"], "pending", stage=row["stage"])
-    print(f"đã duyệt chốt {args.gate.upper()} cho {args.job_id}")
+    print(f"đã duyệt chốt {gate.upper()} cho {args.job_id}")
     return 0
 
 

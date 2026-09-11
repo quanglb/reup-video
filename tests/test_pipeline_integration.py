@@ -84,6 +84,20 @@ def offline_stages(monkeypatch, sample_video: Path, cfg_fixture):
     return [swap.get(s.name, s) for s in stages_for(cfg_fixture)]
 
 
+def run_all_gates(job, cfg, store, stages, max_gates: int = 4) -> str:
+    """Chạy tới xong, tự duyệt mọi chốt gặp trên đường.
+
+    Chốt là việc của người thật; ở đây chỉ cần chứng minh đường đi thông.
+    """
+    for _ in range(max_gates + 1):
+        status = run_job(job, cfg, store, stages)
+        if status != "needs_review":
+            return status
+        gate = store.get_job(job.id)["stage"].removeprefix("gate_")
+        job.approve_gate(gate)
+    raise AssertionError("quá nhiều chốt — có chốt nào không duyệt được")
+
+
 def test_full_pipeline_produces_playable_video(
     tmp_path: Path, cfg_fixture, offline_stages
 ):
@@ -92,7 +106,7 @@ def test_full_pipeline_produces_playable_video(
     job = create_job(tmp_path / "jobs", "https://douyin.com/v/1", "zh", job_id="j1")
     store.upsert_job(job.id, job.source_url, "pending")
 
-    assert run_job(job, cfg_fixture, store, offline_stages) == "done"
+    assert run_all_gates(job, cfg_fixture, store, offline_stages) == "done"
 
     info = probe(job.final_mp4)
     assert info.has_video is True
@@ -109,7 +123,7 @@ def test_every_intermediate_artifact_exists(tmp_path: Path, cfg_fixture, offline
     job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
     store.upsert_job(job.id, job.source_url, "pending")
 
-    run_job(job, cfg_fixture, store, offline_stages)
+    run_all_gates(job, cfg_fixture, store, offline_stages)
 
     for path in (
         job.source_video, job.source_info, job.full_16k, job.full_48k,
@@ -127,10 +141,10 @@ def test_resume_skips_completed_stages(tmp_path: Path, cfg_fixture, offline_stag
     store.init_schema()
     job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
     store.upsert_job(job.id, job.source_url, "pending")
-    run_job(job, cfg_fixture, store, offline_stages)
+    run_all_gates(job, cfg_fixture, store, offline_stages)
     before = len(store.stage_durations())
 
-    run_job(job, cfg_fixture, store, offline_stages)
+    run_all_gates(job, cfg_fixture, store, offline_stages)
 
     assert len(store.stage_durations()) == before  # không stage nào chạy lại
     store.close()
@@ -143,10 +157,10 @@ def test_deleting_one_artifact_reruns_only_from_there(
     store.init_schema()
     job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
     store.upsert_job(job.id, job.source_url, "pending")
-    run_job(job, cfg_fixture, store, offline_stages)
+    run_all_gates(job, cfg_fixture, store, offline_stages)
 
     job.final_mp4.unlink()
-    run_job(job, cfg_fixture, store, offline_stages)
+    run_all_gates(job, cfg_fixture, store, offline_stages)
 
     ran = [r["stage"] for r in store.stage_durations()]
     assert ran[-1] == "compose"
@@ -160,7 +174,7 @@ def test_log_jsonl_has_one_line_per_stage(tmp_path: Path, cfg_fixture, offline_s
     job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
     store.upsert_job(job.id, job.source_url, "pending")
 
-    run_job(job, cfg_fixture, store, offline_stages)
+    run_all_gates(job, cfg_fixture, store, offline_stages)
 
     lines = job.log_jsonl.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == len(offline_stages)

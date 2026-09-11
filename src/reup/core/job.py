@@ -104,6 +104,22 @@ class Job:
     def log_jsonl(self) -> Path:
         return self.root / "log.jsonl"
 
+    def gate_marker(self, gate: str) -> Path:
+        return self.root / f"gate_{gate}.ok"
+
+    def gate_approved(self, gate: str) -> bool:
+        return self.gate_marker(gate).exists()
+
+    def approve_gate(self, gate: str) -> None:
+        """Ghi dấu duyệt vào thư mục job, không vào SQLite.
+
+        Mất reup.db thì dựng lại được từ thư mục job; mất dấu duyệt thì người
+        dùng phải ngồi duyệt lại từ đầu.
+        """
+        self.gate_marker(gate).write_text(
+            datetime.now().isoformat(timespec="seconds"), encoding="utf-8"
+        )
+
 
 def create_job(
     jobs_dir: Path, url: str, source_lang: str, job_id: str | None = None

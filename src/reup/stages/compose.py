@@ -241,4 +241,7 @@ def run(job: Job, cfg: Config) -> None:
     ])
 
 
-SPEC = StageSpec(name="compose", produces=("render/final.mp4",), run=run)
+# Chốt B đứng sau đây: xem thành phẩm trước khi xuất (spec §8.3).
+SPEC = StageSpec(
+    name="compose", produces=("render/final.mp4",), run=run, gate="b"
+)

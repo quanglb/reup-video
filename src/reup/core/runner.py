@@ -69,8 +69,36 @@ def run_stage(job: Job, cfg: Config, spec: StageSpec, store: Store) -> None:
     )
 
 
+def blocking_gate(job: Job, stages: list[StageSpec], cfg: Config) -> str | None:
+    """Chốt gần nhất đã tới nơi mà chưa được duyệt.
+
+    Một chốt "tới nơi" khi stage đứng trước nó đã sinh xong artifact. Xét theo
+    artifact chứ không theo biến đếm, để `reup run` chạy lại vẫn dừng đúng chỗ.
+    """
+    for spec in stages:
+        if not artifacts_present(job, spec):
+            return None  # chưa chạy tới đây
+        if spec.gate is None:
+            continue
+        if spec.gate == "b" and cfg.review.auto_approve_b:
+            continue
+        if not job.gate_approved(spec.gate):
+            return spec.gate
+    return None
+
+
 def run_job(job: Job, cfg: Config, store: Store, stages: list[StageSpec]) -> str:
-    while (spec := next_stage(job, stages)) is not None:
+    while True:
+        gate = blocking_gate(job, stages, cfg)
+        if gate is not None:
+            store.upsert_job(
+                job.id, job.source_url, "needs_review", stage=f"gate_{gate}"
+            )
+            return "needs_review"
+
+        spec = next_stage(job, stages)
+        if spec is None:
+            break
         try:
             run_stage(job, cfg, spec, store)
         except Exception as exc:
@@ -78,5 +106,6 @@ def run_job(job: Job, cfg: Config, store: Store, stages: list[StageSpec]) -> str
                 job.id, job.source_url, "failed", stage=spec.name, error=str(exc)
             )
             return "failed"
+
     store.upsert_job(job.id, job.source_url, "done", stage=None)
     return "done"

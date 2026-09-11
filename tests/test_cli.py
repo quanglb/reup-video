@@ -124,12 +124,14 @@ def test_benchmark_reports_per_stage_timing(tmp_path: Path, capsys, config_file:
 def test_approve_moves_a_reviewing_job_back_to_pending(
     tmp_path: Path, capsys, config_file: Path
 ):
+    from reup.core.job import create_job
     from reup.core.store import Store
 
     db = tmp_path / "reup.db"
+    create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
     s = Store(db)
     s.init_schema()
-    s.upsert_job("j1", "https://a/1", "needs_review", stage="fit")
+    s.upsert_job("j1", "https://a/1", "needs_review", stage="gate_a")
     s.close()
 
     code = main(["--config", str(config_file), "--jobs-dir", str(tmp_path / "jobs"),
@@ -139,6 +141,46 @@ def test_approve_moves_a_reviewing_job_back_to_pending(
     s = Store(db)
     assert s.get_job("j1")["status"] == "pending"
     s.close()
+
+
+def test_approve_writes_the_gate_marker(tmp_path: Path, capsys, config_file: Path):
+    """Không ghi dấu thì lần chạy sau lại dừng ở đúng chốt đó."""
+    from reup.core.job import create_job, load_job
+    from reup.core.store import Store
+
+    db = tmp_path / "reup.db"
+    create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    s = Store(db)
+    s.init_schema()
+    s.upsert_job("j1", "https://a/1", "needs_review", stage="gate_a")
+    s.close()
+
+    main(["--config", str(config_file), "--jobs-dir", str(tmp_path / "jobs"),
+          "--db", str(db), "approve", "j1"])
+
+    assert load_job(tmp_path / "jobs", "j1").gate_approved("a")
+
+
+def test_approve_uses_the_blocking_gate_not_the_flag(
+    tmp_path: Path, capsys, config_file: Path
+):
+    """Job đang chờ chốt B mà gõ --gate a thì phải duyệt B, không phải A."""
+    from reup.core.job import create_job, load_job
+    from reup.core.store import Store
+
+    db = tmp_path / "reup.db"
+    create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    s = Store(db)
+    s.init_schema()
+    s.upsert_job("j1", "https://a/1", "needs_review", stage="gate_b")
+    s.close()
+
+    main(["--config", str(config_file), "--jobs-dir", str(tmp_path / "jobs"),
+          "--db", str(db), "approve", "j1", "--gate", "a"])
+
+    job = load_job(tmp_path / "jobs", "j1")
+    assert job.gate_approved("b")
+    assert not job.gate_approved("a")
 
 
 def test_approve_refuses_a_job_that_is_not_waiting(
