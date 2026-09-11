@@ -1,0 +1,82 @@
+"""Chọn stage kế tiếp, chạy nó, ghi nhật ký. Không biết stage nào làm gì."""
+from __future__ import annotations
+
+import json
+import os
+import time
+import traceback
+from pathlib import Path
+
+from reup.config import Config
+from reup.core.job import Job
+from reup.core.stage import StageSpec
+from reup.core.store import Store
+
+
+def atomic_write(path: Path, data: bytes | str) -> None:
+    """Ghi ra file tạm rồi đổi tên, để stage chết giữa chừng không để lại rác."""
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    mode, encoding = ("wb", None) if isinstance(data, bytes) else ("w", "utf-8")
+    with open(tmp, mode, encoding=encoding) as fh:
+        fh.write(data)
+    os.replace(tmp, path)
+
+
+def artifacts_present(job: Job, spec: StageSpec) -> bool:
+    return all((job.root / rel).exists() for rel in spec.produces)
+
+
+def next_stage(job: Job, stages: list[StageSpec]) -> StageSpec | None:
+    for spec in stages:
+        if not artifacts_present(job, spec):
+            return spec
+    return None
+
+
+def _append_log(job: Job, entry: dict) -> None:
+    with open(job.log_jsonl, "a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
+def run_stage(job: Job, cfg: Config, spec: StageSpec, store: Store) -> None:
+    started = time.time()
+    store.upsert_job(job.id, job.source_url, "running", stage=spec.name)
+    try:
+        spec.run(job, cfg)
+        missing = [rel for rel in spec.produces if not (job.root / rel).exists()]
+        if missing:
+            raise RuntimeError(
+                f"stage {spec.name!r} chạy xong nhưng thiếu artifact: {missing}"
+            )
+    except Exception as exc:
+        finished = time.time()
+        detail = traceback.format_exc()
+        store.record_stage_run(
+            job.id, spec.name, started, finished, ok=False, error=str(exc)
+        )
+        _append_log(
+            job,
+            {"stage": spec.name, "ok": False, "started": started,
+             "finished": finished, "error": detail},
+        )
+        raise
+    finished = time.time()
+    store.record_stage_run(job.id, spec.name, started, finished, ok=True)
+    _append_log(
+        job, {"stage": spec.name, "ok": True, "started": started, "finished": finished}
+    )
+
+
+def run_job(job: Job, cfg: Config, store: Store, stages: list[StageSpec]) -> str:
+    while (spec := next_stage(job, stages)) is not None:
+        try:
+            run_stage(job, cfg, spec, store)
+        except Exception as exc:
+            store.upsert_job(
+                job.id, job.source_url, "failed", stage=spec.name, error=str(exc)
+            )
+            return "failed"
+    store.upsert_job(job.id, job.source_url, "done", stage=None)
+    return "done"
