@@ -19,9 +19,23 @@ Cập nhật 2026-09-11.
 | 1. Scaffold + config | ✅ xong | venv 3.12, `pyproject.toml`, `config.toml`, `src/reup/config.py` |
 | 2. Đếm âm tiết | ✅ xong | `src/reup/text.py` |
 | 3. Segment / Transcript | ✅ xong | `src/reup/models.py` |
-| 4–18 | ⬜ chưa | tiếp tục từ Task 4 (thư mục job và đường dẫn artifact) |
+| 4. Thư mục job | ✅ xong | `src/reup/core/job.py` |
+| 5. Sổ cái SQLite | ✅ xong | `src/reup/core/store.py` |
+| 6. StageSpec + runner | ✅ xong | `src/reup/core/stage.py`, `core/runner.py` — có resume và atomic_write |
+| 7. Bọc ffmpeg/ffprobe | ✅ xong | `src/reup/media/ffmpeg.py`, fixture media trong `tests/conftest.py` |
+| 8. Thao tác audio | ✅ xong | `src/reup/media/audio.py` — extract, atempo, silence, build_timeline |
+| 9. Adapter nguồn + stage fetch | ✅ xong | `adapters/source.py`, `adapters/manual.py`, `stages/fetch.py` |
+| 10. Stage demux | ✅ xong | `src/reup/stages/demux.py` |
+| 11. Whisper + stage asr | ✅ xong | `media/whisper.py`, `stages/asr.py` |
+| 12. TTSAdapter + StubTTS | ✅ xong | `adapters/tts.py`, `adapters/stub_tts.py` |
+| 13. Stage tts | ✅ xong | `src/reup/stages/tts.py` + `tts/manifest.json` |
+| 14. Luật khớp thời lượng | ✅ xong | `src/reup/fit.py` — `decide_fit` |
+| 15. Stage fit | ✅ xong | `src/reup/stages/fit.py` + `tts/fit.json` |
+| 16. Stage compose | ✅ xong | `src/reup/stages/compose.py` |
+| 17. Đăng ký stage + CLI | ⬜ chưa | **điểm tiếp tục** — `core/stage.py` thêm `STAGES`, viết `src/reup/cli.py` |
+| 18. Test tích hợp + README | ⬜ chưa | chạy thông `add` → `run` đầu cuối |
 
-**Test hiện tại:** 22 pass — chạy bằng `.venv/bin/python -m pytest -q` (hoặc `uv run pytest`).
+**Test hiện tại:** 126 pass — chạy bằng `.venv/bin/python -m pytest -q` (hoặc `uv run pytest`).
 
 **Môi trường đã dựng sẵn:** `.venv` Python 3.12 với `yt-dlp`, `mlx-whisper`, `pytest`. `ffmpeg` có ở `/opt/homebrew/bin/ffmpeg`. Không cần cài lại.
 
@@ -630,7 +644,7 @@ git commit -m "feat: mô hình Segment và Transcript"
 - Consumes: —
 - Produces: `Job(id: str, root: Path, source_url: str, source_lang: str)` với các thuộc tính đường dẫn `source_video`, `source_info`, `audio_dir`, `full_16k`, `full_48k`, `vocals`, `bgm`, `asr_json`, `transcript_json`, `translation_json`, `tts_dir`, `dub_wav`, `render_dir`, `final_mp4`, `meta_json`, `log_jsonl`, `job_json` — tất cả kiểu `Path`; `create_job(jobs_dir: Path, url: str, source_lang: str, job_id: str | None = None) -> Job`; `load_job(jobs_dir: Path, job_id: str) -> Job`; `new_job_id(url: str, now: datetime) -> str`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_job.py
@@ -689,12 +703,12 @@ def test_tts_segment_path_is_zero_padded(tmp_path: Path):
     assert job.tts_segment(1234) == tmp_path / "j1" / "tts" / "seg_1234.wav"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_job.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.core.job'`
 
-- [ ] **Step 3: Viết `src/reup/core/job.py`**
+- [x] **Step 3: Viết `src/reup/core/job.py`**
 
 ```python
 """Thư mục làm việc của một job và toàn bộ đường dẫn artifact trong đó."""
@@ -825,12 +839,12 @@ def load_job(jobs_dir: Path, job_id: str) -> Job:
     )
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_job.py -v`
 Expected: PASS — 7 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/core/job.py tests/test_job.py
@@ -851,7 +865,7 @@ git commit -m "feat: thư mục job và đường dẫn artifact"
 
 Trạng thái job hợp lệ: `pending`, `running`, `needs_review`, `done`, `failed`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_store.py
@@ -939,12 +953,12 @@ def test_mark_seen_twice_does_not_raise(store: Store):
     assert store.is_seen("douyin", "v123") is True
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_store.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.core.store'`
 
-- [ ] **Step 3: Viết `src/reup/core/store.py`**
+- [x] **Step 3: Viết `src/reup/core/store.py`**
 
 ```python
 """Sổ cái SQLite: job, lần chạy stage, và video đã xử lý."""
@@ -1100,12 +1114,12 @@ class Store:
         return row is not None
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_store.py -v`
 Expected: PASS — 10 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/core/store.py tests/test_store.py
@@ -1133,7 +1147,7 @@ git commit -m "feat: sổ cái SQLite cho job, lần chạy stage, video đã x�
 
 Runner quyết định stage kế bằng cách tìm stage đầu tiên chưa có đủ artifact. Nhờ vậy chạy lại là an toàn và `redo` chỉ cần xóa artifact.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_runner.py
@@ -1309,12 +1323,12 @@ def test_run_job_marks_failed_and_stops(tmp_path: Path, cfg, store: Store):
     assert "gãy" in row["error"]
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_runner.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.core.runner'`
 
-- [ ] **Step 3: Viết `src/reup/core/stage.py`**
+- [x] **Step 3: Viết `src/reup/core/stage.py`**
 
 ```python
 """Mô tả một stage: tên, artifact nó sinh ra, và hàm chạy."""
@@ -1335,7 +1349,7 @@ class StageSpec:
     run: Callable[["Job", "Config"], None]
 ```
 
-- [ ] **Step 4: Viết `src/reup/core/runner.py`**
+- [x] **Step 4: Viết `src/reup/core/runner.py`**
 
 ```python
 """Chọn stage kế tiếp, chạy nó, ghi nhật ký. Không biết stage nào làm gì."""
@@ -1422,12 +1436,12 @@ def run_job(job: Job, cfg: Config, store: Store, stages: list[StageSpec]) -> str
     return "done"
 ```
 
-- [ ] **Step 5: Chạy test, xác nhận pass**
+- [x] **Step 5: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_runner.py -v`
 Expected: PASS — 13 test
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/reup/core/stage.py src/reup/core/runner.py tests/test_runner.py
@@ -1450,7 +1464,7 @@ git commit -m "feat: stage runner với resume và ghi nhật ký"
 
 Dùng 540×960 thay vì 1080×1920 cho fixture: cùng tỉ lệ 9:16 nhưng encode nhanh hơn bốn lần, test chạy nhanh hơn hẳn.
 
-- [ ] **Step 1: Viết `tests/conftest.py`**
+- [x] **Step 1: Viết `tests/conftest.py`**
 
 ```python
 """Fixture media sinh bằng ffmpeg lúc chạy test — không commit file nhị phân."""
@@ -1502,7 +1516,7 @@ def sample_wav(tmp_path: Path) -> Path:
     return out
 ```
 
-- [ ] **Step 2: Viết test thất bại**
+- [x] **Step 2: Viết test thất bại**
 
 ```python
 # tests/test_ffmpeg.py
@@ -1547,12 +1561,12 @@ def test_run_ffmpeg_raises_with_stderr_in_message(tmp_path: Path):
     assert "khong-co.mp4" in str(err.value)
 ```
 
-- [ ] **Step 3: Chạy test, xác nhận thất bại**
+- [x] **Step 3: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_ffmpeg.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.media.ffmpeg'`
 
-- [ ] **Step 4: Viết `src/reup/media/ffmpeg.py`**
+- [x] **Step 4: Viết `src/reup/media/ffmpeg.py`**
 
 ```python
 """Bọc ffmpeg và ffprobe. Hàm thuần — không biết Job hay Config là gì."""
@@ -1615,12 +1629,12 @@ def probe(path: Path) -> MediaInfo:
     )
 ```
 
-- [ ] **Step 5: Chạy test, xác nhận pass**
+- [x] **Step 5: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_ffmpeg.py -v`
 Expected: PASS — 5 test
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/reup/media/ffmpeg.py tests/conftest.py tests/test_ffmpeg.py
@@ -1645,7 +1659,7 @@ git commit -m "feat: bọc ffmpeg và ffprobe, fixture media sinh lúc chạy te
   - `silence(out: Path, ms: int, sample_rate: int = 48000, channels: int = 2) -> None`
   - `build_timeline(placements: list[tuple[int, Path]], total_ms: int, out: Path) -> None` — đặt mỗi wav vào đúng mốc `start_ms` trên nền im lặng dài `total_ms`
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_audio.py
@@ -1728,12 +1742,12 @@ def test_build_timeline_with_no_placements_is_pure_silence(tmp_path: Path):
     assert abs(duration_ms(out) - 4000) <= 100
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_audio.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.media.audio'`
 
-- [ ] **Step 3: Viết `src/reup/media/audio.py`**
+- [x] **Step 3: Viết `src/reup/media/audio.py`**
 
 ```python
 """Thao tác audio bằng ffmpeg. Hàm thuần — nhận Path vào, ghi Path ra."""
@@ -1821,12 +1835,12 @@ def build_timeline(
     run_ffmpeg(args)
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_audio.py -v`
 Expected: PASS — 14 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/media/audio.py tests/test_audio.py
@@ -1854,7 +1868,7 @@ git commit -m "feat: thao tác audio — trích, co giãn, dựng timeline lồn
 
 `ManualSource.fetch` gọi `yt-dlp` bằng subprocess chứ không import làm thư viện: giữ biên giới hẹp, và đổi sang bản `yt-dlp` cài riêng chỉ là đổi đường dẫn.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_stage_fetch.py
@@ -1942,12 +1956,12 @@ def cfg_fixture() -> Config:
     )
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_stage_fetch.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.adapters.manual'`
 
-- [ ] **Step 3: Viết `src/reup/adapters/source.py`**
+- [x] **Step 3: Viết `src/reup/adapters/source.py`**
 
 ```python
 """Biên giới ra các nền tảng video."""
@@ -1986,7 +2000,7 @@ class SourceAdapter(Protocol):
     def fetch(self, url: str, dest: Path) -> FetchResult: ...
 ```
 
-- [ ] **Step 4: Viết `src/reup/adapters/manual.py`**
+- [x] **Step 4: Viết `src/reup/adapters/manual.py`**
 
 ```python
 """Nguồn thủ công: người dùng dán link, yt-dlp tải về.
@@ -2048,7 +2062,7 @@ class ManualSource:
         )
 ```
 
-- [ ] **Step 5: Viết `src/reup/stages/fetch.py`**
+- [x] **Step 5: Viết `src/reup/stages/fetch.py`**
 
 ```python
 """Stage 2 — tải video nguồn về thư mục job."""
@@ -2076,12 +2090,12 @@ def run(job: Job, cfg: Config) -> None:
 SPEC = StageSpec(name="fetch", produces=("source.mp4", "source.info.json"), run=run)
 ```
 
-- [ ] **Step 6: Chạy test, xác nhận pass**
+- [x] **Step 6: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_stage_fetch.py -v`
 Expected: PASS — 6 test
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add src/reup/adapters/source.py src/reup/adapters/manual.py \
@@ -2101,7 +2115,7 @@ git commit -m "feat: adapter nguồn manual và stage fetch"
 - Consumes: `extract_audio` (Task 8), `Job` (Task 4)
 - Produces: `run(job: Job, cfg: Config) -> None`, `SPEC: StageSpec` với `produces=("audio/full_16k.wav", "audio/full_48k.wav")`
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_stage_demux.py
@@ -2130,12 +2144,12 @@ def test_spec_declares_its_artifacts():
     }
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_stage_demux.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.stages.demux'`
 
-- [ ] **Step 3: Viết `src/reup/stages/demux.py`**
+- [x] **Step 3: Viết `src/reup/stages/demux.py`**
 
 ```python
 """Stage 3 — tách audio ra hai bản: 16kHz mono cho ASR, 48kHz stereo để mix."""
@@ -2159,12 +2173,12 @@ SPEC = StageSpec(
 )
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_stage_demux.py -v`
 Expected: PASS — 2 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/stages/demux.py tests/test_stage_demux.py
@@ -2190,7 +2204,7 @@ Phase 1 chưa có stage `reconcile`, nên `asr` ghi thẳng ra `asr.json` **và*
 
 Test không nạp model thật — quá chậm và phụ thuộc mạng. Thay `media.whisper.transcribe` bằng hàm giả.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_stage_asr.py
@@ -2274,12 +2288,12 @@ def test_spec_declares_its_artifacts():
     assert set(asr_stage.SPEC.produces) == {"asr.json", "transcript.json"}
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_stage_asr.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.stages.asr'`
 
-- [ ] **Step 3: Viết `src/reup/media/whisper.py`**
+- [x] **Step 3: Viết `src/reup/media/whisper.py`**
 
 ```python
 """Bọc mlx-whisper. Hàm thuần — nhận đường dẫn audio, trả câu kèm mốc thời gian."""
@@ -2316,7 +2330,7 @@ def transcribe(
     return result.get("language", language or "unknown"), segments
 ```
 
-- [ ] **Step 4: Viết `src/reup/stages/asr.py`**
+- [x] **Step 4: Viết `src/reup/stages/asr.py`**
 
 ```python
 """Stage 5 — nghe audio, viết ra câu kèm mốc thời gian."""
@@ -2350,12 +2364,12 @@ def run(job: Job, cfg: Config) -> None:
 SPEC = StageSpec(name="asr", produces=("asr.json", "transcript.json"), run=run)
 ```
 
-- [ ] **Step 5: Chạy test, xác nhận pass**
+- [x] **Step 5: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_stage_asr.py -v`
 Expected: PASS — 6 test
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/reup/media/whisper.py src/reup/stages/asr.py tests/test_stage_asr.py
@@ -2381,7 +2395,7 @@ git commit -m "feat: bọc mlx-whisper và stage asr"
 
 `TTSResult.actual_ms` là bắt buộc: stage `fit` cần con số này. Đây chính là chỗ source CapCut TTS sẽ cắm vào ở phase 2 — chỉ cần một class khác implement đúng `TTSAdapter`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_stub_tts.py
@@ -2428,12 +2442,12 @@ def test_rejects_unknown_voice(tmp_path: Path):
         StubTTS().synthesize("xin chào", "vi", "khong-co", tmp_path / "a.wav")
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_stub_tts.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.adapters.stub_tts'`
 
-- [ ] **Step 3: Viết `src/reup/adapters/tts.py`**
+- [x] **Step 3: Viết `src/reup/adapters/tts.py`**
 
 ```python
 """Biên giới ra dịch vụ tổng hợp giọng nói.
@@ -2469,7 +2483,7 @@ class TTSAdapter(Protocol):
     ) -> TTSResult: ...
 ```
 
-- [ ] **Step 4: Viết `src/reup/adapters/stub_tts.py`**
+- [x] **Step 4: Viết `src/reup/adapters/stub_tts.py`**
 
 ```python
 """TTS giả: sinh wav im lặng dài theo số âm tiết.
@@ -2513,12 +2527,12 @@ class StubTTS:
         return TTSResult(path=Path(out), actual_ms=ms)
 ```
 
-- [ ] **Step 5: Chạy test, xác nhận pass**
+- [x] **Step 5: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_stub_tts.py -v`
 Expected: PASS — 6 test
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/reup/adapters/tts.py src/reup/adapters/stub_tts.py tests/test_stub_tts.py
@@ -2541,7 +2555,7 @@ git commit -m "feat: interface TTSAdapter và StubTTS"
 
 Phase 1 chưa có `translation.json`, nên stage đọc `transcript.json` và đọc luôn văn bản gốc. Phase 2 đổi nguồn sang `translation.json`.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_stage_tts.py
@@ -2614,12 +2628,12 @@ def test_spec_declares_its_artifacts():
     assert set(tts_stage.SPEC.produces) == {"tts/manifest.json"}
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_stage_tts.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.stages.tts'`
 
-- [ ] **Step 3: Viết `src/reup/stages/tts.py`**
+- [x] **Step 3: Viết `src/reup/stages/tts.py`**
 
 ```python
 """Stage 10 — sinh giọng đọc cho từng câu."""
@@ -2675,12 +2689,12 @@ def run(job: Job, cfg: Config) -> None:
 SPEC = StageSpec(name="tts", produces=("tts/manifest.json",), run=run)
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_stage_tts.py -v`
 Expected: PASS — 5 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/stages/tts.py tests/test_stage_tts.py
@@ -2710,7 +2724,7 @@ Luật lấy nguyên từ spec §7.7:
 | 1.15 – 1.5 | `rewrite` | `tempo_capped` (tempo 1.25) |
 | > 1.5 | `rewrite` | `overflow` |
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_fit_decision.py
@@ -2782,12 +2796,12 @@ def test_boundary_150_is_not_overflow():
     assert decide_fit(actual_ms=4500, slot_ms=3000, revision=2).action == "tempo_capped"
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_fit_decision.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.fit'`
 
-- [ ] **Step 3: Viết `src/reup/fit.py`**
+- [x] **Step 3: Viết `src/reup/fit.py`**
 
 ```python
 """Luật khớp giọng đọc vào khe thời gian — spec §7.7.
@@ -2831,12 +2845,12 @@ def decide_fit(
     return FitDecision("overflow", ratio, CAPPED_TEMPO)
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_fit_decision.py -v`
 Expected: PASS — 15 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/fit.py tests/test_fit_decision.py
@@ -2857,7 +2871,7 @@ git commit -m "feat: luật khớp thời lượng giọng đọc vào khe"
 
 Phase 1 gọi `decide_fit` với `revision=max_revisions`, nên nhánh `rewrite` không bao giờ chạy — chưa có stage translate để viết lại. Phase 2 nối vòng lặp thật. Đoạn nào rơi vào `overflow` thì gắn cờ vào `transcript.json` và vẫn chạy tiếp với nén 1.25.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_stage_fit.py
@@ -2932,12 +2946,12 @@ def test_spec_declares_its_artifacts():
     assert set(fit_stage.SPEC.produces) == {"dub.wav"}
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_stage_fit.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.stages.fit'`
 
-- [ ] **Step 3: Viết `src/reup/stages/fit.py`**
+- [x] **Step 3: Viết `src/reup/stages/fit.py`**
 
 ```python
 """Stage 11 — nén hoặc đệm từng câu cho khớp khe, rồi dựng thành một track lồng tiếng."""
@@ -3001,12 +3015,12 @@ def run(job: Job, cfg: Config) -> None:
 SPEC = StageSpec(name="fit", produces=("dub.wav",), run=run)
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_stage_fit.py -v`
 Expected: PASS — 5 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/stages/fit.py tests/test_stage_fit.py
@@ -3027,7 +3041,7 @@ git commit -m "feat: stage fit khớp giọng vào khe và dựng track lồng t
 
 Phase 1 chưa có blur và chưa có phụ đề, nên chuỗi filter chỉ gồm `TRANSFORM`. Thứ tự trong hàm `build_filter_complex` đã viết sẵn đúng theo spec §7.3 — phase 3 chèn blur vào **trước** transform và `ass` vào **sau**, không phải sắp xếp lại.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_stage_compose.py
@@ -3111,12 +3125,12 @@ def test_spec_declares_its_artifacts():
     assert set(compose_stage.SPEC.produces) == {"render/final.mp4"}
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_stage_compose.py -v`
 Expected: FAIL — `ModuleNotFoundError: No module named 'reup.stages.compose'`
 
-- [ ] **Step 3: Viết `src/reup/stages/compose.py`**
+- [x] **Step 3: Viết `src/reup/stages/compose.py`**
 
 ```python
 """Stage 12 — dựng video cuối bằng một lượt ffmpeg duy nhất.
@@ -3180,12 +3194,12 @@ def run(job: Job, cfg: Config) -> None:
 SPEC = StageSpec(name="compose", produces=("render/final.mp4",), run=run)
 ```
 
-- [ ] **Step 4: Chạy test, xác nhận pass**
+- [x] **Step 4: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_stage_compose.py -v`
 Expected: PASS — 10 test
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/reup/stages/compose.py tests/test_stage_compose.py
