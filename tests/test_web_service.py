@@ -3,10 +3,12 @@ from pathlib import Path
 
 import pytest
 
-from reup.core.job import create_job
+from reup.core.job import create_job, load_job
 from reup.core.store import Store
 from reup.models import Segment, Transcript
-from reup.web.service import list_jobs, review_rows, save_edits
+from reup.web.service import (
+    list_jobs, pick_voice, preview_audio, review_rows, save_edits, set_voice,
+)
 
 
 @pytest.fixture
@@ -180,3 +182,123 @@ def test_editing_invalidates_the_subtitle_file(tmp_path: Path):
     save_edits(job, {1: "Câu mới"})
 
     assert not job.sub_ass.exists()
+
+
+# --- chọn giọng cho cả job (spec §8.2) ----------------------------------
+
+
+@pytest.fixture
+def stub_cfg(cfg_fixture):
+    from dataclasses import replace
+
+    from reup.config import TTSConfig
+
+    return replace(cfg_fixture, tts=TTSConfig("stub", "stub-vi-1", ""))
+
+
+def test_voice_falls_back_to_config(tmp_path: Path, stub_cfg):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    assert pick_voice(job, stub_cfg) == "stub-vi-1"
+
+
+def test_choosing_a_voice_survives_in_the_job_dir(tmp_path: Path, stub_cfg):
+    """config.toml là của cả máy; lựa chọn ở chốt A là của riêng job này."""
+    jobs = tmp_path / "jobs"
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+
+    assert set_voice(job, "stub-vi-2", stub_cfg) is True
+
+    assert pick_voice(load_job(jobs, "j1"), stub_cfg) == "stub-vi-2"
+
+
+def test_choosing_the_same_voice_changes_nothing(tmp_path: Path, stub_cfg):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    assert set_voice(job, "stub-vi-1", stub_cfg) is False
+    assert not job.overrides_json.exists()
+
+
+def test_changing_voice_throws_away_the_old_recordings(tmp_path: Path, stub_cfg):
+    """Đổi giọng mà giữ wav cũ thì nửa video đọc bằng giọng khác."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    job.tts_segment(1).write_bytes(b"RIFF")
+    (job.tts_dir / "manifest.json").write_text("{}", encoding="utf-8")
+    job.dub_wav.write_bytes(b"RIFF")
+    job.final_mp4.parent.mkdir(parents=True, exist_ok=True)
+    job.final_mp4.write_bytes(b"mp4")
+
+    set_voice(job, "stub-vi-2", stub_cfg)
+
+    assert not job.tts_segment(1).exists()
+    assert not (job.tts_dir / "manifest.json").exists()
+    assert not job.dub_wav.exists()
+    assert not job.final_mp4.exists()
+
+
+def test_unknown_voice_is_refused(tmp_path: Path, stub_cfg):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    with pytest.raises(ValueError, match="không có trong Voice.json"):
+        set_voice(job, "khong-co", stub_cfg)
+
+
+def test_empty_voice_is_refused(tmp_path: Path, stub_cfg):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    with pytest.raises(ValueError, match="chưa chọn giọng"):
+        set_voice(job, "  ", stub_cfg)
+
+
+# --- nghe thử một câu ----------------------------------------------------
+
+
+def test_preview_synthesizes_one_sentence_before_the_tts_stage(
+    tmp_path: Path, stub_cfg
+):
+    """Ở chốt A chưa có file nào — nút 🔊 phải tự sinh đúng câu được bấm."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    seed(job, [(1, 0, 3000, "hôm nay trời đẹp", []), (2, 3000, 6000, "đi chơi", [])])
+
+    out = preview_audio(job, stub_cfg, 2)
+
+    assert out.exists()
+    assert out.parent == job.preview_dir
+    assert not job.tts_segment(2).exists()
+
+
+def test_preview_uses_the_voice_chosen_for_the_job(tmp_path: Path, stub_cfg, monkeypatch):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    seed(job, [(1, 0, 3000, "hôm nay trời đẹp", [])])
+    set_voice(job, "stub-vi-2", stub_cfg)
+
+    seen = {}
+    real = __import__("reup.adapters.registry", fromlist=["make_tts"]).make_tts
+
+    def spy(cfg):
+        adapter = real(cfg)
+        original = adapter.synthesize
+
+        def wrapped(text, lang, voice, out):
+            seen.update(text=text, lang=lang, voice=voice)
+            return original(text, lang, voice, out)
+
+        adapter.synthesize = wrapped
+        return adapter
+
+    monkeypatch.setattr("reup.adapters.registry.make_tts", spy)
+    preview_audio(job, stub_cfg, 1)
+
+    assert seen == {"text": "hôm nay trời đẹp", "lang": "vi", "voice": "stub-vi-2"}
+
+
+def test_preview_prefers_the_real_recording_when_it_exists(tmp_path: Path, stub_cfg):
+    """Sau khi tts chạy, file thật mới là thứ sẽ nằm trong video."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    seed(job, [(1, 0, 3000, "hôm nay trời đẹp", [])])
+    job.tts_segment(1).write_bytes(b"RIFF")
+
+    assert preview_audio(job, stub_cfg, 1) == job.tts_segment(1)
+
+
+def test_preview_of_an_unknown_segment_is_an_error(tmp_path: Path, stub_cfg):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    seed(job, [(1, 0, 3000, "hôm nay trời đẹp", [])])
+    with pytest.raises(KeyError):
+        preview_audio(job, stub_cfg, 9)

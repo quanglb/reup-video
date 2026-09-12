@@ -38,6 +38,15 @@
     </table>
 
     <div class="actions">
+      {% if voices %}
+      <label class="voice">Giọng
+        <select id="voice">
+          {% for v in voices %}
+            <option value="{{ v.id }}" {{ 'selected' if v.id == voice }}>{{ v.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
       <button id="save">Lưu sửa</button>
       <form method="post" action="/jobs/{{ job.id }}/approve" style="display:inline">
         <input type="hidden" name="gate" value="a">

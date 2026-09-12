@@ -59,3 +59,22 @@ def test_phase3_artifact_paths(tmp_path: Path):
     assert job.subrect_json == tmp_path / "j1" / "subrect.json"
     assert job.ocr_json == tmp_path / "j1" / "ocr.json"
     assert job.sub_ass == tmp_path / "j1" / "sub.ass"
+
+
+def test_job_has_no_overrides_until_one_is_set(tmp_path: Path):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    assert job.overrides == {}
+
+
+def test_overrides_survive_reloading_the_job(tmp_path: Path):
+    jobs = tmp_path / "jobs"
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    job.set_override("voice", "BV075_streaming")
+    assert load_job(jobs, "j1").overrides == {"voice": "BV075_streaming"}
+
+
+def test_setting_a_second_override_keeps_the_first(tmp_path: Path):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    job.set_override("voice", "BV075_streaming")
+    job.set_override("speed", 1.1)
+    assert job.overrides == {"voice": "BV075_streaming", "speed": 1.1}

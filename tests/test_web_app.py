@@ -195,3 +195,80 @@ def test_meta_endpoint_returns_json(client):
         encoding="utf-8",
     )
     assert c.get("/jobs/j1/meta").json()["title"] == "Tiêu đề"
+
+
+# --- chọn giọng và nghe thử (spec §8.2) ----------------------------------
+
+
+@pytest.fixture
+def stub_client(tmp_path: Path):
+    """App với `tts.engine = "stub"`: nghe thử sinh wav thật, không gọi mạng."""
+    src = Path(__file__).resolve().parents[1] / "config.toml"
+    text = src.read_text(encoding="utf-8")
+    text = text.replace('engine     = "capcut"', 'engine     = "stub"')
+    text = text.replace('voice      = "BV074_streaming"', 'voice      = "stub-vi-1"')
+    cfg = tmp_path / "config.toml"
+    cfg.write_text(text, encoding="utf-8")
+
+    jobs = tmp_path / "jobs"
+    jobs.mkdir()
+    db = tmp_path / "reup.db"
+    Store(db).init_schema()
+    return TestClient(create_app(cfg, jobs, db)), jobs
+
+
+def test_review_page_offers_the_voice_list(stub_client):
+    c, jobs = stub_client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    seed_translation(job, [(1, 0, 3000, "hôm nay trời đẹp", [])])
+
+    r = c.get("/jobs/j1")
+
+    assert 'id="voice"' in r.text
+    assert "Giọng giả nữ" in r.text
+
+
+def test_posting_a_voice_sticks_to_the_job(stub_client):
+    c, jobs = stub_client
+    create_job(jobs, "https://a/1", "zh", job_id="j1")
+
+    r = c.post("/jobs/j1/voice", data={"voice": "stub-vi-2"})
+
+    assert r.json() == {"voice": "stub-vi-2", "changed": True}
+    assert load_job(jobs, "j1").overrides["voice"] == "stub-vi-2"
+
+
+def test_posting_an_unknown_voice_is_rejected(stub_client):
+    c, jobs = stub_client
+    create_job(jobs, "https://a/1", "zh", job_id="j1")
+    r = c.post("/jobs/j1/voice", data={"voice": "khong-co"})
+    assert r.status_code == 400
+
+
+def test_play_button_synthesizes_when_there_is_no_recording_yet(stub_client):
+    """Ở chốt A stage tts chưa chạy; nút 🔊 vẫn phải phát được."""
+    c, jobs = stub_client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    seed_translation(job, [(1, 0, 3000, "hôm nay trời đẹp", [])])
+
+    r = c.get("/jobs/j1/audio/1")
+
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "audio/wav"
+    assert job.preview_segment(1).exists()
+
+
+def test_tts_engine_failure_is_reported_not_hidden_as_404(stub_client, monkeypatch):
+    c, jobs = stub_client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    seed_translation(job, [(1, 0, 3000, "hôm nay trời đẹp", [])])
+
+    def boom(cfg):
+        raise RuntimeError("CapCut hỏng")
+
+    monkeypatch.setattr("reup.adapters.registry.make_tts", boom)
+
+    r = c.get("/jobs/j1/audio/1")
+
+    assert r.status_code == 502
+    assert "CapCut hỏng" in r.json()["detail"]

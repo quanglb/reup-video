@@ -85,3 +85,15 @@ def test_reads_translation_not_transcript(tmp_path: Path, cfg_fixture):
 def test_spec_declares_its_artifacts():
     assert tts_stage.SPEC.name == "tts"
     assert set(tts_stage.SPEC.produces) == {"tts/manifest.json"}
+
+
+def test_job_voice_beats_config(tmp_path: Path, cfg_fixture):
+    """Giọng chọn ở chốt A thuộc riêng job; config.toml là của cả máy."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed(job, ["Hôm nay dạy làm"])
+    job.set_override("voice", "stub-vi-2")
+
+    _run(job, cfg_fixture)
+
+    manifest = json.loads((job.tts_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["voice"] == "stub-vi-2" != cfg_fixture.tts.voice

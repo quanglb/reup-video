@@ -58,4 +58,6 @@ h1 { font-size: 20px; display: flex; gap: 10px; align-items: center; }
 }
 .actions { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
 #msg { color: var(--dim); font-size: 13px; }
+.voice { color: var(--dim); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+.voice select { font: inherit; padding: 4px 6px; }
 @media (max-width: 900px) { .split { grid-template-columns: 1fr; } }

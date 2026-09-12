@@ -82,6 +82,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "row": row,
                 "rows": service.review_rows(job),
                 "voices": service.voices_for(cfg()),
+                "voice": service.pick_voice(job, cfg()),
                 "has_video": job.final_mp4.exists(),
                 "gate_a": job.gate_approved("a"),
                 "gate_b": job.gate_approved("b"),
@@ -96,6 +97,15 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         edits = {int(k): v for k, v in (payload.get("segments") or {}).items()}
         changed = service.save_edits(job, edits)
         return {"changed": changed}
+
+    @app.post("/jobs/{job_id}/voice")
+    def set_voice(job_id: str, voice: str = Form(...)):
+        job = job_or_404(job_id)
+        try:
+            changed = service.set_voice(job, voice, cfg())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        return {"voice": voice, "changed": changed}
 
     @app.post("/jobs/{job_id}/approve")
     def approve(job_id: str, gate: str = Form("a")):
@@ -128,10 +138,16 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
 
     @app.get("/jobs/{job_id}/audio/{seg_id}")
     def segment_audio(job_id: str, seg_id: int):
+        """Nghe thử một câu. Chưa chạy tts thì tổng hợp đúng câu đó (spec §8.2)."""
         job = job_or_404(job_id)
-        path = job.tts_segment(seg_id)
-        if not path.exists():
-            raise HTTPException(status_code=404, detail="chưa có giọng đọc cho câu này")
+        try:
+            path = service.preview_audio(job, cfg(), seg_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except Exception as exc:  # engine TTS lỗi: nói rõ chứ không trả 404 mơ hồ
+            raise HTTPException(
+                status_code=502, detail=f"TTS lỗi: {exc}"
+            ) from exc
         return FileResponse(path, media_type="audio/wav")
 
     @app.get("/jobs/{job_id}/meta")

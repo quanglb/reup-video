@@ -41,7 +41,9 @@ def run_with(job: Job, cfg: Config, adapter) -> None:
     if not transcript.segments:
         raise ValueError(f"{job.translation_json} không có câu nào để đọc")
 
-    voice = cfg.tts.voice
+    # Giọng chọn ở chốt A thắng config: config.toml là của cả máy, còn lựa chọn
+    # ở chốt A là của riêng job này (spec §8.2).
+    voice = job.overrides.get("voice") or cfg.tts.voice
     write_manifest(job, voice, synthesize_all(job, transcript, adapter, voice))
 
 

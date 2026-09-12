@@ -40,7 +40,9 @@ uv run reup benchmark                     # đo từng stage trên máy này
 ```
 
 Video dừng ở **chốt A** sau khi dịch xong. Mở `reup web`, sửa bản dịch, bấm
-duyệt, rồi `reup run` lần nữa. Thành phẩm nằm ở `output/<job_id>.mp4` kèm
+duyệt, rồi `reup run` lần nữa. Ở chốt A còn chọn được giọng cho cả job (lựa chọn
+ghi vào `overrides.json` của job, không đụng `config.toml` chung) và bấm 🔊 để
+nghe thử **một câu** — chưa chạy `tts` thì server tổng hợp ngay câu đó. Thành phẩm nằm ở `output/<job_id>.mp4` kèm
 `<job_id>.json` chứa tiêu đề, mô tả và hashtag để chép dán lúc đăng.
 
 ## Hiệu năng
@@ -99,7 +101,7 @@ trả về: cắt ở khoảng lặng dài hơn 400 ms, ở dấu chấm, hoặc
 uv run pytest
 ```
 
-465 test, không gọi mạng và không nạp model: fixture video sinh bằng ffmpeg lúc
+484 test, không gọi mạng và không nạp model: fixture video sinh bằng ffmpeg lúc
 chạy; Whisper, Demucs, yt-dlp, CapCut và Gemini đều được thay bằng hàm giả.
 
 ## Bản quyền

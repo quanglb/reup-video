@@ -125,3 +125,62 @@ def voices_for(cfg: Config) -> list[dict]:
 
 def open_job(jobs_dir: Path, job_id: str) -> Job:
     return load_job(jobs_dir, job_id)
+
+
+def pick_voice(job: Job, cfg: Config) -> str:
+    """Giọng đang hiệu lực cho job: lựa chọn ở chốt A, nếu không thì config."""
+    return job.overrides.get("voice") or cfg.tts.voice
+
+
+def set_voice(job: Job, voice: str, cfg: Config) -> bool:
+    """Chọn giọng cho cả job. Trả True khi thật sự đổi.
+
+    Đổi giọng làm mọi file wav đã tổng hợp thành sai giọng, nên phải dọn hết
+    như `save_edits` dọn câu đã sửa. Server CapCut cache theo *text*, không theo
+    giọng, nên tổng hợp lại cả loạt với giọng mới là tốn lượt gọi thật — vì vậy
+    chỉ dọn khi giọng đổi.
+    """
+    voice = (voice or "").strip()
+    if not voice:
+        raise ValueError("chưa chọn giọng")
+    known = {v["id"] for v in voices_for(cfg)}
+    if known and voice not in known:
+        raise ValueError(f"giọng {voice!r} không có trong Voice.json")
+    if voice == pick_voice(job, cfg):
+        return False
+
+    job.set_override("voice", voice)
+    for wav in sorted(job.tts_dir.glob("seg_*.wav")):
+        wav.unlink()
+    for wav in sorted(job.preview_dir.glob("seg_*.wav")):
+        wav.unlink()
+    (job.tts_dir / "manifest.json").unlink(missing_ok=True)
+    job.dub_wav.unlink(missing_ok=True)
+    job.final_mp4.unlink(missing_ok=True)
+    return True
+
+
+def preview_audio(job: Job, cfg: Config, seg_id: int) -> Path:
+    """File wav để nghe thử một câu ở chốt A.
+
+    Ở chốt A stage `tts` chưa chạy, nên phần lớn thời gian chưa có file nào.
+    Tổng hợp đúng một câu — đủ để nghe giọng và nhịp, không tốn cả loạt.
+
+    Có sẵn file thật của stage `tts` thì dùng luôn: cùng giọng, cùng chữ.
+    """
+    done = job.tts_segment(seg_id)
+    if done.exists():
+        return done
+
+    rows = {r["id"]: r for r in review_rows(job)}
+    if seg_id not in rows:
+        raise KeyError(f"job {job.id} không có câu {seg_id}")
+
+    from reup.adapters.registry import make_tts
+
+    job.preview_dir.mkdir(parents=True, exist_ok=True)
+    out = job.preview_segment(seg_id)
+    make_tts(cfg).synthesize(
+        rows[seg_id]["text"], "vi", pick_voice(job, cfg), out
+    )
+    return out

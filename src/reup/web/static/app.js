@@ -1,4 +1,5 @@
-// JS thuần, không build. Ba việc: đếm âm tiết khi gõ, nghe thử, lưu sửa.
+// JS thuần, không build. Bốn việc: đếm âm tiết khi gõ, nghe thử, chọn giọng,
+// lưu sửa.
 (function () {
   const editor = document.querySelector('.editor');
   if (!editor) return;
@@ -22,15 +23,46 @@
     });
   });
 
+  // Câu chưa có file wav thì server tổng hợp ngay lúc bấm — mất vài giây, nên
+  // phải báo là đang chờ chứ không để nút im lặng.
   editor.querySelectorAll('button.play').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const audio = new Audio(`/jobs/${jobId}/audio/${btn.dataset.seg}`);
-      audio.play().catch(() => {
-        document.getElementById('msg').textContent =
-          'Chưa có giọng đọc cho câu này — chạy stage tts trước.';
-      });
+    btn.addEventListener('click', async () => {
+      const msg = document.getElementById('msg');
+      btn.disabled = true;
+      msg.textContent = 'Đang tổng hợp câu này…';
+      try {
+        const res = await fetch(`/jobs/${jobId}/audio/${btn.dataset.seg}`);
+        if (!res.ok) throw new Error((await res.json()).detail || res.status);
+        const url = URL.createObjectURL(await res.blob());
+        await new Audio(url).play();
+        msg.textContent = '';
+      } catch (e) {
+        msg.textContent = 'Nghe thử hỏng: ' + e.message;
+      } finally {
+        btn.disabled = false;
+      }
     });
   });
+
+  const voice = document.getElementById('voice');
+  if (voice) {
+    voice.addEventListener('change', async () => {
+      const msg = document.getElementById('msg');
+      msg.textContent = 'Đang đổi giọng…';
+      try {
+        const body = new FormData();
+        body.append('voice', voice.value);
+        const res = await fetch(`/jobs/${jobId}/voice`, { method: 'POST', body });
+        if (!res.ok) throw new Error((await res.json()).detail || res.status);
+        const data = await res.json();
+        msg.textContent = data.changed
+          ? 'Đã đổi giọng. Cả loạt sẽ được tổng hợp lại lần chạy sau.'
+          : 'Giọng không đổi.';
+      } catch (e) {
+        msg.textContent = 'Đổi giọng hỏng: ' + e.message;
+      }
+    });
+  }
 
   const save = document.getElementById('save');
   if (save) {
