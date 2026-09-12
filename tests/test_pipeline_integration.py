@@ -10,7 +10,6 @@ from reup.core.store import Store
 from reup.media.ffmpeg import probe
 from reup.models import Segment
 from reup.stages import stages_for
-from reup.stages import asr as asr_stage
 from reup.stages import translate as translate_stage
 
 
@@ -48,7 +47,9 @@ def offline_stages(monkeypatch, sample_video: Path, cfg_fixture):
             Segment(id=2, start_ms=3000, end_ms=6000, text="先把五花肉切成小块"),
         ]
 
-    monkeypatch.setattr(asr_stage, "transcribe", fake_transcribe)
+    # Giả ở tầng adapter, không ở stage: nhờ vậy đường đi qua registry
+    # (asr.engine -> WhisperASR) cũng được test này chạy thật.
+    monkeypatch.setattr("reup.adapters.whisper_asr.transcribe", fake_transcribe)
     monkeypatch.setattr(
         "reup.adapters.registry.make_llm", lambda cfg: FakeLLM()
     )

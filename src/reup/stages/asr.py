@@ -1,10 +1,10 @@
 """Stage 5 — nghe audio, viết ra câu kèm mốc thời gian."""
 from __future__ import annotations
 
+from reup.adapters.registry import make_asr
 from reup.config import Config
 from reup.core.job import Job
 from reup.core.stage import StageSpec
-from reup.media.whisper import transcribe
 from reup.models import Transcript
 
 
@@ -19,9 +19,9 @@ def pick_audio(job: Job):
 
 def run(job: Job, cfg: Config) -> None:
     language = None if job.source_lang == "auto" else job.source_lang
-    detected_lang, segments = transcribe(
-        pick_audio(job), cfg.profile.whisper_model, language
-    )
+    # Engine chọn ở registry theo `asr.engine`: Whisper local, hoặc CapCut STT
+    # khi máy quá ì (spec R5).
+    detected_lang, segments = make_asr(cfg).transcribe(pick_audio(job), language)
     if not segments:
         raise ValueError(
             f"ASR không nhận được câu nào từ {job.full_16k} — "

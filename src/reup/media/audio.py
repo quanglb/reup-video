@@ -89,3 +89,16 @@ def to_wav(src: Path, out: Path, sample_rate: int = 48000, channels: int = 2) ->
     CapCut trả mp3 24kHz mono; `build_timeline` cần wav 48kHz stereo.
     """
     extract_audio(src, out, sample_rate=sample_rate, channels=channels)
+
+
+def to_mp3(src: Path, out: Path, bitrate: str = "128k") -> None:
+    """Chuyển audio sang mp3 mono 24kHz.
+
+    Dịch vụ upload của CapCut đọc mp3/m4a/mp4 chứ không chắc đọc được wav, nên
+    `CapCutSTT` nén lại trước khi đẩy lên. Mono 24kHz là đủ cho ASR và cắt
+    được phần lớn thời gian upload.
+    """
+    run_ffmpeg([
+        "-i", str(src), "-vn", "-ac", "1", "-ar", "24000",
+        "-c:a", "libmp3lame", "-b:a", bitrate, str(out),
+    ])

@@ -70,9 +70,12 @@ Sửa `config.toml`. Vài knob đáng biết:
   hardware AV1 decode gần như miễn phí trong khi bản AV1 nhỏ hơn một nửa. Chỉ
   bật trên máy không có AV1 decode (Intel, M1, M2).
 - `llm.model` — gói Gemini miễn phí chỉ cho **20 request/ngày mỗi model**.
+- `asr.engine` — `whisper` (mặc định, chạy local) hoặc `capcut` (đẩy lên mạng,
+  không tốn Neural Engine; hữu ích khi máy quá ì). CapCut STT **không tự nhận
+  ngôn ngữ**, nên job phải khai rõ: `reup add <url> --lang zh`.
 - `review.auto_approve_b = true` — bỏ qua chốt duyệt thành phẩm.
 
-## Hai chỗ môi trường bắt đi chệch thiết kế
+## Ba chỗ môi trường bắt đi chệch thiết kế
 
 **ffmpeg của Homebrew không có libass.** Công thức `homebrew/core` đã bỏ hẳn
 libass khỏi phụ thuộc, nên không có filter `ass`, `subtitles` hay `drawtext`.
@@ -84,13 +87,19 @@ chỉ ngắn hơn 5.9%, ngang mức dao động giữa các câu. Server còn ca
 và bỏ qua rate. Nên khi câu dài quá khe, cách duy nhất là **đổi chữ** — vòng
 khớp thời lượng chỉ còn hai bậc: viết lại rồi `atempo`.
 
+**CapCut STT trả mảnh phụ đề, không trả câu.** Đo một câu 2.4 giây: nó cắt thành
+năm mảnh 2-3 chữ, vì bên trong là bộ sinh phụ đề (`words_per_line = 15`). Whisper
+trả câu. Để nguyên thì `translate` tính ngân sách trên khe 200 ms — trần một âm
+tiết — và LLM dịch từng cụm rời. Adapter vì thế ghép mảnh lại thành câu trước khi
+trả về: cắt ở khoảng lặng dài hơn 400 ms, ở dấu chấm, hoặc khi câu quá 7 giây.
+
 ## Test
 
 ```bash
 uv run pytest
 ```
 
-427 test, không gọi mạng và không nạp model: fixture video sinh bằng ffmpeg lúc
+465 test, không gọi mạng và không nạp model: fixture video sinh bằng ffmpeg lúc
 chạy; Whisper, Demucs, yt-dlp, CapCut và Gemini đều được thay bằng hàm giả.
 
 ## Bản quyền
