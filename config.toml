@@ -56,6 +56,23 @@ model     = "gemini-3.6-flash"
 base_url  = "http://localhost:11434"   # chỉ dùng cho ollama
 timeout_s = 600.0                      # chỉ dùng cho ollama
 
+# Ghi đè theo stage. Khoá nào không khai thì thừa kế từ [llm] ở trên.
+# Chỉ `translate` cần model giỏi — nó quyết định sản phẩm, và đo trên một job
+# thật thì qwen3:8b vượt trần âm tiết 6/23 câu (Gemini 0/23) và dịch sai chỗ
+# cần suy luận. Ba việc còn lại không phải suy luận kiểu đó, đẩy sang local để
+# hạn mức miễn phí chỉ còn gánh 1 request mỗi video.
+[llm.reconcile]
+provider = "ollama"
+model    = "qwen3:8b"
+
+[llm.fit]
+provider = "ollama"
+model    = "qwen3:8b"
+
+[llm.export]
+provider = "ollama"
+model    = "qwen3:8b"
+
 # YouTube bắt giải "JS challenge" mới trả link tải. yt-dlp cần một JS runtime
 # (deno, node, hoặc bun) và script giải challenge tải từ GitHub. Thiếu chúng thì
 # MỌI video YouTube đều báo "This video is not available".

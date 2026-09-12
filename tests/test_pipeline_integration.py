@@ -30,6 +30,9 @@ class FakeLLM:
         return {"text": "Câu ngắn"}
 
 
+LLM_ROLES_SEEN: list[str] = []
+
+
 @pytest.fixture
 def offline_stages(monkeypatch, sample_video: Path, cfg_fixture):
     """Thay fetch bằng copy file local, whisper và Gemini bằng hàm giả.
@@ -50,9 +53,14 @@ def offline_stages(monkeypatch, sample_video: Path, cfg_fixture):
     # Giả ở tầng adapter, không ở stage: nhờ vậy đường đi qua registry
     # (asr.engine -> WhisperASR) cũng được test này chạy thật.
     monkeypatch.setattr("reup.adapters.whisper_asr.transcribe", fake_transcribe)
-    monkeypatch.setattr(
-        "reup.adapters.registry.make_llm", lambda cfg: FakeLLM()
-    )
+    # Ghi lại vai từng stage khai: đó là thứ quyết định stage nào đi model nào.
+    LLM_ROLES_SEEN.clear()
+
+    def fake_make_llm(cfg, role=None):
+        LLM_ROLES_SEEN.append(role)
+        return FakeLLM()
+
+    monkeypatch.setattr("reup.adapters.registry.make_llm", fake_make_llm)
     # Demucs nạp model và chạy vài giây — quá nặng cho test. Thay bằng bản sao
     # thẳng: đường trộn bgm vẫn được kiểm tra, chỉ khâu tách là giả.
     def fake_separate_run(job, cfg):
@@ -180,3 +188,17 @@ def test_log_jsonl_has_one_line_per_stage(tmp_path: Path, cfg_fixture, offline_s
     lines = job.log_jsonl.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == len(offline_stages)
     store.close()
+
+
+def test_every_llm_stage_declares_its_role(tmp_path: Path, cfg_fixture, offline_stages):
+    """Stage nào quên khai vai sẽ lặng lẽ dùng [llm] chung, và người dùng tưởng
+    mình đã đẩy nó sang model local rồi."""
+    store = Store(tmp_path / "reup.db")
+    store.init_schema()
+    job = create_job(tmp_path / "jobs", "https://douyin.com/v/1", "zh", job_id="j1")
+    store.upsert_job(job.id, job.source_url, "pending")
+
+    run_all_gates(job, cfg_fixture, store, offline_stages)
+
+    assert set(LLM_ROLES_SEEN) == {"reconcile", "translate", "fit", "export"}
+    assert None not in LLM_ROLES_SEEN

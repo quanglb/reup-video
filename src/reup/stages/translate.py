@@ -128,7 +128,7 @@ def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> None:
 def run(job: Job, cfg: Config) -> None:
     from reup.adapters.registry import make_llm
 
-    run_with(job, cfg, make_llm(cfg))
+    run_with(job, cfg, make_llm(cfg, "translate"))
 
 
 # Chốt A đứng sau đây: duyệt bản dịch TRƯỚC khi tốn TTS và render (spec §8.2).

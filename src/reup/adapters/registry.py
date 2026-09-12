@@ -27,28 +27,34 @@ def make_tts(cfg: Config):
     raise ValueError(f"không có TTS engine {engine!r}")
 
 
-def make_llm(cfg: Config):
-    provider = cfg.llm.provider
+def make_llm(cfg: Config, role: str | None = None):
+    """`role` là tên stage gọi tới: mỗi stage cấu hình được model riêng.
+
+    Bỏ trống thì dùng [llm] chung — giữ cho chỗ gọi cũ và test không phải biết
+    về vai.
+    """
+    llm = cfg.llm_for(role) if role else cfg.llm
+    provider = llm.provider
     if provider == "gemini":
         from reup.adapters.gemini import GeminiLLM
 
-        return GeminiLLM(model=cfg.llm.model)
+        return GeminiLLM(model=llm.model)
     if provider == "ollama":
         from reup.adapters.ollama import OllamaLLM
 
         return OllamaLLM(
-            model=cfg.llm.model,
-            base_url=cfg.llm.base_url,
-            timeout_s=cfg.llm.timeout_s,
+            model=llm.model,
+            base_url=llm.base_url,
+            timeout_s=llm.timeout_s,
         )
     if provider == "cassette":
         from reup.adapters.cassette_llm import CassetteLLM
 
-        if not cfg.llm.cassette:
+        if not llm.cassette:
             raise ValueError(
                 "llm.provider = \"cassette\" nhưng chưa đặt llm.cassette trong config.toml"
             )
-        return CassetteLLM(Path(cfg.llm.cassette))
+        return CassetteLLM(Path(llm.cassette))
     raise ValueError(f"không có LLM provider {provider!r}")
 
 

@@ -192,7 +192,7 @@ def _save_translation(job: Job, translation: Transcript, report: list[dict]) -> 
 def run(job: Job, cfg: Config) -> None:
     from reup.adapters.registry import make_llm, make_tts
 
-    run_with(job, cfg, make_tts(cfg), make_llm(cfg))
+    run_with(job, cfg, make_tts(cfg), make_llm(cfg, "fit"))
 
 
 SPEC = StageSpec(name="fit", produces=("dub.wav", "sub.ass"), run=run)

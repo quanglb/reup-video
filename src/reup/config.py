@@ -10,6 +10,9 @@ TTS_ENGINES = ("capcut", "stub")
 ASR_ENGINES = ("whisper", "capcut")
 LLM_PROVIDERS = ("gemini", "ollama", "cassette")
 PLATFORMS = ("youtube", "tiktok", "douyin")
+# Bốn stage gọi LLM. Mỗi cái chịu được một model khác nhau: chỉ `translate`
+# thật sự cần model giỏi, ba cái còn lại không phải suy luận gì nhiều.
+LLM_ROLES = ("reconcile", "translate", "fit", "export")
 
 
 def parse_bitrate(text: str) -> int:
@@ -100,6 +103,28 @@ class FetchConfig:
 
 
 @dataclass(frozen=True)
+class LLMRoles:
+    """Cấu hình LLM đã giải xong cho từng stage.
+
+    Tách theo stage vì hạn mức đếm theo số request: đẩy ba việc nhẹ sang model
+    local thì hạn mức miễn phí của nhà cung cấp chỉ còn phải gánh `translate`,
+    tức một request mỗi video.
+    """
+
+    reconcile: "LLMConfig"
+    translate: "LLMConfig"
+    fit: "LLMConfig"
+    export: "LLMConfig"
+
+    def for_role(self, name: str) -> "LLMConfig":
+        if name not in LLM_ROLES:
+            raise ValueError(
+                f"không có vai LLM {name!r}. Chọn một trong {LLM_ROLES}"
+            )
+        return getattr(self, name)
+
+
+@dataclass(frozen=True)
 class PlatformDiscoverConfig:
     """Cách quét một nền tảng. `query` là hashtag, @user, hoặc nguyên một URL.
 
@@ -150,6 +175,13 @@ class Config:
     llm: LLMConfig = LLMConfig()
     discover: DiscoverConfig = DiscoverConfig()
     fetch: FetchConfig = FetchConfig()
+    llm_roles: LLMRoles | None = None
+
+    def llm_for(self, role: str) -> LLMConfig:
+        """Cấu hình LLM cho một stage. Không khai riêng thì dùng [llm] chung."""
+        if self.llm_roles is None:
+            return self.llm
+        return self.llm_roles.for_role(role)
 
 
 def load_config(path: Path) -> Config:
@@ -176,8 +208,7 @@ def load_config(path: Path) -> Config:
     _one_of("tts.engine", tts.engine, TTS_ENGINES)
     asr = ASRConfig(**raw.get("asr", {}))
     _one_of("asr.engine", asr.engine, ASR_ENGINES)
-    llm = LLMConfig(**raw.get("llm", {}))
-    _one_of("llm.provider", llm.provider, LLM_PROVIDERS)
+    llm, llm_roles = _llm(raw.get("llm", {}))
     discover = _discover(raw.get("discover", {}))
     fetch = FetchConfig(**raw.get("fetch", {}))
 
@@ -191,9 +222,36 @@ def load_config(path: Path) -> Config:
         tts=tts,
         asr=asr,
         llm=llm,
+        llm_roles=llm_roles,
         discover=discover,
         fetch=fetch,
     )
+
+
+def _llm(raw: dict) -> tuple[LLMConfig, LLMRoles]:
+    """Tách [llm] thành cấu hình chung và phần ghi đè theo stage.
+
+    Khoá vô hướng trong [llm] là mặc định chung; mỗi bảng con [llm.<stage>] ghi
+    đè lên nó, và khoá nào không khai thì thừa kế.
+    """
+    base_raw = {k: v for k, v in raw.items() if not isinstance(v, dict)}
+    per_role = {k: v for k, v in raw.items() if isinstance(v, dict)}
+
+    unknown = sorted(set(per_role) - set(LLM_ROLES))
+    if unknown:
+        raise ValueError(
+            f"[llm] có bảng con lạ: {unknown}. Chỉ nhận {list(LLM_ROLES)}"
+        )
+
+    base = LLMConfig(**base_raw)
+    _one_of("llm.provider", base.provider, LLM_PROVIDERS)
+
+    resolved = {}
+    for role in LLM_ROLES:
+        cfg = LLMConfig(**{**vars(base), **per_role.get(role, {})})
+        _one_of(f"llm.{role}.provider", cfg.provider, LLM_PROVIDERS)
+        resolved[role] = cfg
+    return base, LLMRoles(**resolved)
 
 
 def _discover(raw: dict) -> DiscoverConfig:
