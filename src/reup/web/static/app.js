@@ -1,5 +1,36 @@
-// JS thuần, không build. Bốn việc: đếm âm tiết khi gõ, nghe thử, chọn giọng,
-// lưu sửa.
+// JS thuần, không build. Sáu việc: đếm âm tiết khi gõ, nghe thử, chọn giọng,
+// lưu sửa, nạp iframe xem thử ở tab quét nguồn, và tự làm mới lúc có job chạy.
+
+// Job chạy vài phút trong luồng nền của server; không tự làm mới thì người dùng
+// ngồi nhìn một trang đứng im và tưởng là treo.
+(function () {
+  if (!document.querySelector('.spin')) return;
+  setInterval(() => {
+    // Đang gõ dở (ô dán link, ô hashtag) mà reload là mất chữ.
+    const el = document.activeElement;
+    if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA')) return;
+    location.reload();
+  }, 5000);
+})();
+
+// Tab quét: chỉ nạp iframe khi bấm. Nạp sẵn cả chục player của YouTube hay
+// TikTok làm trang ì và mỗi lần quét lại là một mớ request ngoài.
+(function () {
+  document.querySelectorAll('.card .play-embed').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const frame = btn.parentElement;
+      const src = frame.dataset.embed;
+      if (!src) return;
+      const iframe = document.createElement('iframe');
+      iframe.src = src;
+      iframe.allow = 'autoplay; encrypted-media; picture-in-picture';
+      iframe.allowFullscreen = true;
+      iframe.referrerPolicy = 'strict-origin-when-cross-origin';
+      frame.replaceChildren(iframe);
+    });
+  });
+})();
+
 (function () {
   const editor = document.querySelector('.editor');
   if (!editor) return;

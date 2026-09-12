@@ -10,6 +10,26 @@ from reup.models import Segment, Transcript
 from reup.web.app import create_app
 
 
+class FakeRunner:
+    """Ghi lại lệnh chạy thay vì chạy thật.
+
+    Không có nó thì mỗi lần test tạo job là một luồng nền tải video thật về.
+    """
+
+    def __init__(self) -> None:
+        self.started: list[str] = []
+
+    def start(self, job_id: str) -> bool:
+        self.started.append(job_id)
+        return True
+
+    def is_running(self, job_id: str) -> bool:
+        return False
+
+    def live(self) -> set:
+        return set()
+
+
 @pytest.fixture
 def client(tmp_path: Path, config_file: Path):
     jobs = tmp_path / "jobs"
@@ -17,6 +37,7 @@ def client(tmp_path: Path, config_file: Path):
     db = tmp_path / "reup.db"
     Store(db).init_schema()
     app = create_app(config_file, jobs, db)
+    app.state.runner = FakeRunner()
     return TestClient(app), jobs, db
 
 
@@ -272,3 +293,65 @@ def test_tts_engine_failure_is_reported_not_hidden_as_404(stub_client, monkeypat
 
     assert r.status_code == 502
     assert "CapCut hỏng" in r.json()["detail"]
+
+
+# --- chạy job từ Web UI -----------------------------------------------------
+
+def test_run_button_starts_the_job(client):
+    c, jobs, db = client
+    create_job(jobs, "https://a/1", "zh", job_id="j1")
+    s = Store(db); s.upsert_job("j1", "https://a/1", "pending"); s.close()
+
+    r = c.post("/jobs/j1/run", follow_redirects=False)
+    assert r.status_code == 303
+    assert r.headers["location"] == "/jobs/j1"
+    assert c.app.state.runner.started == ["j1"]
+
+
+def test_running_an_unknown_job_is_404(client):
+    c, _, _ = client
+    assert c.post("/jobs/khong-co/run").status_code == 404
+    assert c.app.state.runner.started == []
+
+
+def test_adding_a_job_starts_it(client):
+    c, _, _ = client
+    r = c.post("/jobs", data={"url": "https://a/9"}, follow_redirects=False)
+    job_id = r.headers["location"].removeprefix("/jobs/")
+    assert c.app.state.runner.started == [job_id]
+
+
+def test_approving_a_gate_runs_the_rest(client):
+    """Duyệt xong mà vẫn phải ra terminal thì chốt duyệt chưa xong việc của nó."""
+    c, jobs, db = client
+    create_job(jobs, "https://a/1", "zh", job_id="j1")
+    s = Store(db); s.upsert_job("j1", "https://a/1", "needs_review", stage="gate_a"); s.close()
+
+    c.post("/jobs/j1/approve", data={"gate": "a"}, follow_redirects=False)
+    assert c.app.state.runner.started == ["j1"]
+
+
+def test_run_all_starts_pending_and_failed_but_not_done(client):
+    c, _, db = client
+    s = Store(db)
+    s.upsert_job("a", "https://a", "pending")
+    s.upsert_job("b", "https://b", "failed")
+    s.upsert_job("c", "https://c", "done")
+    s.upsert_job("d", "https://d", "needs_review")
+    s.close()
+
+    r = c.post("/run-all", follow_redirects=False)
+    assert r.status_code == 303
+    assert sorted(c.app.state.runner.started) == ["a", "b"]
+
+
+def test_queue_shows_a_run_button_for_waiting_jobs(client):
+    c, _, db = client
+    s = Store(db)
+    s.upsert_job("a", "https://a", "pending")
+    s.upsert_job("b", "https://b", "failed")
+    s.close()
+
+    body = c.get("/").text
+    assert 'action="/jobs/a/run"' in body
+    assert "Chạy lại" in body  # job hỏng thì nói rõ là chạy LẠI

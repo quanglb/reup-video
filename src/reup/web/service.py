@@ -184,3 +184,115 @@ def preview_audio(job: Job, cfg: Config, seg_id: int) -> Path:
         rows[seg_id]["text"], "vi", pick_voice(job, cfg), out
     )
     return out
+
+
+# --- tab quét nguồn ---------------------------------------------------------
+
+PLATFORM_LABELS = {
+    "youtube": "YouTube Shorts",
+    "tiktok": "TikTok",
+    "douyin": "Douyin",
+}
+
+
+@dataclass(frozen=True)
+class CandidateRow:
+    platform: str
+    video_id: str
+    url: str
+    embed_url: str
+    title: str
+    uploader: str
+    thumbnail: str
+    duration_ms: int
+    view_count: int
+    published_at: str
+    seen: bool
+    job_id: str
+
+
+def duration_label(ms: int) -> str:
+    if ms <= 0:
+        return "?"
+    total = ms // 1000
+    return f"{total // 60}:{total % 60:02d}"
+
+
+def view_label(n: int) -> str:
+    if n >= 1_000_000_000:
+        return f"{n / 1_000_000_000:.1f} tỷ"
+    if n >= 1_000_000:
+        return f"{n / 1_000_000:.1f}M"
+    if n >= 1_000:
+        return f"{n / 1_000:.0f}K"
+    return str(n or "")
+
+
+SORTS = {
+    "": ("thứ tự trang", None),
+    "views": ("lượt xem", lambda c: -c.view_count),
+    "short": ("ngắn nhất", lambda c: c.duration_ms or 10**9),
+}
+
+
+@dataclass(frozen=True)
+class ScanResult:
+    rows: list[CandidateRow]
+    feed_url: str
+    kind: str
+    hidden: int  # số video bị ẩn vì đã xử lý rồi
+
+
+def discover(
+    store: Store,
+    cfg: Config,
+    platform: str,
+    query: str = "",
+    limit: int = 12,
+    sort: str = "",
+    hide_seen: bool = False,
+) -> ScanResult:
+    """Quét một nền tảng và đánh dấu video nào đã xử lý rồi.
+
+    Không tự tạo job: người dùng xem iframe rồi chọn. Ném DiscoverError để
+    tầng HTTP hiện đúng lời crawler nói — cái thiếu thường là cookie, và câu
+    "quét hỏng" trơn thì không sửa được gì.
+
+    Sắp xếp ở đây chứ không nhờ nền tảng: cả ba đều không nhận tham số sắp xếp
+    qua yt-dlp, và một trang kết quả thì đủ nhỏ để sắp tại chỗ.
+    """
+    from reup.adapters.registry import make_source
+
+    if sort not in SORTS:
+        raise ValueError(f"không có kiểu sắp xếp {sort!r}. Chọn: {sorted(SORTS)}")
+
+    source = make_source(cfg, platform, query)
+    found = source.list_trending("VN", max(1, limit))
+    feed, kind = source.describe()
+    by_url = {r["url"]: r["id"] for r in store.list_jobs()}
+
+    key = SORTS[sort][1]
+    if key is not None:
+        found = sorted(found, key=key)
+
+    rows = [
+        CandidateRow(
+            platform=c.platform,
+            video_id=c.video_id,
+            url=c.url,
+            embed_url=c.embed_url,
+            title=c.title or c.video_id,
+            uploader=c.uploader,
+            thumbnail=c.thumbnail,
+            duration_ms=c.duration_ms,
+            view_count=c.view_count,
+            published_at=c.published_at,
+            seen=store.is_seen(c.platform, c.video_id),
+            job_id=by_url.get(c.url, ""),
+        )
+        for c in found
+    ]
+    kept = [r for r in rows if not (r.seen or r.job_id)] if hide_seen else rows
+    return ScanResult(
+        rows=kept, feed_url=feed, kind=kind, hidden=len(rows) - len(kept)
+    )

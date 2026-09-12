@@ -8,3 +8,5 @@ reup.db
 .pytest_cache/
 capcut-tts-api/
 .DS_Store
+reup.db-shm
+reup.db-wal

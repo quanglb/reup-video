@@ -59,3 +59,29 @@ def make_asr(cfg: Config):
             )
         return CapCutSTT(Path(cfg.tts.capcut_dir))
     raise ValueError(f"không có ASR engine {engine!r}")
+
+
+def make_source(cfg: Config, platform: str, query: str | None = None):
+    """Crawler cho một nền tảng, dựng theo mục [discover.<platform>].
+
+    `query` truyền vào (từ CLI hoặc ô tìm trong Web UI) đè lên config, để thử
+    một hashtag khác mà không phải sửa file.
+    """
+    opts = cfg.discover.for_platform(platform)
+    q = (query or "").strip() or opts.query
+    cookies = opts.cookies_from_browser or None
+    cookie_file = opts.cookie_file or None
+
+    if platform == "youtube":
+        from reup.adapters.youtube import YouTubeSource
+
+        return YouTubeSource(q)
+    if platform == "tiktok":
+        from reup.adapters.tiktok import TikTokSource
+
+        return TikTokSource(q, cookies_from_browser=cookies, cookie_file=cookie_file)
+    if platform == "douyin":
+        from reup.adapters.douyin import DouyinSource
+
+        return DouyinSource(q, cookies_from_browser=cookies, cookie_file=cookie_file)
+    raise ValueError(f"không có crawler cho nền tảng {platform!r}")

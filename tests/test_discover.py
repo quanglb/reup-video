@@ -6,10 +6,12 @@ import pytest
 
 from reup.adapters.youtube import (
     MAX_DURATION_S,
+    SEARCH_SHORT_FILTER,
     DiscoverError,
     YouTubeSource,
     feed_url,
     parse_entry,
+    query_kind,
 )
 from reup.cli import main
 from reup.core.store import Store
@@ -63,10 +65,45 @@ def test_entry_without_duration_is_kept():
     assert parse_entry({"id": "abc", "title": "x"}) is not None
 
 
-def test_feed_url_uses_the_hashtag_page():
+def test_feed_url_defaults_to_the_hashtag_page():
     """/feed/trending đã chết — yt-dlp bị YouTube đẩy về trang chủ."""
     assert feed_url("VN") == "https://www.youtube.com/hashtag/shorts"
-    assert feed_url("VN", "cooking").endswith("/hashtag/cooking")
+    assert feed_url("VN", "#cooking").endswith("/hashtag/cooking")
+
+
+def test_plain_words_search_instead_of_guessing_a_hashtag():
+    """Gõ "mèo hài" mà ra trang hashtag rỗng thì không ai đoán được vì sao."""
+    url = feed_url("VN", "mèo hài")
+    assert url.startswith("https://www.youtube.com/results?search_query=m")
+    assert f"sp={SEARCH_SHORT_FILTER}" in url
+
+
+def test_search_always_carries_the_short_duration_filter():
+    """Không lọc thì kết quả tìm kiếm toàn video 10 phút và trang ra rỗng."""
+    assert SEARCH_SHORT_FILTER in feed_url("VN", "bất kỳ")
+
+
+def test_handle_becomes_the_channel_shorts_tab():
+    assert feed_url("VN", "@MrBeast") == "https://www.youtube.com/@MrBeast/shorts"
+
+
+def test_a_pasted_url_is_used_as_is():
+    url = "https://www.youtube.com/playlist?list=PL1"
+    assert feed_url("VN", url) == url
+
+
+def test_query_kind_labels_each_form():
+    assert query_kind("mèo") == "tìm kiếm"
+    assert query_kind("#shorts") == "hashtag"
+    assert query_kind("@ai") == "kênh"
+    assert query_kind("https://x") == "URL"
+
+
+def test_channel_entries_borrow_the_channel_name():
+    """Tab Shorts của kênh không khai uploader trong từng entry."""
+    fake = {"id": "a", "duration": 20, "title": "x"}
+    assert parse_entry(fake).uploader == ""
+    assert parse_entry(fake, fallback_uploader="MrBeast").uploader == "MrBeast"
 
 
 # --- quét -------------------------------------------------------------------

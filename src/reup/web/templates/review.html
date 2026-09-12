@@ -16,7 +16,14 @@
 
   <section class="editor" data-job="{{ job.id }}">
     {% if not rows %}
-      <p class="empty">Chưa có bản dịch. Chạy <code>reup run {{ job.id }}</code> trước.</p>
+      {% if running %}
+        <p class="empty spin">Đang chạy{% if row and row.stage %} — stage <b>{{ row.stage }}</b>{% endif %}. Trang tự làm mới.</p>
+      {% else %}
+        <p class="empty">Chưa có bản dịch.</p>
+        <form method="post" action="/jobs/{{ job.id }}/run">
+          <button class="primary">{{ 'Chạy lại' if row and row.status == 'failed' else 'Chạy job này' }}</button>
+        </form>
+      {% endif %}
     {% else %}
     <table class="segments">
       <thead><tr><th>Giờ</th><th>Gốc</th><th>Bản Việt</th><th>Âm tiết</th><th></th></tr></thead>

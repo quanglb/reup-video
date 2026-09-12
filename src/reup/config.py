@@ -9,6 +9,7 @@ AUDIO_MODES = ("separate", "drop_original")
 TTS_ENGINES = ("capcut", "stub")
 ASR_ENGINES = ("whisper", "capcut")
 LLM_PROVIDERS = ("gemini", "cassette")
+PLATFORMS = ("youtube", "tiktok", "douyin")
 
 
 def parse_bitrate(text: str) -> int:
@@ -83,6 +84,47 @@ class LLMConfig:
 
 
 @dataclass(frozen=True)
+class FetchConfig:
+    """Cách yt-dlp bóc link tải.
+
+    `js_runtime` rỗng = tự dò deno, node, bun theo thứ tự đó.
+    `remote_components` rỗng = không tải script EJS từ GitHub; YouTube sẽ hỏng,
+    nhưng không có mã ngoài nào chạy trên máy.
+    """
+
+    js_runtime: str = ""
+    remote_components: str = "ejs:github"
+
+
+@dataclass(frozen=True)
+class PlatformDiscoverConfig:
+    """Cách quét một nền tảng. `query` là hashtag, @user, hoặc nguyên một URL.
+
+    Cookie để rỗng là hợp lệ: YouTube không cần, TikTok và Douyin thì gần như
+    luôn cần — crawler tự nói ra khi quét hỏng vì thiếu.
+    """
+
+    query: str = ""
+    cookies_from_browser: str = ""
+    cookie_file: str = ""
+    limit: int = 12
+
+
+@dataclass(frozen=True)
+class DiscoverConfig:
+    youtube: PlatformDiscoverConfig = PlatformDiscoverConfig(query="#shorts")
+    tiktok: PlatformDiscoverConfig = PlatformDiscoverConfig(query="xuhuong")
+    douyin: PlatformDiscoverConfig = PlatformDiscoverConfig()
+
+    def for_platform(self, name: str) -> PlatformDiscoverConfig:
+        if name not in PLATFORMS:
+            raise ValueError(
+                f"không có nền tảng {name!r}. Chọn một trong {PLATFORMS}"
+            )
+        return getattr(self, name)
+
+
+@dataclass(frozen=True)
 class ReviewConfig:
     auto_approve_b: bool
     output_dir: str = "output"
@@ -103,6 +145,8 @@ class Config:
 
     asr: ASRConfig = ASRConfig()
     llm: LLMConfig = LLMConfig()
+    discover: DiscoverConfig = DiscoverConfig()
+    fetch: FetchConfig = FetchConfig()
 
 
 def load_config(path: Path) -> Config:
@@ -131,6 +175,8 @@ def load_config(path: Path) -> Config:
     _one_of("asr.engine", asr.engine, ASR_ENGINES)
     llm = LLMConfig(**raw.get("llm", {}))
     _one_of("llm.provider", llm.provider, LLM_PROVIDERS)
+    discover = _discover(raw.get("discover", {}))
+    fetch = FetchConfig(**raw.get("fetch", {}))
 
     return Config(
         profile_name=name,
@@ -142,6 +188,25 @@ def load_config(path: Path) -> Config:
         tts=tts,
         asr=asr,
         llm=llm,
+        discover=discover,
+        fetch=fetch,
+    )
+
+
+def _discover(raw: dict) -> DiscoverConfig:
+    unknown = sorted(set(raw) - set(PLATFORMS))
+    if unknown:
+        raise ValueError(
+            f"[discover] có mục lạ: {unknown}. Chỉ nhận {list(PLATFORMS)}"
+        )
+    default = DiscoverConfig()
+    return DiscoverConfig(
+        **{
+            name: PlatformDiscoverConfig(
+                **{**vars(getattr(default, name)), **raw.get(name, {})}
+            )
+            for name in PLATFORMS
+        }
     )
 
 

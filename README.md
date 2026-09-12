@@ -17,8 +17,14 @@ reconcile  translate  [CHỐT A]  tts  fit  compose  [CHỐT B]  export
 
 ## Cài đặt
 
-Cần `ffmpeg`, `uv`, và source [`capcut-tts-api`](https://github.com/) đặt ở
-đường dẫn khai trong `config.toml`.
+Cần `ffmpeg`, `uv`, một **JS runtime** (`deno`, `node`, hoặc `bun`), và source
+[`capcut-tts-api`](https://github.com/) đặt ở đường dẫn khai trong `config.toml`.
+
+JS runtime là bắt buộc cho YouTube: YouTube bắt giải một "JS challenge" mới trả
+link tải, và yt-dlp cần runtime cùng script EJS (tải từ GitHub lúc chạy) để giải.
+Thiếu chúng thì **mọi** video YouTube đều báo `This video is not available` —
+thông báo nghe như video bị gỡ, nên rất dễ đi tìm nhầm chỗ. Không muốn chạy mã
+tải từ GitHub thì đặt `fetch.remote_components = ""`, đổi lại YouTube hỏng.
 
 ```bash
 uv venv --python 3.12
@@ -30,7 +36,10 @@ cp .env.example .env      # rồi điền GEMINI_API_KEY
 ## Dùng
 
 ```bash
-uv run reup discover --limit 10 --add     # quét YouTube Shorts
+uv run reup discover --limit 10 --add             # hashtag #shorts mặc định
+uv run reup discover --query "mèo hài" --limit 20  # tìm kiếm
+uv run reup discover --query "@MrBeast"           # tab Shorts của một kênh
+uv run reup discover --platform tiktok --query "@tên"
 uv run reup add "https://..." --lang zh   # hoặc dán link
 uv run reup run <job_id>
 uv run reup run --all                     # cả hàng đợi, song song theo concurrency
@@ -39,6 +48,33 @@ uv run reup approve <job_id>
 uv run reup redo <job_id> --from asr
 uv run reup benchmark                     # đo từng stage trên máy này
 ```
+
+Web UI có bốn tab: **Hàng đợi**, **YouTube**, **TikTok**, **Douyin**. Ba tab sau
+hiện từng video thành thẻ 9:16 kèm ảnh đại diện, độ dài, kênh và lượt xem; bấm
+**▶ Xem** để nạp player nhúng ngay trong trang (iframe chỉ nạp khi bấm, không
+nạp sẵn cả chục cái), rồi **Chọn video này** để tạo job. Video đã thành job hiện
+luôn link job thay vì nút chọn, nên không làm trùng; tick **ẩn đã xử lý** để
+giấu hẳn chúng. Sắp xếp được theo lượt xem hoặc độ dài.
+
+Ô quét của tab YouTube hiểu bốn kiểu, phân biệt bằng ký tự đầu:
+
+| Gõ | Nguồn |
+|---|---|
+| `mèo hài` | tìm kiếm, tự kèm bộ lọc dưới 4 phút của YouTube |
+| `#shorts` | trang hashtag |
+| `@MrBeast` | tab Shorts của kênh |
+| `https://…` | quét đúng URL đó (playlist, kênh, trang kết quả…) |
+
+Chữ trần là **tìm kiếm** chứ không phải hashtag — gõ "mèo hài" mà ra trang
+hashtag rỗng thì không ai đoán được vì sao. Tìm kiếm bắt buộc phải kèm bộ lọc
+thời lượng: đo thật với "mèo hài", bốn kết quả đầu không lọc dài 638s, 940s,
+515s — bộ lọc 3 phút của pipeline quét sạch và trang ra rỗng. Trang luôn in ra
+URL nó thật sự quét, để thấy ngay ô mình gõ được hiểu thành gì.
+
+Quét là thao tác chủ động: mở tab không gọi `yt-dlp`, phải bấm **Quét**. TikTok
+gần như luôn đòi cookie và Douyin còn cần IP ra được Trung Quốc — đặt
+`cookies_from_browser` hoặc `cookie_file` ở mục `[discover.<nền tảng>]`. Quét
+hỏng thì trang hiện nguyên lời `yt-dlp` kèm chỗ cần sửa, không phải lỗi trơn.
 
 Video dừng ở **chốt A** sau khi dịch xong. Mở `reup web`, sửa bản dịch, bấm
 duyệt, rồi `reup run` lần nữa. Ở chốt A còn chọn được giọng cho cả job (lựa chọn
@@ -66,6 +102,9 @@ Sửa `config.toml`. Vài knob đáng biết:
 - `profile.active` — `air-16` hoặc `studio-24`.
 - `profile.concurrency` — số job chạy song song trong `reup run --all`. Một job
   vẫn chạy tuần tự từng stage; knob này chỉ nói chạy mấy job cùng lúc.
+- `discover.<youtube|tiktok|douyin>.query` — nguồn mặc định của tab quét (xem
+  bảng ở trên). `cookies_from_browser = "chrome"` khi nền tảng chặn khách vãng
+  lai — TikTok gần như luôn cần, Douyin cần thêm IP ra được Trung Quốc.
 - `audio.mode = "drop_original"` — bỏ hẳn Demucs. Mất nhạc nền nhưng cắt được
   stage nặng; nút thoát hiểm khi máy quá ì.
 - `profile.video_bitrate` là **trần**, không phải mức cố định. `compose` chọn

@@ -9,9 +9,11 @@ from reup.media.ffmpeg import probe
 
 
 def run(job: Job, cfg: Config) -> None:
-    ManualSource(prefer_h264=cfg.profile.prefer_h264).fetch(
-        job.source_url, job.source_video
-    )
+    ManualSource(
+        prefer_h264=cfg.profile.prefer_h264,
+        js_runtime=cfg.fetch.js_runtime,
+        remote_components=cfg.fetch.remote_components,
+    ).fetch(job.source_url, job.source_video)
 
     info = probe(job.source_video)
     if not info.has_audio:

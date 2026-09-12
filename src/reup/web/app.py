@@ -12,10 +12,12 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from reup.config import load_config
+from reup.adapters.crawl import DiscoverError
+from reup.config import PLATFORMS, load_config
 from reup.core.job import create_job, load_job
 from reup.core.store import Store
 from reup.web import service
+from reup.web.runner import BackgroundRunner
 
 HERE = Path(__file__).parent
 
@@ -23,11 +25,14 @@ HERE = Path(__file__).parent
 def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     app = FastAPI(title="reup")
     templates = Jinja2Templates(directory=str(HERE / "templates"))
+    templates.env.filters["duration"] = service.duration_label
+    templates.env.filters["views"] = service.view_label
     app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
     app.state.config_path = Path(config_path)
     app.state.jobs_dir = Path(jobs_dir)
     app.state.db_path = Path(db_path)
+    app.state.runner = BackgroundRunner(app.state.config_path, app.state.jobs_dir, app.state.db_path)
 
     def store() -> Store:
         s = Store(app.state.db_path)
@@ -53,7 +58,13 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         return templates.TemplateResponse(
             request,
             "queue.html",
-            {"rows": rows, "status": status or "", "title": "Hàng đợi"},
+            {
+                "rows": rows,
+                "status": status or "",
+                "running": app.state.runner.live(),
+                "tab": "queue",
+                "title": "Hàng đợi",
+            },
         )
 
     @app.post("/jobs")
@@ -64,6 +75,108 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             s.upsert_job(job.id, job.source_url, "pending")
         finally:
             s.close()
+        app.state.runner.start(job.id)
+        return RedirectResponse(f"/jobs/{job.id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/run")
+    def run(job_id: str):
+        """Chạy job tới chốt gần nhất. Bấm lại lúc đang chạy là không làm gì."""
+        job_or_404(job_id)
+        app.state.runner.start(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/run-all")
+    def run_all():
+        """Chạy mọi job đang chờ hoặc đã hỏng, song song theo profile.concurrency."""
+        s = store()
+        try:
+            ids = [r["id"] for r in s.list_jobs("pending") + s.list_jobs("failed")]
+        finally:
+            s.close()
+        for job_id in ids:
+            app.state.runner.start(job_id)
+        return RedirectResponse("/", status_code=303)
+
+    @app.get("/discover", response_class=HTMLResponse)
+    def discover(
+        request: Request,
+        platform: str = "youtube",
+        q: str = "",
+        limit: int = 0,
+        sort: str = "",
+        hide_seen: int = 0,
+        run: int = 0,
+    ):
+        """Tab quét nguồn. Mặc định KHÔNG quét — mở tab là mở ngay, không chờ.
+
+        `run=1` (nút "Quét") mới thật sự gọi yt-dlp: mỗi lần quét mất vài giây
+        tới vài chục giây, nên để nó nổ mỗi lần đổi tab thì tab nào cũng treo.
+        """
+        if platform not in PLATFORMS:
+            raise HTTPException(
+                status_code=404, detail=f"không có nền tảng {platform!r}"
+            )
+        c = cfg()
+        opts = c.discover.for_platform(platform)
+        result, error = None, ""
+        if run:
+            s = store()
+            try:
+                result = service.discover(
+                    s, c, platform, q, limit or opts.limit, sort, bool(hide_seen)
+                )
+            except (DiscoverError, ValueError) as exc:
+                error = str(exc)
+            finally:
+                s.close()
+        return templates.TemplateResponse(
+            request,
+            "discover.html",
+            {
+                "platforms": [
+                    {"id": p, "label": service.PLATFORM_LABELS[p]} for p in PLATFORMS
+                ],
+                "platform": platform,
+                "tab": "discover",
+                "q": q or opts.query,
+                "limit": limit or opts.limit,
+                "ran": bool(run),
+                "result": result,
+                "rows": result.rows if result else [],
+                "sort": sort,
+                "sorts": [
+                    {"id": k, "label": v[0]} for k, v in service.SORTS.items()
+                ],
+                "hide_seen": bool(hide_seen),
+                "error": error,
+                "title": f"Quét {service.PLATFORM_LABELS[platform]}",
+            },
+        )
+
+    @app.post("/discover/pick")
+    def pick(
+        url: str = Form(...),
+        lang: str = Form("auto"),
+        platform: str = Form(""),
+        video_id: str = Form(""),
+    ):
+        """Chọn một video từ tab quét: tạo job, đánh dấu đã xử lý, và chạy luôn.
+
+        Đánh dấu `seen` ở đây chứ không đợi chạy xong, để lần quét sau không
+        hiện lại đúng video vừa chọn.
+
+        Chạy luôn vì "chọn video này" nghĩa là "làm video này": tạo job rồi bắt
+        người dùng nhảy ra terminal gõ `reup run` là cắt đôi một thao tác duy nhất.
+        """
+        job = create_job(app.state.jobs_dir, url.strip(), lang)
+        s = store()
+        try:
+            s.upsert_job(job.id, job.source_url, "pending")
+            if platform and video_id:
+                s.mark_seen(platform, video_id)
+        finally:
+            s.close()
+        app.state.runner.start(job.id)
         return RedirectResponse(f"/jobs/{job.id}", status_code=303)
 
     @app.get("/jobs/{job_id}", response_class=HTMLResponse)
@@ -86,6 +199,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "has_video": job.final_mp4.exists(),
                 "gate_a": job.gate_approved("a"),
                 "gate_b": job.gate_approved("b"),
+                "running": app.state.runner.is_running(job_id),
                 "title": f"Duyệt {job_id}",
             },
         )
@@ -120,6 +234,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             s.upsert_job(job_id, row["url"], "pending", stage=row["stage"])
         finally:
             s.close()
+        # Duyệt xong mà vẫn phải ra terminal gõ `reup run` thì chốt duyệt chưa
+        # xong việc của nó.
+        app.state.runner.start(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.get("/jobs/{job_id}/source")

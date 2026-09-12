@@ -153,3 +153,110 @@ def test_fetch_stage_honours_prefer_h264_from_profile(tmp_path: Path, monkeypatc
         fetch_stage.run(job, cfg)
 
     assert seen["cmd"][seen["cmd"].index("-f") + 1] == FORMAT_SELECTOR_H264
+
+
+# --- JS challenge của YouTube -----------------------------------------------
+
+def test_js_runtime_is_auto_detected(monkeypatch):
+    """deno là runtime duy nhất yt-dlp tự bật; node và bun phải khai bằng tên."""
+    import shutil
+    from reup.adapters.manual import js_runtime_args
+
+    monkeypatch.setattr(shutil, "which", lambda n: "/bin/node" if n == "node" else None)
+    assert js_runtime_args() == ["--js-runtimes", "node"]
+
+
+def test_deno_wins_when_several_runtimes_exist(monkeypatch):
+    import shutil
+    from reup.adapters.manual import js_runtime_args
+
+    monkeypatch.setattr(shutil, "which", lambda n: f"/bin/{n}")
+    assert js_runtime_args() == ["--js-runtimes", "deno"]
+
+
+def test_an_explicit_runtime_beats_detection(monkeypatch):
+    import shutil
+    from reup.adapters.manual import js_runtime_args
+
+    monkeypatch.setattr(shutil, "which", lambda n: f"/bin/{n}")
+    assert js_runtime_args("bun") == ["--js-runtimes", "bun"]
+
+
+def test_no_runtime_means_no_flag(monkeypatch):
+    """Không bịa cờ khi máy trống: để yt-dlp than bằng lời của nó."""
+    import shutil
+    from reup.adapters.manual import js_runtime_args
+
+    monkeypatch.setattr(shutil, "which", lambda n: None)
+    assert js_runtime_args() == []
+
+
+def test_remote_components_can_be_turned_off():
+    """Tắt đi là không có mã tải từ GitHub chạy trên máy."""
+    from reup.adapters.manual import youtube_args
+
+    assert "--remote-components" not in youtube_args("node", remote_components="")
+    assert youtube_args("node")[-2:] == ["--remote-components", "ejs:github"]
+
+
+def test_fetch_asks_yt_dlp_to_solve_the_js_challenge(tmp_path: Path, monkeypatch):
+    """Thiếu hai cờ này thì MỌI video YouTube báo 'This video is not available'."""
+    import subprocess
+
+    seen = {}
+
+    class FakeProc:
+        returncode = 0
+        stderr = ""
+
+    def fake_run(cmd, **kwargs):
+        seen["cmd"] = cmd
+        dest = Path(cmd[cmd.index("-o") + 1])
+        dest.write_bytes(b"x")
+        (dest.parent / "source.info.json").write_text("{}", encoding="utf-8")
+        return FakeProc()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    ManualSource(js_runtime="node").fetch("https://a/1", tmp_path / "source.mp4")
+
+    cmd = seen["cmd"]
+    assert cmd[cmd.index("--js-runtimes") + 1] == "node"
+    assert cmd[cmd.index("--remote-components") + 1] == "ejs:github"
+
+
+def test_fetch_stage_honours_the_fetch_config(tmp_path: Path, monkeypatch, cfg_fixture):
+    """Knob trong config phải đi tới adapter, không bị stage bỏ qua."""
+    from dataclasses import replace
+    import subprocess
+
+    from reup.config import FetchConfig
+    from reup.core.job import create_job
+    from reup.stages.fetch import run as fetch_run
+
+    seen = {}
+
+    class FakeProc:
+        returncode = 0
+        stderr = ""
+
+    real_run = subprocess.run
+
+    def fake_run(cmd, **kwargs):
+        if cmd[0] != "yt-dlp":
+            return real_run(cmd, **kwargs)
+        seen["cmd"] = cmd
+        dest = Path(cmd[cmd.index("-o") + 1])
+        dest.write_bytes(b"x")
+        (dest.parent / "source.info.json").write_text("{}", encoding="utf-8")
+        return FakeProc()
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    job = create_job(tmp_path / "jobs", "https://a/1", "auto")
+    cfg = replace(cfg_fixture, fetch=FetchConfig(js_runtime="bun", remote_components=""))
+    try:
+        fetch_run(job, cfg)
+    except Exception:
+        pass  # probe() gãy vì file giả — chỉ quan tâm dòng lệnh yt-dlp
+
+    assert seen["cmd"][seen["cmd"].index("--js-runtimes") + 1] == "bun"
+    assert "--remote-components" not in seen["cmd"]

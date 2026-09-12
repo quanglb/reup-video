@@ -1,41 +1,87 @@
-"""Quét video ngắn đang thịnh hành trên YouTube bằng yt-dlp.
+"""Quét video ngắn trên YouTube bằng yt-dlp.
 
 `/feed/trending` đã chết — yt-dlp báo "channel/playlist does not exist and the
-URL redirected to youtube.com home page". Đường còn sống là trang hashtag, trả
-về đúng video dạng Shorts kèm id, tiêu đề và độ dài.
+URL redirected to youtube.com home page". Bốn đường còn sống, phân biệt bằng ký
+tự đầu của `query` (xem `feed_url`): tìm kiếm, hashtag, kênh, và URL dán thẳng.
 
-Đây là adapter trending duy nhất được hiện thực. TikTok và Douyin cần cookie và
-IP Trung Quốc (spec R1) nên để ngoài; adapter `manual` luôn sống, nên không có
-crawler nào thì pipeline vẫn chạy được bằng cách dán link.
+Tìm kiếm phải kèm bộ lọc thời lượng của chính YouTube. Đo thật với "mèo hài":
+không lọc thì bốn kết quả đầu dài 638s, 940s, 515s — bộ lọc 3 phút của mình
+quét sạch, trang ra rỗng dù YouTube trả đủ dữ liệu. Kèm `sp=EgIYAQ==` thì bốn
+kết quả đầu còn 113s, 47s, 6s, 103s.
+
+Đây là adapter chạy được mà không cần cookie. TikTok và Douyin cần cookie và
+(với Douyin) IP Trung Quốc — xem `tiktok.py`, `douyin.py`. Adapter `manual` luôn
+sống, nên không có crawler nào thì pipeline vẫn chạy được bằng cách dán link.
 """
 from __future__ import annotations
 
-import json
-import subprocess
-
+from reup.adapters.crawl import (  # noqa: F401 — giữ tên cũ cho chỗ đang import
+    MAX_DURATION_S,
+    MIN_DURATION_S,
+    DiscoverError,
+    dump_flat,
+    pick_thumbnail,
+)
 from reup.adapters.source import Candidate, FetchResult
 from reup.adapters.manual import ManualSource
 
 PLATFORM = "youtube"
-# Spec §3: đích là video dưới ~3 phút, 9:16.
-MAX_DURATION_S = 180
-MIN_DURATION_S = 5
-DEFAULT_HASHTAG = "shorts"
+DEFAULT_QUERY = "#shorts"
+
+# Bộ lọc "dưới 4 phút" của trang kết quả YouTube. Chuỗi đục nhưng là của
+# YouTube, không phải mình bịa: `sp` là bộ lọc đã mã hoá, EgIYAQ== là thời
+# lượng ngắn. Không có nó thì tìm kiếm chỉ trả video dài.
+SEARCH_SHORT_FILTER = "EgIYAQ%3D%3D"
 
 
-class DiscoverError(RuntimeError):
-    pass
+def embed_url(video_id: str) -> str:
+    return f"https://www.youtube.com/embed/{video_id}"
 
 
-def feed_url(region: str, hashtag: str = DEFAULT_HASHTAG) -> str:
-    """`region` chưa dùng được: trang hashtag không nhận tham số vùng.
+def feed_url(region: str, query: str = DEFAULT_QUERY) -> str:
+    """Đổi `query` người dùng gõ thành URL nguồn.
 
-    Giữ tham số cho đúng interface và để adapter khác dùng.
+        https://...     -> dùng nguyên si
+        @tên            -> tab Shorts của kênh
+        #tag            -> trang hashtag
+        chữ thường      -> tìm kiếm, kèm bộ lọc dưới 4 phút
+
+    Chữ trần là tìm kiếm chứ không phải hashtag: gõ "mèo hài" vào ô tìm mà ra
+    trang hashtag rỗng thì không ai đoán được vì sao.
+
+    `region` chưa dùng được: không đường nào trong bốn đường nhận tham số vùng.
+    Giữ tham số cho đúng interface `SourceAdapter`.
     """
-    return f"https://www.youtube.com/hashtag/{hashtag}"
+    from urllib.parse import quote_plus
+
+    q = (query or DEFAULT_QUERY).strip()
+    if q.startswith("http://") or q.startswith("https://"):
+        return q
+    if q.startswith("@"):
+        return f"https://www.youtube.com/{q}/shorts"
+    if q.startswith("#"):
+        return f"https://www.youtube.com/hashtag/{quote_plus(q.lstrip('#'))}"
+    return (
+        "https://www.youtube.com/results"
+        f"?search_query={quote_plus(q)}&sp={SEARCH_SHORT_FILTER}"
+    )
 
 
-def parse_entry(raw: dict) -> Candidate | None:
+def query_kind(query: str) -> str:
+    """Nhãn cho UI: người dùng phải thấy ô mình gõ được hiểu thành gì."""
+    q = (query or DEFAULT_QUERY).strip()
+    if q.startswith("http://") or q.startswith("https://"):
+        return "URL"
+    if q.startswith("@"):
+        return "kênh"
+    if q.startswith("#"):
+        return "hashtag"
+    return "tìm kiếm"
+
+
+def parse_entry(raw: dict, fallback_uploader: str = "") -> Candidate | None:
+    """`fallback_uploader`: tab Shorts của kênh không khai `uploader` trong từng
+    entry (đo thật trên `@MrBeast/shorts`), nhưng tên kênh thì nằm sẵn ở query."""
     video_id = raw.get("id")
     if not video_id:
         return None
@@ -51,43 +97,37 @@ def parse_entry(raw: dict) -> Candidate | None:
         duration_ms=round(duration_s * 1000),
         view_count=int(raw.get("view_count") or 0),
         published_at=str(raw.get("upload_date") or ""),
+        embed_url=embed_url(video_id),
+        thumbnail=pick_thumbnail(raw),
+        uploader=(
+            raw.get("uploader") or raw.get("channel") or fallback_uploader
+        ).strip(),
     )
 
 
 class YouTubeSource:
     name = PLATFORM
 
-    def __init__(self, hashtag: str = DEFAULT_HASHTAG) -> None:
-        self.hashtag = hashtag
+    def __init__(self, query: str = DEFAULT_QUERY) -> None:
+        self.query = query or DEFAULT_QUERY
+
+    def describe(self) -> tuple[str, str]:
+        """(URL thật sẽ quét, nhãn loại nguồn) — để UI nói ra mình hiểu gì."""
+        return feed_url("", self.query), query_kind(self.query)
 
     def list_trending(self, region: str, limit: int) -> list[Candidate]:
-        if limit <= 0:
-            raise ValueError(f"limit phải dương, nhận {limit}")
-        cmd = [
-            "yt-dlp",
-            "--flat-playlist",
-            "--dump-json",
-            "--playlist-end", str(limit * 2),  # lấy dư vì sẽ lọc theo độ dài
-            feed_url(region, self.hashtag),
-        ]
-        proc = subprocess.run(cmd, capture_output=True, text=True)
-        if proc.returncode != 0 and not proc.stdout.strip():
+        try:
+            entries = dump_flat(feed_url(region, self.query), limit)
+        except DiscoverError as exc:
             raise DiscoverError(
-                f"yt-dlp không quét được trending (mã {proc.returncode}).\n"
-                "YouTube hay đổi cấu trúc trang; dán link thủ công bằng "
-                "`reup add <url>` trong lúc chờ sửa.\n"
-                f"stderr:\n{proc.stderr[-800:]}"
-            )
+                f"{exc}\n\nYouTube hay đổi cấu trúc trang; dán link thủ công bằng "
+                "`reup add <url>` trong lúc chờ sửa."
+            ) from exc
 
+        channel = self.query.lstrip("@") if self.query.startswith("@") else ""
         out: list[Candidate] = []
-        for line in proc.stdout.splitlines():
-            line = line.strip()
-            if not line.startswith("{"):
-                continue
-            try:
-                candidate = parse_entry(json.loads(line))
-            except (json.JSONDecodeError, ValueError):
-                continue
+        for raw in entries:
+            candidate = parse_entry(raw, fallback_uploader=channel)
             if candidate is not None:
                 out.append(candidate)
             if len(out) >= limit:

@@ -5,7 +5,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from reup.config import load_config
+from reup.config import PLATFORMS, load_config
 from reup.dotenv import load_dotenv
 from reup.core.job import create_job, load_job
 from reup.core.runner import run_job, run_jobs
@@ -26,10 +26,16 @@ def _build_parser() -> argparse.ArgumentParser:
     add.add_argument("--lang", default="auto", help="ngôn ngữ nguồn: zh, en, hoặc auto")
 
     disc = sub.add_parser("discover", help="quét video ngắn đang thịnh hành")
-    disc.add_argument("--platform", default="youtube", choices=["youtube"])
+    disc.add_argument("--platform", default="youtube", choices=list(PLATFORMS))
     disc.add_argument("--limit", type=int, default=10)
     disc.add_argument("--region", default="VN")
-    disc.add_argument("--hashtag", default="shorts")
+    disc.add_argument(
+        "--query", "--hashtag", dest="query", default="",
+        help=(
+            "nguồn quét. YouTube: chữ trần là tìm kiếm, #tag là hashtag, @tên là kênh, "
+            "hoặc URL. Trống thì lấy từ [discover.<nền tảng>]"
+        ),
+    )
     disc.add_argument("--lang", default="auto")
     disc.add_argument("--add", action="store_true", help="tạo job luôn, không chỉ liệt kê")
 
@@ -65,11 +71,13 @@ def _cmd_add(args, store: Store) -> int:
 
 
 def _cmd_discover(args, store: Store) -> int:
-    from reup.adapters.youtube import DiscoverError, YouTubeSource
+    from reup.adapters.crawl import DiscoverError
+    from reup.adapters.registry import make_source
 
     try:
-        found = YouTubeSource(hashtag=args.hashtag).list_trending(args.region, args.limit)
-    except DiscoverError as exc:
+        source = make_source(load_config(args.config), args.platform, args.query)
+        found = source.list_trending(args.region, args.limit)
+    except (DiscoverError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
 

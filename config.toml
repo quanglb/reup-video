@@ -50,3 +50,32 @@ engine = "whisper"             # "whisper" | "capcut"
 [llm]
 provider = "gemini"            # "gemini" | "cassette"
 model    = "gemini-3.6-flash"
+
+# YouTube bắt giải "JS challenge" mới trả link tải. yt-dlp cần một JS runtime
+# (deno, node, hoặc bun) và script giải challenge tải từ GitHub. Thiếu chúng thì
+# MỌI video YouTube đều báo "This video is not available".
+# js_runtime rỗng = tự dò. remote_components rỗng = không chạy mã tải từ GitHub,
+# đổi lại YouTube hỏng.
+[fetch]
+js_runtime        = ""
+remote_components = "ejs:github"
+
+# Quét nguồn cho tab "YouTube / TikTok / Douyin" trong Web UI và lệnh `reup discover`.
+# `query`: hashtag, @tên người dùng, hoặc nguyên một URL trang nguồn.
+# TikTok và Douyin chặn khách vãng lai — đặt cookies_from_browser ("chrome",
+# "safari", "firefox"…) hoặc cookie_file (định dạng Netscape) thì mới quét được.
+# Douyin còn cần IP ra được Trung Quốc (spec R1).
+# youtube.query: chữ trần = tìm kiếm, "#tag" = hashtag, "@tên" = kênh, hoặc URL.
+[discover.youtube]
+query = "#shorts"
+limit = 12
+
+[discover.tiktok]
+query = "xuhuong"
+limit = 12
+cookies_from_browser = ""
+
+[discover.douyin]
+query = ""
+limit = 12
+cookies_from_browser = ""
