@@ -53,14 +53,20 @@ from reup.config import (
 
 
 @pytest.fixture
-def cfg_fixture() -> Config:
+def cfg_fixture(tmp_path: Path) -> Config:
+    """output_dir trỏ vào tmp_path chứ không phải "output" tương đối.
+
+    Mặc định của ReviewConfig tính theo thư mục hiện hành, nên test nào chạy
+    tới stage `export` sẽ ghi thẳng vào thư mục sản phẩm thật của dự án —
+    `output/j1.mp4` nằm lẫn với video đã làm xong.
+    """
     return Config(
         profile_name="test",
         profile=ProfileConfig(1, "tiny", 7, "h264_videotoolbox"),
         audio=AudioConfig("separate", 0.35),
         transform=TransformConfig(False, 1.0, 1.0),
         subtitle=SubtitleConfig("Be Vietnam Pro", 64, 4, "bottom"),
-        review=ReviewConfig(False),
+        review=ReviewConfig(False, output_dir=str(tmp_path / "output")),
     )
 
 
