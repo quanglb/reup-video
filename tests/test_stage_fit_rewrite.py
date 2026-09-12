@@ -16,8 +16,16 @@ from reup.stages import fit as fit_stage
 from reup.stages import tts as tts_stage
 
 
+def ids_in(prompt: str) -> list[int]:
+    """Id các câu fit hỏi trong MỘT lượt. Fake trả lời đúng những id đó, nên
+    test đếm `calls` là đang đếm số REQUEST chứ không phải số câu."""
+    import re
+
+    return [int(n) for n in re.findall(r"### Đoạn (\d+)", prompt)]
+
+
 class ShrinkingLLM:
-    """Mỗi lần được gọi lại trả một câu ngắn hơn một âm tiết."""
+    """Mỗi lượt gọi trả một câu ngắn hơn, dùng cho mọi câu hỏi trong lượt đó."""
 
     def __init__(self, texts: list[str]):
         self.texts = list(texts)
@@ -25,7 +33,8 @@ class ShrinkingLLM:
 
     def complete_json(self, prompt, schema):
         self.calls += 1
-        return {"text": self.texts.pop(0)}
+        text = self.texts.pop(0)
+        return {"segments": [{"id": i, "text": text} for i in ids_in(prompt)]}
 
 
 class StubbornLLM:
@@ -37,7 +46,7 @@ class StubbornLLM:
 
     def complete_json(self, prompt, schema):
         self.calls += 1
-        return {"text": self.text}
+        return {"segments": [{"id": i, "text": self.text} for i in ids_in(prompt)]}
 
 
 def _seed_and_synth(job, cfg, start, end, text):
@@ -219,3 +228,112 @@ def test_flags_are_not_duplicated_across_runs(tmp_path: Path, cfg_fixture):
     flags = json.loads(job.translation_json.read_text(encoding="utf-8"))["segments"][0]["flags"]
     assert flags.count("over_budget") == 1
     assert flags.count("overflow") == 1
+
+
+# --- gộp request ------------------------------------------------------------
+
+def _seed_many(job, cfg, specs):
+    """specs: [(id, start, end, text)]"""
+    Transcript(
+        source_lang="vi",
+        segments=[
+            Segment(id=i, start_ms=s, end_ms=e, text=t) for i, s, e, t in specs
+        ],
+    ).save(job.translation_json)
+    tts_stage.run_with(job, cfg, StubTTS())
+
+
+def test_many_long_segments_cost_one_request_per_round(tmp_path: Path, cfg_fixture):
+    """Đây là lý do tồn tại của cả thay đổi này.
+
+    Gọi lẻ thì giá một job phụ thuộc số câu vượt trần, mà hạn mức miễn phí của
+    Gemini tính theo SỐ REQUEST. Ba câu dài phải tốn một lượt, không phải ba.
+    """
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed_many(job, cfg_fixture, [
+        (1, 0, 1000, LONG), (2, 1000, 2000, LONG), (3, 2000, 3000, LONG),
+    ])
+    llm = ShrinkingLLM([SHORT])
+
+    fit_stage.run_with(job, cfg_fixture, StubTTS(), llm)
+
+    assert llm.calls == 1
+    texts = [s.text for s in Transcript.load(job.translation_json).segments]
+    assert texts == [SHORT, SHORT, SHORT]
+
+
+def test_only_the_still_long_segments_go_into_the_next_round(tmp_path: Path, cfg_fixture):
+    """Câu đã vừa khe không được đi tiếp: trả tiền cho việc đã xong."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    # Câu 1 dài (ratio 2.2), câu 2 đã vừa sẵn (ratio 0.22 -> pad).
+    _seed_many(job, cfg_fixture, [(1, 0, 1000, LONG), (2, 1000, 4000, SHORT)])
+    seen = []
+
+    class RecordingLLM(ShrinkingLLM):
+        def complete_json(self, prompt, schema):
+            seen.append(ids_in(prompt))
+            return super().complete_json(prompt, schema)
+
+    fit_stage.run_with(job, cfg_fixture, StubTTS(), RecordingLLM([SHORT]))
+
+    assert seen == [[1]]
+
+
+def test_a_stubborn_llm_costs_max_revisions_requests_not_per_segment(
+    tmp_path: Path, cfg_fixture
+):
+    """Trường hợp đắt nhất: ba câu cứng đầu vẫn chỉ tốn MAX_REVISIONS lượt."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed_many(job, cfg_fixture, [
+        (1, 0, 1000, LONG), (2, 1000, 2000, LONG), (3, 2000, 3000, LONG),
+    ])
+    llm = StubbornLLM(LONG)
+
+    fit_stage.run_with(job, cfg_fixture, StubTTS(), llm)
+
+    assert llm.calls == fit_stage.MAX_REVISIONS
+    for seg in Transcript.load(job.translation_json).segments:
+        assert "overflow" in seg.flags
+
+
+def test_a_segment_the_llm_skips_does_not_loop_forever(tmp_path: Path, cfg_fixture):
+    """LLM bỏ sót một id thì câu đó vẫn phải tính lượt, không thì vòng lặp quay
+    mãi với cùng một câu và cùng một kết quả."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed_many(job, cfg_fixture, [(1, 0, 1000, LONG), (2, 1000, 2000, LONG)])
+
+    class ForgetfulLLM:
+        """Chỉ trả lời câu 1, lờ câu 2."""
+
+        def __init__(self):
+            self.calls = 0
+
+        def complete_json(self, prompt, schema):
+            self.calls += 1
+            return {"segments": [{"id": 1, "text": SHORT}]}
+
+    llm = ForgetfulLLM()
+    fit_stage.run_with(job, cfg_fixture, StubTTS(), llm)
+
+    assert llm.calls == fit_stage.MAX_REVISIONS
+    segs = {s.id: s for s in Transcript.load(job.translation_json).segments}
+    assert segs[1].text == SHORT
+    assert segs[2].text == LONG  # không ai viết lại, nhưng cũng không treo
+    assert "overflow" in segs[2].flags
+
+
+def test_the_voice_chosen_at_gate_a_is_used_for_rewrites(tmp_path: Path, cfg_fixture):
+    """Đọc thẳng cfg thì câu phải viết lại dùng giọng mặc định, ra video hai giọng."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed_and_synth(job, cfg_fixture, 0, 1000, LONG)
+    job.set_override("voice", "BV075_streaming")
+    seen = []
+
+    class RecordingTTS(StubTTS):
+        def synthesize(self, text, lang, voice, out) -> TTSResult:
+            seen.append(voice)
+            return super().synthesize(text, lang, voice, out)
+
+    fit_stage.run_with(job, cfg_fixture, RecordingTTS(), ShrinkingLLM([SHORT]))
+
+    assert seen == ["BV075_streaming"]

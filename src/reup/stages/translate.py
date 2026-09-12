@@ -166,3 +166,73 @@ def rewrite_shorter(llm: LLMAdapter, text: str, budget: int) -> str:
     if not new_text:
         raise ValueError("LLM trả về câu rỗng khi được yêu cầu viết lại ngắn hơn")
     return new_text
+
+
+REWRITE_BATCH_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "segments": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer"},
+                    "text": {"type": "string"},
+                },
+                "required": ["id", "text"],
+            },
+        }
+    },
+    "required": ["segments"],
+}
+
+
+def build_rewrite_batch_prompt(items: list[tuple[int, str, int]]) -> str:
+    """`items`: (id câu, chữ hiện tại, trần âm tiết)."""
+    blocks = []
+    for seg_id, text, budget in items:
+        blocks.append(
+            f"### Đoạn {seg_id}\n"
+            f"- Câu hiện tại ({count_syllables(text, TARGET_LANG)} âm tiết): {text}\n"
+            f"- Trần cho phép: {budget} âm tiết"
+        )
+    return (
+        "Những câu tiếng Việt dưới đây đều dài quá khe thời gian của chúng khi "
+        "đọc lên.\n\n"
+        + "\n\n".join(blocks)
+        + "\n\nViết lại từng câu ngắn hơn, giữ đúng ý chính, vẫn là văn nói tự "
+        "nhiên.\nBỏ được chi tiết phụ thì bỏ. Đừng cắt cụt giữa câu.\n"
+        "Tiếng Việt tính âm tiết theo tiếng, cách nhau bằng khoảng trắng.\n"
+        "Giữ nguyên id của từng đoạn.\n\n"
+        'Trả về JSON: {"segments": [{"id": <id>, "text": "<câu đã viết lại>"}]}'
+    )
+
+
+def rewrite_shorter_batch(
+    llm: LLMAdapter, items: list[tuple[int, str, int]]
+) -> dict[int, str]:
+    """Viết lại NHIỀU câu trong một lượt gọi. Trả {id: câu mới}.
+
+    Một lượt cho cả loạt vì đây là chỗ tốn quota nhất của cả pipeline: gọi lẻ
+    thì giá một job phụ thuộc số câu vượt trần, và hạn mức miễn phí của Gemini
+    tính theo *số request* chứ không theo lượng chữ. `build_prompt` của chính
+    stage này đã batch vì cùng một lý do.
+
+    Id nào LLM bỏ sót thì không có trong kết quả — chỗ gọi giữ nguyên chữ cũ và
+    vẫn tính là đã dùng một lượt, nên vòng lặp vẫn dừng.
+    """
+    if not items:
+        return {}
+    answer = llm.complete_json(
+        build_rewrite_batch_prompt(items), REWRITE_BATCH_SCHEMA
+    )
+    out: dict[int, str] = {}
+    for row in answer.get("segments") or []:
+        text = (row.get("text") or "").strip()
+        if text and row.get("id") is not None:
+            out[int(row["id"])] = text
+    if not out:
+        raise ValueError(
+            "LLM trả về toàn câu rỗng khi được yêu cầu viết lại ngắn hơn"
+        )
+    return out

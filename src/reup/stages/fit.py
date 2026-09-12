@@ -23,7 +23,7 @@ from reup.core.stage import StageSpec
 from reup.fit import decide_fit
 from reup.media.audio import apply_tempo, build_timeline, duration_ms
 from reup.models import Transcript
-from reup.stages.translate import rewrite_shorter
+from reup.stages.translate import rewrite_shorter_batch
 from reup.stages.tts import LANG, write_manifest
 from reup.text import count_syllables
 from reup.translate import syllable_budget
@@ -31,20 +31,57 @@ from reup.translate import syllable_budget
 MAX_REVISIONS = 2
 
 
-def _fit_one(job: Job, seg, tts, llm, voice: str) -> dict:
-    """Lặp viết lại cho tới khi vừa khe hoặc hết ngân sách. Trả một dòng báo cáo."""
-    src = job.tts_segment(seg.id)
-    actual = duration_ms(src)
-    revision = 0
+def _rewrite_rounds(job: Job, segments, tts, llm, voice: str) -> tuple[dict, dict]:
+    """Viết lại theo VÒNG, mỗi vòng một lượt gọi LLM cho mọi câu còn dài.
 
-    while True:
-        decision = decide_fit(actual, seg.slot_ms, revision, MAX_REVISIONS)
-        if decision.action != "rewrite":
+    Trước đây mỗi câu một lượt gọi riêng, nên giá một job phụ thuộc số câu vượt
+    trần — chỗ tốn quota nhất của cả pipeline. Gộp theo vòng giữ nguyên luật
+    (`decide_fit` vẫn chặn ở `MAX_REVISIONS` cho từng câu) mà chỉ còn tối đa
+    `MAX_REVISIONS` lượt gọi cho cả video.
+
+    Vẫn phải chia vòng chứ không gộp hết vào một lượt: có viết lại rồi tổng hợp
+    và đo lại mới biết câu đã vừa khe chưa.
+
+    Trả (actual_ms theo id, số lần viết lại theo id).
+    """
+    actual = {seg.id: duration_ms(job.tts_segment(seg.id)) for seg in segments}
+    revision = {seg.id: 0 for seg in segments}
+
+    for _ in range(MAX_REVISIONS):
+        pending = [
+            seg
+            for seg in segments
+            if decide_fit(
+                actual[seg.id], seg.slot_ms, revision[seg.id], MAX_REVISIONS
+            ).action
+            == "rewrite"
+        ]
+        if not pending:
             break
-        # Đổi chữ là đòn duy nhất thật sự rút ngắn được (xem docstring).
-        seg.text = rewrite_shorter(llm, seg.text, syllable_budget(seg.slot_ms))
-        revision += 1
-        actual = tts.synthesize(seg.text, LANG, voice, src).actual_ms
+
+        # Đổi chữ là đòn duy nhất thật sự rút ngắn được (xem docstring module).
+        rewritten = rewrite_shorter_batch(
+            llm,
+            [(seg.id, seg.text, syllable_budget(seg.slot_ms)) for seg in pending],
+        )
+        for seg in pending:
+            new_text = rewritten.get(seg.id)
+            if new_text:
+                seg.text = new_text
+            # Tính lượt kể cả khi LLM bỏ sót câu này: không thì vòng lặp quay
+            # mãi với cùng một câu và cùng một kết quả.
+            revision[seg.id] += 1
+            actual[seg.id] = tts.synthesize(
+                seg.text, LANG, voice, job.tts_segment(seg.id)
+            ).actual_ms
+
+    return actual, revision
+
+
+def _fit_one(job: Job, seg, actual: int, revision: int) -> dict:
+    """Chốt quyết định cuối cho một câu đã qua vòng viết lại."""
+    src = job.tts_segment(seg.id)
+    decision = decide_fit(actual, seg.slot_ms, revision, MAX_REVISIONS)
 
     if decision.tempo > 1.0:
         fitted = src.with_name(f"{src.stem}_fitted.wav")
@@ -72,13 +109,18 @@ def run_with(job: Job, cfg: Config, tts, llm) -> None:
     if not translation.segments:
         raise ValueError(f"{job.translation_json} không có câu nào để khớp")
 
-    voice = cfg.tts.voice
+    # Giọng người dùng chọn ở chốt A, giống stage `tts`. Đọc thẳng cfg thì câu
+    # nào phải viết lại sẽ được tổng hợp bằng giọng mặc định, ra một video hai
+    # giọng khác nhau.
+    voice = job.overrides.get("voice") or cfg.tts.voice
     placements: list[tuple[int, Path]] = []
     report: list[dict] = []
     manifest: list[dict] = []
 
+    actual, revision = _rewrite_rounds(job, translation.segments, tts, llm, voice)
+
     for seg in translation.segments:
-        row = _fit_one(job, seg, tts, llm, voice)
+        row = _fit_one(job, seg, actual[seg.id], revision[seg.id])
         placements.append((seg.start_ms, row.pop("fitted")))
         report.append(row)
         manifest.append(

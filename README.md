@@ -95,6 +95,28 @@ nghe thử **một câu** — chưa chạy `tts` thì server tổng hợp ngay c
 | `subdetect` | 8.8s | | `export` | 19s |
 | `ocr` | 8.3s | | **tổng** | **~2 phút** |
 
+## Giá một job tính theo request LLM
+
+Hạn mức miễn phí của Gemini đếm theo **số request**, không theo lượng chữ, nên
+chỗ đáng tối ưu là số lượt gọi chứ không phải độ dài prompt.
+
+| Stage | Request |
+|---|---|
+| `reconcile` | 1, chỉ khi có xung đột cần xử |
+| `translate` | 1 — cả video một lượt |
+| `fit` | tối đa `MAX_REVISIONS` (2) — **một lượt cho cả loạt câu cần viết lại** |
+| `export` | 1 — tiêu đề, mô tả, hashtag |
+
+Tổng: **tối đa 5 request một job**, không phụ thuộc số câu. Trước đây `fit` gọi
+lẻ từng câu nên giá là `3 + 2 × số câu vượt trần` — một clip 4 câu có thể tốn 7
+request, và với 20 request/ngày thì chỉ làm được 2–3 video. Giờ `fit` viết lại
+theo **vòng**: mỗi vòng gom mọi câu còn dài vào một lượt gọi, đo lại, rồi mới
+vào vòng sau. Vẫn phải chia vòng vì có tổng hợp và đo lại mới biết câu đã vừa
+khe chưa.
+
+Hết hạn mức thì job dừng ở đúng stage đó và giữ nguyên mọi artifact đã làm —
+bấm **Chạy lại** trong Web UI là đi tiếp, không phải chạy lại Demucs và Whisper.
+
 ## Cấu hình
 
 Sửa `config.toml`. Vài knob đáng biết:
