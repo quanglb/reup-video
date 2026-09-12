@@ -231,3 +231,111 @@ def test_run_says_which_gate_is_waiting(tmp_path: Path, capsys, config_file: Pat
     # fetch sẽ hỏng vì url giả; điều cần kiểm là KHÔNG in bừa đường dẫn final.mp4
     assert "render/final.mp4" not in out.out
     assert code in (0, 1)
+
+
+# --- run --all: chạy cả hàng đợi (spec §9 `concurrency`) -----------------
+
+
+@pytest.fixture
+def one_stage(monkeypatch):
+    """Pipeline một stage, ghi ra file. Đủ để xem cả loạt có chạy không."""
+    from reup.core.stage import StageSpec
+
+    def run(job, cfg):
+        (job.root / "done.txt").write_text(job.id, encoding="utf-8")
+
+    spec = StageSpec(name="only", produces=("done.txt",), run=run)
+    monkeypatch.setattr("reup.cli.stages_for", lambda cfg: [spec])
+    return spec
+
+
+def _common(tmp_path: Path, config_file: Path) -> list[str]:
+    return [
+        "--config", str(config_file), "--jobs-dir", str(tmp_path / "jobs"),
+        "--db", str(tmp_path / "reup.db"),
+    ]
+
+
+def test_run_all_runs_every_pending_job(tmp_path: Path, capsys, config_file, one_stage):
+    common = _common(tmp_path, config_file)
+    for i in range(3):
+        main([*common, "add", f"https://a/{i}", "--lang", "zh"])
+    capsys.readouterr()
+
+    assert main([*common, "run", "--all"]) == 0
+
+    out = capsys.readouterr().out
+    assert out.count("done") == 3
+    assert len(list((tmp_path / "jobs").glob("*/done.txt"))) == 3
+
+
+def test_run_all_with_nothing_waiting_is_not_an_error(
+    tmp_path: Path, capsys, config_file, one_stage
+):
+    common = _common(tmp_path, config_file)
+    assert main([*common, "run", "--all"]) == 0
+    assert "không có job nào đang chờ" in capsys.readouterr().out
+
+
+def test_run_all_reports_the_thread_count_from_the_profile(
+    tmp_path: Path, capsys, config_file, one_stage
+):
+    """`profile.concurrency` phải thật sự tới được chỗ chạy, không chỉ nằm trong config."""
+    common = _common(tmp_path, config_file)
+    main([*common, "add", "https://a/1", "--lang", "zh"])
+    capsys.readouterr()
+
+    main([*common, "run", "--all"])
+
+    from reup.config import load_config
+
+    workers = load_config(config_file).profile.concurrency
+    assert f"{workers} luồng" in capsys.readouterr().out
+
+
+def test_run_all_survives_a_job_whose_directory_is_gone(
+    tmp_path: Path, capsys, config_file, one_stage
+):
+    import shutil
+
+    common = _common(tmp_path, config_file)
+    main([*common, "add", "https://a/1", "--lang", "zh"])
+    gone = capsys.readouterr().out.strip()
+    main([*common, "add", "https://a/2", "--lang", "zh"])
+    capsys.readouterr()
+    shutil.rmtree(tmp_path / "jobs" / gone)
+
+    assert main([*common, "run", "--all"]) == 0
+    assert len(list((tmp_path / "jobs").glob("*/done.txt"))) == 1
+
+
+def test_run_all_returns_error_when_a_job_fails(
+    tmp_path: Path, capsys, config_file, monkeypatch
+):
+    from reup.core.stage import StageSpec
+
+    def boom(job, cfg):
+        raise RuntimeError("hỏng")
+
+    monkeypatch.setattr(
+        "reup.cli.stages_for",
+        lambda cfg: [StageSpec(name="only", produces=("done.txt",), run=boom)],
+    )
+    common = _common(tmp_path, config_file)
+    main([*common, "add", "https://a/1", "--lang", "zh"])
+    capsys.readouterr()
+
+    assert main([*common, "run", "--all"]) == 1
+    assert "1 job hỏng" in capsys.readouterr().err
+
+
+def test_run_needs_either_a_job_id_or_all(tmp_path: Path, capsys, config_file):
+    common = _common(tmp_path, config_file)
+    assert main([*common, "run"]) == 2
+    assert "thiếu job_id" in capsys.readouterr().err
+
+
+def test_run_refuses_a_job_id_together_with_all(tmp_path: Path, capsys, config_file):
+    common = _common(tmp_path, config_file)
+    assert main([*common, "run", "j1", "--all"]) == 2
+    assert "một trong hai" in capsys.readouterr().err

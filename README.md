@@ -33,6 +33,7 @@ cp .env.example .env      # rồi điền GEMINI_API_KEY
 uv run reup discover --limit 10 --add     # quét YouTube Shorts
 uv run reup add "https://..." --lang zh   # hoặc dán link
 uv run reup run <job_id>
+uv run reup run --all                     # cả hàng đợi, song song theo concurrency
 uv run reup web                           # giao diện duyệt, cổng 8765
 uv run reup approve <job_id>
 uv run reup redo <job_id> --from asr
@@ -63,6 +64,8 @@ nghe thử **một câu** — chưa chạy `tts` thì server tổng hợp ngay c
 Sửa `config.toml`. Vài knob đáng biết:
 
 - `profile.active` — `air-16` hoặc `studio-24`.
+- `profile.concurrency` — số job chạy song song trong `reup run --all`. Một job
+  vẫn chạy tuần tự từng stage; knob này chỉ nói chạy mấy job cùng lúc.
 - `audio.mode = "drop_original"` — bỏ hẳn Demucs. Mất nhạc nền nhưng cắt được
   stage nặng; nút thoát hiểm khi máy quá ì.
 - `profile.video_bitrate` là **trần**, không phải mức cố định. `compose` chọn
@@ -101,7 +104,7 @@ trả về: cắt ở khoảng lặng dài hơn 400 ms, ở dấu chấm, hoặc
 uv run pytest
 ```
 
-484 test, không gọi mạng và không nạp model: fixture video sinh bằng ffmpeg lúc
+494 test, không gọi mạng và không nạp model: fixture video sinh bằng ffmpeg lúc
 chạy; Whisper, Demucs, yt-dlp, CapCut và Gemini đều được thay bằng hàm giả.
 
 ## Bản quyền

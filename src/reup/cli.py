@@ -8,7 +8,7 @@ from pathlib import Path
 from reup.config import load_config
 from reup.dotenv import load_dotenv
 from reup.core.job import create_job, load_job
-from reup.core.runner import run_job
+from reup.core.runner import run_job, run_jobs
 from reup.core.store import Store
 from reup.stages import stages_for
 
@@ -34,7 +34,11 @@ def _build_parser() -> argparse.ArgumentParser:
     disc.add_argument("--add", action="store_true", help="tạo job luôn, không chỉ liệt kê")
 
     run_cmd = sub.add_parser("run", help="chạy job tới stage cuối")
-    run_cmd.add_argument("job_id")
+    run_cmd.add_argument("job_id", nargs="?")
+    run_cmd.add_argument(
+        "--all", action="store_true",
+        help="chạy mọi job đang chờ, song song theo profile.concurrency",
+    )
 
     redo = sub.add_parser("redo", help="xóa artifact từ một stage trở đi để chạy lại")
     redo.add_argument("job_id")
@@ -88,7 +92,44 @@ def _cmd_discover(args, store: Store) -> int:
     return 0
 
 
+def _cmd_run_all(args, store: Store) -> int:
+    cfg = load_config(args.config)
+    rows = store.list_jobs("pending") + store.list_jobs("failed")
+    jobs = []
+    for row in rows:
+        try:
+            jobs.append(load_job(args.jobs_dir, row["id"]))
+        except FileNotFoundError:
+            # Thư mục job bị xoá tay nhưng dòng trong sổ cái còn — bỏ qua, đừng
+            # để một dòng mồ côi chặn cả loạt.
+            print(f"bỏ qua {row['id']}: không còn thư mục job", file=sys.stderr)
+
+    if not jobs:
+        print("không có job nào đang chờ")
+        return 0
+
+    workers = cfg.profile.concurrency
+    print(f"chạy {len(jobs)} job, {workers} luồng")
+    results = run_jobs(jobs, cfg, args.db, stages_for(cfg), workers)
+
+    for job_id, status in results.items():
+        print(f"{status:<13} {job_id}")
+    failed = sum(1 for s in results.values() if s == "failed")
+    if failed:
+        print(f"\n{failed} job hỏng. Xem chi tiết: reup status", file=sys.stderr)
+        return 1
+    return 0
+
+
 def _cmd_run(args, store: Store) -> int:
+    if args.all:
+        if args.job_id:
+            print("chọn một trong hai: `run <job_id>` hoặc `run --all`", file=sys.stderr)
+            return 2
+        return _cmd_run_all(args, store)
+    if not args.job_id:
+        print("thiếu job_id. Chạy cả loạt thì thêm `--all`", file=sys.stderr)
+        return 2
     try:
         job = load_job(args.jobs_dir, args.job_id)
     except FileNotFoundError as exc:

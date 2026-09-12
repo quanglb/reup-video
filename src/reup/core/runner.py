@@ -109,3 +109,45 @@ def run_job(job: Job, cfg: Config, store: Store, stages: list[StageSpec]) -> str
 
     store.upsert_job(job.id, job.source_url, "done", stage=None)
     return "done"
+
+
+def run_jobs(
+    jobs: list[Job],
+    cfg: Config,
+    db_path: Path,
+    stages: list[StageSpec],
+    workers: int = 1,
+) -> dict[str, str]:
+    """Chạy cả loạt job, tối đa `workers` cùng lúc. Trả {job_id: trạng thái}.
+
+    `discover --add` tạo hàng chục job một lúc, nên phải có đường chạy cả loạt;
+    `profile.concurrency` là chỗ khai chạy mấy job song song (1 trên Air, 2 trên
+    Studio — spec §9, R3).
+
+    Mỗi worker mở `Store` riêng: `sqlite3.Connection` không dùng chung giữa
+    thread được. Dữ liệu vẫn là một file, WAL lo phần ghi xen kẽ.
+
+    Job hỏng không làm đổ cả loạt — `run_job` trả `"failed"` chứ không ném.
+    """
+    workers = max(1, int(workers))
+    results: dict[str, str] = {}
+
+    def one(job: Job) -> tuple[str, str]:
+        store = Store(db_path)
+        try:
+            return job.id, run_job(job, cfg, store, stages)
+        finally:
+            store.close()
+
+    if workers == 1 or len(jobs) <= 1:
+        for job in jobs:
+            job_id, status = one(job)
+            results[job_id] = status
+        return results
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for job_id, status in pool.map(one, jobs):
+            results[job_id] = status
+    return results

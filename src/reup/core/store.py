@@ -39,7 +39,9 @@ CREATE TABLE IF NOT EXISTS seen (
 class Store:
     def __init__(self, db_path: Path) -> None:
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-        self._conn = sqlite3.connect(db_path)
+        # timeout: `run --all` chạy nhiều job song song, mỗi job một connection.
+        # Gặp lúc người khác đang ghi thì chờ chứ đừng ném "database is locked".
+        self._conn = sqlite3.connect(db_path, timeout=30.0)
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA journal_mode=WAL")
 
