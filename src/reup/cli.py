@@ -55,6 +55,7 @@ def _build_parser() -> argparse.ArgumentParser:
     approve.add_argument("--gate", choices=["a", "b"], default="a")
 
     sub.add_parser("status", help="liệt kê job")
+    sub.add_parser("doctor", help="kiểm tra môi trường trước khi chạy")
     sub.add_parser("benchmark", help="đo thời gian từng stage trên máy này")
 
     web = sub.add_parser("web", help="bật giao diện duyệt")
@@ -98,6 +99,14 @@ def _cmd_discover(args, store: Store) -> int:
     if not args.add:
         print(f"\n{len(fresh)} video mới. Thêm `--add` để tạo job.")
     return 0
+
+
+def _cmd_doctor(args, store: Store) -> int:
+    from reup.doctor import format_report, run_checks
+
+    checks = run_checks(load_config(args.config), args.jobs_dir)
+    print(format_report(checks))
+    return 1 if any(c.blocking for c in checks) else 0
 
 
 def _cmd_run_all(args, store: Store) -> int:
@@ -275,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
             "benchmark": _cmd_benchmark,
             "web": _cmd_web,
             "discover": _cmd_discover,
+            "doctor": _cmd_doctor,
         }[args.command](args, store)
     finally:
         store.close()

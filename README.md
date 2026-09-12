@@ -46,6 +46,7 @@ uv run reup run --all                     # cả hàng đợi, song song theo co
 uv run reup web                           # giao diện duyệt, cổng 8765
 uv run reup approve <job_id>
 uv run reup redo <job_id> --from asr
+uv run reup doctor                        # kiểm môi trường trước khi chạy
 uv run reup benchmark                     # đo từng stage trên máy này
 ```
 
@@ -116,6 +117,22 @@ khe chưa.
 
 Hết hạn mức thì job dừng ở đúng stage đó và giữ nguyên mọi artifact đã làm —
 bấm **Chạy lại** trong Web UI là đi tiếp, không phải chạy lại Demucs và Whisper.
+
+### Tách model theo stage
+
+`[llm.<stage>]` ghi đè `[llm]` cho riêng một stage; khoá không khai thì thừa kế.
+Bốn stage dùng LLM: `reconcile`, `translate`, `fit`, `export`. Bố cục đang dùng
+để Gemini chỉ còn gánh 1 request mỗi video:
+
+```toml
+[llm]
+provider = "gemini"
+model    = "gemini-3.6-flash"
+
+[llm.reconcile]   # và [llm.fit], [llm.export]
+provider = "ollama"
+model    = "qwen3:8b"
+```
 
 ### Chạy model local, bỏ hẳn hạn mức
 
