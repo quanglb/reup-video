@@ -7,16 +7,14 @@ Hai loại lỗi, hai ngân sách thử lại riêng (spec §12):
 """
 from __future__ import annotations
 
-import json
 import os
 import re
 import time
 from typing import Callable
 
-from reup.adapters.llm import LLMError
+from reup.adapters.llm import LLMError, complete_json_with_repair
 
 API_KEY_ENV = "GEMINI_API_KEY"
-_FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL)
 _RETRY_DELAY = re.compile(r"[\'\"]retryDelay[\'\"]:\s*[\'\"](\d+)s")
 # Chờ lâu hơn mức này thì thà báo lỗi còn hơn treo job.
 MAX_BACKOFF_S = 65.0
@@ -41,11 +39,6 @@ class MissingAPIKey(LLMError):
 
 class QuotaExhausted(LLMError):
     """Hết hạn mức theo NGÀY — thử lại trong cùng ngày cũng vô ích."""
-
-
-def _strip_fence(text: str) -> str:
-    m = _FENCE.match(text or "")
-    return m.group(1) if m else (text or "")
 
 
 class GeminiLLM:
@@ -112,27 +105,9 @@ class GeminiLLM:
         raise LLMError(f"Gemini lỗi mạng sau {self.net_retries} lần thử: {last}") from last
 
     def complete_json(self, prompt: str, schema: dict) -> dict:
-        current = prompt
-        last_err = ""
-        for _ in range(self.json_retries + 1):
-            raw = self._call_once(current, schema)
-            try:
-                parsed = json.loads(_strip_fence(raw))
-            except json.JSONDecodeError as exc:
-                last_err = str(exc)
-            else:
-                if isinstance(parsed, dict):
-                    return parsed
-                last_err = f"cần một object JSON, nhận {type(parsed).__name__}"
-
-            current = (
-                f"{prompt}\n\n"
-                "--- Lần trước bạn trả về thứ không đọc được ---\n"
-                f"Trả về: {raw[:500]}\n"
-                f"Lỗi: {last_err}\n"
-                "Lần này chỉ trả về JSON hợp lệ, không kèm chữ nào khác, "
-                "không bọc trong ```."
-            )
-        raise LLMError(
-            f"Gemini không trả được JSON hợp lệ sau {self.json_retries + 1} lần: {last_err}"
+        return complete_json_with_repair(
+            lambda p: self._call_once(p, schema),
+            prompt,
+            retries=self.json_retries,
+            who="Gemini",
         )

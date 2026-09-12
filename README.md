@@ -117,6 +117,29 @@ khe chưa.
 Hết hạn mức thì job dừng ở đúng stage đó và giữ nguyên mọi artifact đã làm —
 bấm **Chạy lại** trong Web UI là đi tiếp, không phải chạy lại Demucs và Whisper.
 
+### Chạy model local, bỏ hẳn hạn mức
+
+`llm.provider = "ollama"` đẩy cả bốn việc sang model chạy trên máy: không hạn
+mức, không API key, không cần mạng.
+
+```bash
+brew install ollama
+ollama serve &
+ollama pull qwen3:8b        # ~5GB, vừa RAM 16GB
+```
+
+rồi trong `config.toml`:
+
+```toml
+[llm]
+provider = "ollama"
+model    = "qwen3:8b"
+```
+
+Đổi lại chậm hơn, và **chất lượng tiếng Việt phụ thuộc model** — `translate` là
+chỗ đáng đo trước khi tin, vì nó quyết định sản phẩm. Ba việc còn lại (`fit`
+viết lại, `reconcile` chọn A hay B, `export` sinh metadata) nhẹ hơn nhiều.
+
 ## Cấu hình
 
 Sửa `config.toml`. Vài knob đáng biết:

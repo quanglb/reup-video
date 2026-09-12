@@ -8,7 +8,7 @@ from pathlib import Path
 AUDIO_MODES = ("separate", "drop_original")
 TTS_ENGINES = ("capcut", "stub")
 ASR_ENGINES = ("whisper", "capcut")
-LLM_PROVIDERS = ("gemini", "cassette")
+LLM_PROVIDERS = ("gemini", "ollama", "cassette")
 PLATFORMS = ("youtube", "tiktok", "douyin")
 
 
@@ -81,6 +81,9 @@ class LLMConfig:
     provider: str = "gemini"
     model: str = "gemini-3.6-flash"
     cassette: str = ""
+    # Chỉ dùng cho provider "ollama".
+    base_url: str = "http://localhost:11434"
+    timeout_s: float = 600.0
 
 
 @dataclass(frozen=True)

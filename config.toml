@@ -47,9 +47,14 @@ capcut_dir = "/Applications/_QuangLB/Workspace/Agent/capcut-tts-api"
 [asr]
 engine = "whisper"             # "whisper" | "capcut"
 
+# provider = "ollama" chạy model local: không hạn mức, không API key, không cần
+# mạng. Cần `ollama serve` đang chạy và đã `ollama pull <model>`.
+# Đổi lại chậm hơn và chất lượng tiếng Việt phụ thuộc model — đo trước khi tin.
 [llm]
-provider = "gemini"            # "gemini" | "cassette"
-model    = "gemini-3.6-flash"
+provider  = "gemini"            # "gemini" | "ollama" | "cassette"
+model     = "gemini-3.6-flash"
+base_url  = "http://localhost:11434"   # chỉ dùng cho ollama
+timeout_s = 600.0                      # chỉ dùng cho ollama
 
 # YouTube bắt giải "JS challenge" mới trả link tải. yt-dlp cần một JS runtime
 # (deno, node, hoặc bun) và script giải challenge tải từ GitHub. Thiếu chúng thì

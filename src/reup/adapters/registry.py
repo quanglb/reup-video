@@ -33,6 +33,14 @@ def make_llm(cfg: Config):
         from reup.adapters.gemini import GeminiLLM
 
         return GeminiLLM(model=cfg.llm.model)
+    if provider == "ollama":
+        from reup.adapters.ollama import OllamaLLM
+
+        return OllamaLLM(
+            model=cfg.llm.model,
+            base_url=cfg.llm.base_url,
+            timeout_s=cfg.llm.timeout_s,
+        )
     if provider == "cassette":
         from reup.adapters.cassette_llm import CassetteLLM
 
