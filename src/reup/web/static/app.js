@@ -195,6 +195,23 @@
       });
     });
   }
+
+  // Chép script xuất JSON của tab Douyin
+  const copyBtn = document.getElementById('copyDouyinScript');
+  const script = document.getElementById('douyinScript');
+  if (copyBtn && script) {
+    copyBtn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(script.value);
+      } catch (e) {
+        script.closest('details').open = true;
+        script.select();
+        document.execCommand('copy');
+      }
+      copyBtn.textContent = 'Đã chép ✓';
+      setTimeout(() => { copyBtn.textContent = 'Chép script'; }, 2000);
+    });
+  }
 })();
 
 (function () {

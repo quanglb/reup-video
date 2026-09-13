@@ -92,7 +92,14 @@ def test_tiktok_without_cookies_blames_the_login_wall(monkeypatch):
 def test_douyin_error_mentions_the_china_ip_requirement(monkeypatch):
     fake_ytdlp(monkeypatch, "", code=1, stderr="403")
     with pytest.raises(DiscoverError, match="IP ra được Trung Quốc"):
-        douyin.DouyinSource("user123").list_trending("VN", 5)
+        douyin.DouyinSource("MS4wLjABAAAAuser123").list_trending("VN", 5)
+
+
+def test_douyin_keyword_points_to_the_export_flow():
+    """Gõ "抖音" vào ô quét từng ra "Unsupported URL" của yt-dlp — không chỉ được
+    người dùng sang đường đúng là nạp file xuất."""
+    with pytest.raises(ValueError, match="không tìm theo từ khoá"):
+        douyin.feed_url("抖音")
 
 
 def test_missing_ytdlp_is_reported_plainly(monkeypatch):

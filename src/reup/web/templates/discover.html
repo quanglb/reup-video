@@ -3,7 +3,7 @@
 <form class="scan" id="scanForm" method="get" action="/discover">
   <input type="hidden" name="platform" value="{{ platform }}">
   <input type="hidden" name="run" value="1">
-  <input name="q" id="scanQueryInput" value="{{ q }}" placeholder="hashtag, @tên, từ khóa hot hoặc URL" list="suggest-list" autocomplete="off">
+  <input name="q" id="scanQueryInput" value="{{ q }}" placeholder="{{ 'file .json đã nạp, sec_uid hoặc URL kênh' if platform == 'douyin' else 'hashtag, @tên, từ khóa hot hoặc URL' }}" list="suggest-list" autocomplete="off">
   <datalist id="suggest-list">
     {% if platform == 'youtube' %}
       <option value="抖音">Douyin / TikTok Trung Quốc</option>
@@ -25,8 +25,13 @@
       <option value="#chinesefood">#chinesefood</option>
       <option value="#douyinviral">#douyinviral</option>
       <option value="#funny">#funny</option>
+    {% elif platform == 'douyin' %}
+      {% for f in douyin_exports %}
+        <option value="{{ f.path }}">{{ f.author }} · {{ f.count }} video · {{ f.date }}</option>
+      {% endfor %}
     {% endif %}
   </datalist>
+  <input name="start" type="number" min="1" value="{{ start }}" title="từ vị trí (đếm từ 1, sau khi sắp)">
   <input name="limit" type="number" min="1" max="50" value="{{ limit }}" title="số video">
   <select name="sort" title="sắp xếp">
     {% for s in sorts %}
@@ -80,11 +85,44 @@
       </div>
     </div>
   {% else %}
+    {% if douyin_exports %}
     <div class="suggest-section">
-      <div class="suggest-title">💡 <b>Cách lấy video Douyin:</b></div>
-      <div class="suggest-tips">
-        <span>Nhập <code>sec_uid</code> (User ID) của tài khoản Douyin hoặc dán link video / profile trực tiếp.</span>
+      <div class="suggest-title">📂 <b>File đã nạp (bấm để quét lại):</b></div>
+      <div class="suggest-chips">
+        {% for f in douyin_exports %}
+          <button type="button" class="chip" data-q="{{ f.path }}" title="{{ f.path }}">
+            <span>{{ f.author }}</span> <small>{{ f.count }} video · {{ f.date }}</small>
+          </button>
+        {% endfor %}
       </div>
+    </div>
+    {% endif %}
+    <div class="suggest-section">
+      <div class="suggest-title">🔥 <b>Tìm kênh Douyin theo chủ đề (mở tab mới, vào kênh rồi chạy script):</b></div>
+      <div class="suggest-chips">
+        {% for t in douyin_topics %}
+          <a class="chip" href="{{ t.url }}" target="_blank" rel="noopener"><span>{{ t.q }}</span> <small>{{ t.label }}</small></a>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="suggest-section dy-import">
+      <div class="suggest-title">💡 <b>Lấy video Douyin qua trình duyệt đã đăng nhập:</b></div>
+      <ol class="suggest-tips">
+        <li>Mở trang kênh <code>douyin.com/user/…</code>, F12 → Console.</li>
+        <li>
+          <button type="button" class="chip" id="copyDouyinScript">Chép script</button>
+          rồi dán vào Console, Enter. Trình duyệt tải về <code>douyin_….json</code>.
+        </li>
+        <li>Nạp file đó ở đây, sau đó sắp theo lượt thích và chọn vị trí bắt đầu ở ô phía trên.</li>
+      </ol>
+      <details>
+        <summary>Xem script</summary>
+        <textarea id="douyinScript" readonly rows="10">{{ douyin_script }}</textarea>
+      </details>
+      <form method="post" action="/discover/douyin/import" enctype="multipart/form-data" class="dy-upload">
+        <input type="file" name="file" accept=".json,application/json" required>
+        <button class="primary">Nạp file</button>
+      </form>
     </div>
   {% endif %}
 </div>
@@ -95,7 +133,7 @@
   {% elif platform == 'tiktok' %}
     Hashtag hoặc <code>@tên</code>. TikTok thường đòi cookie — xem <code>[discover.tiktok]</code>.
   {% else %}
-    Id người dùng hoặc URL. Douyin cần cookie và IP ra được Trung Quốc.
+    Đường dẫn file <code>.json</code> đã nạp (ưu tiên), hoặc id người dùng / URL — hai kiểu sau đi qua yt-dlp, cần cookie và IP ra được Trung Quốc.
   {% endif %}
 </p>
 
@@ -110,8 +148,13 @@
   </p>
 {% else %}
 <p class="scanned">
-  {{ rows | length }} video · nguồn <b>{{ result.kind }}</b>
-  <a href="{{ result.feed_url }}" target="_blank" rel="noopener">{{ result.feed_url }}</a>
+  {{ rows | length }} video{% if result.total > rows | length %} (từ vị trí {{ start }} / {{ result.total }}){% endif %}
+  · nguồn <b>{{ result.kind }}</b>
+  {% if result.feed_url.startswith('http') %}
+    <a href="{{ result.feed_url }}" target="_blank" rel="noopener">{{ result.feed_url }}</a>
+  {% else %}
+    <code>{{ result.feed_url }}</code>
+  {% endif %}
   {% if result.hidden %}· ẩn {{ result.hidden }} video đã xử lý{% endif %}
 </p>
 <div class="cards">
@@ -123,9 +166,12 @@
     </div>
     <h3 title="{{ c.title }}">{{ c.title }}</h3>
     <p class="meta">
+      {% if c.position %}#{{ c.position }} ·{% endif %}
       {{ c.duration_ms | duration }}
       {% if c.uploader %}· {{ c.uploader }}{% endif %}
       {% if c.view_count %}· {{ c.view_count | views }} lượt xem{% endif %}
+      {% if c.like_count %}· {{ c.like_count | views }} ♥{% endif %}
+      {% if c.share_count %}· {{ c.share_count | views }} chia sẻ{% endif %}
     </p>
     <div class="card-actions">
       {% if c.job_id %}
@@ -135,6 +181,10 @@
           <input type="hidden" name="url" value="{{ c.url }}">
           <input type="hidden" name="platform" value="{{ c.platform }}">
           <input type="hidden" name="video_id" value="{{ c.video_id }}">
+          {% if c.media_url %}
+            <input type="hidden" name="media_url" value="{{ c.media_url }}">
+            <input type="hidden" name="title" value="{{ c.title }}">
+          {% endif %}
           <select name="lang">
             <option value="auto">tự nhận</option>
             <option value="zh" {{ 'selected' if c.platform == 'douyin' }}>Trung</option>

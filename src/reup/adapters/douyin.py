@@ -5,6 +5,9 @@ Douyin khó hơn TikTok một bậc: ngoài cookie còn cần IP ra được Tru
 hoặc nguyên một URL người dùng dán vào; Douyin không mở trang hashtag cho
 khách nên `query` hầu như luôn là user hoặc URL.
 
+Thực tế yt-dlp gần như không quét được Douyin. Đường chạy được là `query` trỏ
+tới file `.json` xuất từ console trình duyệt — xem `douyin_export.py`.
+
 Player nhúng: `https://open.douyin.com/player/video?vid=<id>&autoplay=0`. Trang
 này chỉ chạy khi `vid` là item id công khai — có video nhúng ra ô trắng, nên UI
 luôn kèm link mở thẳng sang Douyin.
@@ -22,6 +25,7 @@ from reup.adapters.manual import ManualSource
 from reup.adapters.source import Candidate, FetchResult
 
 PLATFORM = "douyin"
+SEC_UID_PREFIX = "MS4wLjABAAAA"
 
 
 def feed_url(query: str) -> str:
@@ -32,6 +36,14 @@ def feed_url(query: str) -> str:
         )
     if q.startswith("http://") or q.startswith("https://"):
         return q
+    # sec_uid luôn bắt đầu bằng tiền tố base64 này. Từ khoá như "抖音" mà ghép
+    # thành /user/抖音 thì yt-dlp chỉ báo "Unsupported URL", không nói lỗi ở đâu.
+    if not q.startswith(SEC_UID_PREFIX):
+        raise ValueError(
+            f"Douyin không tìm theo từ khoá ({q!r}). Nạp file .json xuất từ trang "
+            "kênh (hướng dẫn ở khung trên), hoặc nhập sec_uid "
+            f"({SEC_UID_PREFIX}…) / URL kênh."
+        )
     return f"https://www.douyin.com/user/{q}"
 
 
@@ -77,11 +89,26 @@ class DouyinSource:
         self.cookies_from_browser = cookies_from_browser
         self.cookie_file = cookie_file
 
+    @property
+    def lists_all(self) -> bool:
+        """File xuất đọc tại chỗ nên trả cả kênh; người gọi tự sắp và cắt."""
+        from reup.adapters.douyin_export import is_export
+
+        return is_export(self.query)
+
     def describe(self) -> tuple[str, str]:
         q = (self.query or "").strip()
+        if self.lists_all:
+            return q, "file xuất"
         return feed_url(self.query), "URL" if q.startswith("http") else "kênh"
 
     def list_trending(self, region: str, limit: int) -> list[Candidate]:
+        if self.lists_all:
+            from pathlib import Path
+
+            from reup.adapters.douyin_export import load_export
+
+            return load_export(Path(self.query.strip()))
         args = cookie_args(self.cookies_from_browser, self.cookie_file)
         try:
             entries = dump_flat(feed_url(self.query), limit, args)

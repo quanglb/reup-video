@@ -36,6 +36,14 @@ def _build_parser() -> argparse.ArgumentParser:
             "hoặc URL. Trống thì lấy từ [discover.<nền tảng>]"
         ),
     )
+    disc.add_argument(
+        "--sort", default="", choices=["", "likes", "views", "short"],
+        help="likes/views chỉ có số liệu với file xuất Douyin (likes) hoặc YouTube (views)",
+    )
+    disc.add_argument(
+        "--start", type=int, default=1,
+        help="lấy từ vị trí này (đếm từ 1, trên danh sách đã sắp)",
+    )
     disc.add_argument("--lang", default="auto")
     disc.add_argument("--add", action="store_true", help="tạo job luôn, không chỉ liệt kê")
 
@@ -72,12 +80,16 @@ def _cmd_add(args, store: Store) -> int:
 
 
 def _cmd_discover(args, store: Store) -> int:
-    from reup.adapters.crawl import DiscoverError
+    from reup.adapters.crawl import DiscoverError, order_and_slice
+    from reup.adapters.douyin_export import save_direct
     from reup.adapters.registry import make_source
 
     try:
         source = make_source(load_config(args.config), args.platform, args.query)
-        found = source.list_trending(args.region, args.limit)
+        want = max(1, args.start) - 1 + max(1, args.limit)
+        found = order_and_slice(
+            source.list_trending(args.region, want), args.sort, args.start, args.limit
+        )
     except (DiscoverError, ValueError) as exc:
         print(str(exc), file=sys.stderr)
         return 1
@@ -93,8 +105,15 @@ def _cmd_discover(args, store: Store) -> int:
             job = create_job(args.jobs_dir, c.url, args.lang)
             store.upsert_job(job.id, job.source_url, "pending")
             store.mark_seen(c.platform, c.video_id)
+            if c.media_url:
+                save_direct(
+                    job.root, c.media_url, video_id=c.video_id, url=c.url,
+                    title=c.title, uploader=c.uploader, duration_ms=c.duration_ms,
+                    like_count=c.like_count, share_count=c.share_count,
+                )
             mark = f"  -> {job.id}"
-        print(f"{c.duration_ms // 1000:>4}s  {c.title[:56]:<58}{c.url}{mark}")
+        likes = f"{c.like_count:>9}♥  " if c.like_count else ""
+        print(f"{c.duration_ms // 1000:>4}s  {likes}{c.title[:56]:<58}{c.url}{mark}")
 
     if not args.add:
         print(f"\n{len(fresh)} video mới. Thêm `--add` để tạo job.")

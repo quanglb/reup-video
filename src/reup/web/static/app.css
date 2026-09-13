@@ -81,7 +81,14 @@ h1 { font-size: 20px; display: flex; gap: 10px; align-items: center; }
 /* --- tab quét nguồn ------------------------------------------------------- */
 .scan { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
 .scan input[name="q"] { flex: 1; min-width: 240px; max-width: 480px; }
-.scan input[name="limit"] { width: 72px; }
+.scan input[name="limit"], .scan input[name="start"] { width: 72px; }
+.dy-import ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.dy-import textarea {
+  width: 100%; box-sizing: border-box; margin-top: 8px; font: 12px/1.4 ui-monospace, monospace;
+  background: #11151b; color: var(--fg); border: 1px solid var(--line); border-radius: 6px;
+}
+.dy-import summary { cursor: pointer; font-size: 13px; color: var(--dim); }
+.dy-upload { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .scan .hint { color: var(--dim); font-size: 13px; }
 .scan .hint code { color: var(--fg); }
 .scan-error {
@@ -107,6 +114,7 @@ h1 { font-size: 20px; display: flex; gap: 10px; align-items: center; }
   background: #253346; border-color: var(--accent); color: #fff;
   transform: translateY(-1px);
 }
+a.chip { text-decoration: none; }
 .chip span { font-weight: 600; color: #60a5fa; }
 .chip small { color: var(--dim); font-size: 11px; }
 .chip.hash {

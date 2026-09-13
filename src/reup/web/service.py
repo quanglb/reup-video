@@ -8,6 +8,7 @@ import json
 from dataclasses import dataclass
 from pathlib import Path
 
+from reup.adapters.crawl import SORTS, order_and_slice
 from reup.config import Config
 from reup.core.job import Job, load_job
 from reup.core.store import Store
@@ -366,6 +367,10 @@ class CandidateRow:
     published_at: str
     seen: bool
     job_id: str
+    like_count: int = 0
+    share_count: int = 0
+    position: int = 0
+    media_url: str = ""
 
 
 def duration_label(ms: int) -> str:
@@ -385,19 +390,13 @@ def view_label(n: int) -> str:
     return str(n or "")
 
 
-SORTS = {
-    "": ("thứ tự trang", None),
-    "views": ("lượt xem", lambda c: -c.view_count),
-    "short": ("ngắn nhất", lambda c: c.duration_ms or 10**9),
-}
-
-
 @dataclass(frozen=True)
 class ScanResult:
     rows: list[CandidateRow]
     feed_url: str
     kind: str
     hidden: int  # số video bị ẩn vì đã xử lý rồi
+    total: int = 0  # số video nguồn trả về trước khi cắt theo vị trí
 
 
 def discover(
@@ -408,6 +407,7 @@ def discover(
     limit: int = 12,
     sort: str = "",
     hide_seen: bool = False,
+    start: int = 1,
 ) -> ScanResult:
     """Quét một nền tảng và đánh dấu video nào đã xử lý rồi.
 
@@ -423,14 +423,16 @@ def discover(
     if sort not in SORTS:
         raise ValueError(f"không có kiểu sắp xếp {sort!r}. Chọn: {sorted(SORTS)}")
 
+    if start < 1:
+        raise ValueError(f"vị trí bắt đầu phải từ 1, nhận {start}")
+
     source = make_source(cfg, platform, query)
-    found = source.list_trending("VN", max(1, limit))
+    # Crawler yt-dlp chỉ lấy đủ tới vị trí cần; file xuất thì đọc cả kênh.
+    want = start - 1 + max(1, limit)
+    everything = source.list_trending("VN", want)
+    found = order_and_slice(everything, sort, start, limit)
     feed, kind = source.describe()
     by_url = {r["url"]: r["id"] for r in store.list_jobs()}
-
-    key = SORTS[sort][1]
-    if key is not None:
-        found = sorted(found, key=key)
 
     rows = [
         CandidateRow(
@@ -446,10 +448,18 @@ def discover(
             published_at=c.published_at,
             seen=store.is_seen(c.platform, c.video_id),
             job_id=by_url.get(c.url, ""),
+            like_count=c.like_count,
+            share_count=c.share_count,
+            position=c.position,
+            media_url=c.media_url,
         )
         for c in found
     ]
     kept = [r for r in rows if not (r.seen or r.job_id)] if hide_seen else rows
     return ScanResult(
-        rows=kept, feed_url=feed, kind=kind, hidden=len(rows) - len(kept)
+        rows=kept,
+        feed_url=feed,
+        kind=kind,
+        hidden=len(rows) - len(kept),
+        total=len(everything),
     )

@@ -81,6 +81,31 @@ def dump_flat(
     return out
 
 
+# Nền tảng không nhận tham số sắp xếp qua yt-dlp, nên sắp tại chỗ.
+SORTS = {
+    "": ("thứ tự trang", None),
+    "likes": ("lượt thích", lambda c: -c.like_count),
+    "views": ("lượt xem", lambda c: -c.view_count),
+    "short": ("ngắn nhất", lambda c: c.duration_ms or 10**9),
+}
+
+
+def order_and_slice(found: list, sort: str, start: int, limit: int) -> list:
+    """Sắp rồi mới cắt: "từ vị trí 5, lấy 10 video nhiều like nhất" phải xếp
+    hạng trên cả danh sách, không phải trên 10 video đầu kênh.
+
+    `start` đếm từ 1 trên danh sách ĐÃ sắp — để trống sắp xếp thì trùng với vị
+    trí trên kênh, như script "tải từ vị trí mong muốn" trong douyin-doc.
+    """
+    if sort not in SORTS:
+        raise ValueError(f"không có kiểu sắp xếp {sort!r}. Chọn: {sorted(SORTS)}")
+    if start < 1:
+        raise ValueError(f"vị trí bắt đầu phải từ 1, nhận {start}")
+    key = SORTS[sort][1]
+    ordered = sorted(found, key=key) if key is not None else list(found)
+    return ordered[start - 1 : start - 1 + max(1, limit)]
+
+
 def cookie_args(browser: str | None, cookie_file: str | None) -> list[str]:
     """TikTok và Douyin chặn khách vãng lai; cookie là đường duy nhất qua được."""
     if cookie_file:

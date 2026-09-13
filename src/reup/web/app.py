@@ -5,9 +5,12 @@ Chỉ đọc ghi trạng thái job; mọi logic xử lý nằm ở `core` và `s
 from __future__ import annotations
 
 import json
+import re
+from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlencode
 
-from fastapi import FastAPI, Form, HTTPException, Request
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -130,6 +133,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         sort: str = "",
         hide_seen: int = 0,
         run: int = 0,
+        start: int = 1,
     ):
         """Tab quét nguồn. Mặc định KHÔNG quét — mở tab là mở ngay, không chờ.
 
@@ -147,12 +151,66 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             s = store()
             try:
                 result = service.discover(
-                    s, c, platform, q, limit or opts.limit, sort, bool(hide_seen)
+                    s, c, platform, q, limit or opts.limit, sort, bool(hide_seen),
+                    start=start,
                 )
             except (DiscoverError, ValueError) as exc:
                 error = str(exc)
             finally:
                 s.close()
+        return render_discover(
+            request, platform, q or opts.query, limit or opts.limit, sort,
+            bool(hide_seen), bool(run), start, result, error,
+        )
+
+    def exports_dir() -> Path:
+        # Cạnh thư mục jobs chứ không bên trong: jobs/ chỉ chứa thư mục job.
+        return app.state.jobs_dir.parent / "douyin-exports"
+
+    @app.post("/discover/douyin/import", response_class=HTMLResponse)
+    async def douyin_import(request: Request, file: UploadFile = File(...)):
+        """Nạp file JSON xuất từ console Douyin, lưu lại, rồi mở kết quả.
+
+        Lưu ra đĩa thay vì giữ trong bộ nhớ để URL kết quả (sắp theo like, đổi
+        vị trí bắt đầu) bấm lại được mà không phải nạp lại file.
+        """
+        from reup.adapters.douyin_export import parse_export
+
+        body = await file.read()
+        c = cfg()
+        opts = c.discover.for_platform("douyin")
+        try:
+            raw = json.loads(body.decode("utf-8"))
+            parse_export(raw)
+        except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+            return render_discover(
+                request, "douyin", "", opts.limit, "", False, True, 1, None,
+                f"file {file.filename or ''} không nạp được: {exc}",
+                status_code=400,
+            )
+        uid = re.sub(r"[^A-Za-z0-9_-]", "", str(raw.get("sec_user_id") or ""))[:24]
+        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+        out = exports_dir() / f"douyin_{uid or 'kenh'}_{stamp}.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(body)
+        query = urlencode({"platform": "douyin", "run": 1, "q": str(out.resolve())})
+        return RedirectResponse(f"/discover?{query}", status_code=303)
+
+    def douyin_suggestions() -> dict:
+        from reup.adapters import douyin_export as dx
+
+        return {
+            "douyin_exports": dx.recent_exports(exports_dir()),
+            "douyin_topics": [
+                {"q": kw, "label": label, "url": dx.search_url(kw)}
+                for kw, label in dx.SEARCH_TOPICS
+            ],
+        }
+
+    def render_discover(
+        request, platform, q, limit, sort, hide_seen, ran, start, result, error,
+        status_code: int = 200,
+    ):
         return templates.TemplateResponse(
             request,
             "discover.html",
@@ -162,19 +220,27 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 ],
                 "platform": platform,
                 "tab": "discover",
-                "q": q or opts.query,
-                "limit": limit or opts.limit,
-                "ran": bool(run),
+                "q": q,
+                "limit": limit,
+                "start": start,
+                "ran": ran,
                 "result": result,
                 "rows": result.rows if result else [],
                 "sort": sort,
                 "sorts": [
                     {"id": k, "label": v[0]} for k, v in service.SORTS.items()
                 ],
-                "hide_seen": bool(hide_seen),
+                "hide_seen": hide_seen,
                 "error": error,
+                **(douyin_suggestions() if platform == "douyin" else {}),
+                "douyin_script": (
+                    (HERE / "static" / "douyin_export.js").read_text(encoding="utf-8")
+                    if platform == "douyin"
+                    else ""
+                ),
                 "title": f"Quét {service.PLATFORM_LABELS[platform]}",
             },
+            status_code=status_code,
         )
 
     @app.post("/discover/pick")
@@ -183,6 +249,8 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         lang: str = Form("auto"),
         platform: str = Form(""),
         video_id: str = Form(""),
+        media_url: str = Form(""),
+        title: str = Form(""),
     ):
         """Chọn một video từ tab quét: tạo job, đánh dấu đã xử lý, và chạy luôn.
 
@@ -192,7 +260,13 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         Chạy luôn vì "chọn video này" nghĩa là "làm video này": tạo job rồi bắt
         người dùng nhảy ra terminal gõ `reup run` là cắt đôi một thao tác duy nhất.
         """
+        if media_url and not media_url.startswith(("https://", "http://")):
+            raise HTTPException(status_code=400, detail="link tải phải là http(s)")
         job = create_job(app.state.jobs_dir, url.strip(), lang)
+        if media_url:
+            from reup.adapters.douyin_export import save_direct
+
+            save_direct(job.root, media_url, video_id=video_id, url=url.strip(), title=title)
         s = store()
         try:
             s.upsert_job(job.id, job.source_url, "pending")
