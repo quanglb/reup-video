@@ -2,7 +2,7 @@
 
 Thứ tự filter theo spec §7.3 và là bắt buộc:
 
-    blur vùng sub gốc → transform → dán sub Việt → encode
+    che vùng sub gốc (blur + phủ trắng, theo từng câu) → transform → dán sub Việt → encode
 
 `hflip` sau khi dán phụ đề sẽ lật ngược chữ tiếng Việt. Sub gốc bị lật theo
 transform thì không sao vì nó đã bị blur mất rồi.
@@ -18,17 +18,32 @@ import json
 from reup.config import Config, TransformConfig, parse_bitrate
 from reup.core.job import Job
 from reup.core.stage import StageSpec
+from reup.textcolor import BLACK, from_hex
 from reup.media.ffmpeg import has_filter, probe, run_ffmpeg
 from reup.models import Transcript
-from reup.subtitle import Overlay, find_font, render_line, vertical_position
+from reup.subtitle import (
+    SIDE_MARGIN_RATIO,
+    Overlay,
+    find_font,
+    place_in_box,
+    render_fitted,
+    render_line,
+    vertical_position,
+)
 
 # VideoToolbox kém hiệu quả hơn libx264 ở cùng bitrate (spec R6), nên phải cấp
 # thêm chỗ so với nguồn. 1.6x là mức bù đủ mà không phình file.
 HEADROOM = 1.6
-# Blur đủ mạnh để chữ gốc không đọc được, kèm giảm sáng cho phần rìa đỡ chói.
-# Không cần đẹp: phụ đề Việt sẽ đè gần kín vùng này (spec §7.2).
+# Che chữ gốc kiểu kính mờ: blur nhiều lượt rồi phủ một lớp trắng rất mỏng (10%).
+# Blur mới là thứ xoá nét chữ; lớp trắng chỉ ám nhẹ cho vùng che trông như
+# tấm kính mờ thay vì một mảng nhoè bẩn, và không lấn át hình phía sau.
 BLUR_RADIUS = 20
-BLUR_DARKEN = -0.25
+BLUR_PASSES = 3
+COVER_COLOR = "white"
+COVER_OPACITY = 0.1
+# Đệm quanh hộp OCR: hộp của Vision ôm sát nét chữ, không đệm là lộ viền chữ.
+COVER_PAD_RATIO = 0.3
+COVER_PAD_MIN = 10
 # Sàn cho khung 1080x1920: dưới mức này thì cảnh động bắt đầu vỡ khối.
 FLOOR_BPS = 2_500_000
 
@@ -74,8 +89,10 @@ def blur_radius_for(w: int, h: int, wanted: int = BLUR_RADIUS) -> int:
 def build_blur_chain(regions: list[dict]) -> tuple[str, str]:
     """Chuỗi filter che các vùng chữ gốc. Trả (chuỗi, nhãn đầu ra).
 
-    Mỗi vùng một cặp crop -> boxblur -> overlay, nối tiếp nhau. Toạ độ tính
-    trên khung GỐC nên khâu này phải chạy trước mọi phép biến hình.
+    Mỗi vùng một cặp crop -> boxblur -> phủ trắng -> overlay, nối tiếp nhau.
+    Vùng có `start_ms`/`end_ms` chỉ được che trong khoảng đó: mỗi câu gốc một
+    khung riêng, đổi theo câu. Toạ độ tính trên khung GỐC nên khâu này phải
+    chạy trước mọi phép biến hình.
     """
     if not regions:
         return "", "[0:v]"
@@ -87,11 +104,16 @@ def build_blur_chain(regions: list[dict]) -> tuple[str, str]:
         radius = blur_radius_for(r["w"], r["h"])
         parts.append(f"{current}split=2[base{i}][reg{i}]")
         parts.append(
-            f"[reg{i}]crop={geom},boxblur={radius}:2,"
-            f"eq=brightness={BLUR_DARKEN}[bl{i}]"
+            f"[reg{i}]crop={geom},boxblur={radius}:{BLUR_PASSES},"
+            f"drawbox=x=0:y=0:w=iw:h=ih:color={COVER_COLOR}@{COVER_OPACITY}:t=fill[bl{i}]"
         )
+        enable = ""
+        if "start_ms" in r and "end_ms" in r:
+            enable = (
+                f":enable='between(t,{r['start_ms'] / 1000:.3f},{r['end_ms'] / 1000:.3f})'"
+            )
         nxt = f"[cl{i}]"
-        parts.append(f"[base{i}][bl{i}]overlay={r['x']}:{r['y']}{nxt}")
+        parts.append(f"[base{i}][bl{i}]overlay={r['x']}:{r['y']}{enable}{nxt}")
         current = nxt
     return ";".join(parts) + ";", current
 
@@ -161,27 +183,113 @@ def _escape_filter_path(path: str) -> str:
     return path.replace(":", r"\:").replace("'", r"\'")
 
 
-def load_blur_regions(job: Job) -> list[dict]:
-    """Vùng cần che, đọc từ subrect.json. Chưa chạy subdetect thì không che gì."""
+def _static_regions(job: Job) -> list[dict]:
+    """Vùng cố định từ subrect.json (hợp mọi hộp chữ của cả video)."""
     if not job.subrect_json.exists():
         return []
     raw = json.loads(job.subrect_json.read_text(encoding="utf-8"))
     return [r for r in raw.get("regions", []) if r["kind"] in ("subtitle", "watermark")]
 
 
+def load_cover_windows(job: Job) -> list[dict]:
+    """Mỗi câu gốc một khung che: đúng hộp chữ của câu, đúng lúc câu hiện.
+
+    Đọc từ ocr.json (bản mới có `box`). OCR lấy mẫu 2 khung/giây nên mốc thời
+    gian lệch tối đa nửa bước — nới mỗi đầu nửa bước để không lộ chữ lúc chuyển
+    câu. Job cũ chưa có `box` thì trả rỗng, compose lùi về vùng cố định.
+    """
+    if not job.ocr_json.exists():
+        return []
+    raw = json.loads(job.ocr_json.read_text(encoding="utf-8"))
+    lines = [line for line in raw.get("lines", []) if line.get("box")]
+    if not lines:
+        return []
+    vw, vh = raw.get("video_w"), raw.get("video_h")
+    if not (vw and vh):
+        info = probe(job.source_video)
+        vw, vh = info.width, info.height
+    half = int(raw.get("step_ms") or 500) // 2
+
+    windows = []
+    for line in lines:
+        b = line["box"]
+        pad_y = max(COVER_PAD_MIN, round(b["h"] * COVER_PAD_RATIO))
+        pad_x = max(COVER_PAD_MIN, round(b["h"] * COVER_PAD_RATIO * 1.5))
+        x, y = max(0, b["x"] - pad_x), max(0, b["y"] - pad_y)
+        windows.append({
+            "x": x,
+            "y": y,
+            "w": min(vw - x, b["w"] + pad_x * 2),
+            "h": min(vh - y, b["h"] + pad_y * 2),
+            "kind": "subtitle",
+            "start_ms": max(0, line["start_ms"] - half),
+            "end_ms": line["end_ms"] + half,
+            "line_h": b.get("line_h") or 0,
+            "color": b.get("color") or "",
+            "outline": b.get("outline") or "",
+        })
+    return windows
+
+
+def load_blur_regions(job: Job) -> list[dict]:
+    """Vùng cần che. Có khung theo từng câu thì dùng nó cho phụ đề, watermark
+    vẫn che cố định. Chưa chạy subdetect/ocr thì không che gì."""
+    static = _static_regions(job)
+    windows = load_cover_windows(job)
+    if not windows:
+        return static
+    return windows + [r for r in static if r["kind"] == "watermark"]
+
+
 def subtitle_cover(job: Job) -> dict | None:
-    """Vùng phụ đề gốc rộng nhất, để đặt sub Việt đè lên (spec §7.2)."""
-    subs = [r for r in load_blur_regions(job) if r["kind"] == "subtitle"]
+    """Vùng phụ đề gốc cố định rộng nhất — chỗ đặt sub Việt khi không có khung theo câu."""
+    subs = [r for r in _static_regions(job) if r["kind"] == "subtitle"]
     return max(subs, key=lambda r: r["w"] * r["h"]) if subs else None
 
 
+def window_for(seg_start: int, seg_end: int, windows: list[dict], reach_ms: int = 1500):
+    """Khung che trùng thời gian với câu Việt nhiều nhất; không trùng thì khung gần nhất."""
+    best, best_overlap = None, 0
+    for w in windows:
+        overlap = min(seg_end, w["end_ms"]) - max(seg_start, w["start_ms"])
+        if overlap > best_overlap:
+            best, best_overlap = w, overlap
+    if best is not None:
+        return best
+    near = [
+        (min(abs(w["start_ms"] - seg_end), abs(seg_start - w["end_ms"])), w)
+        for w in windows
+    ]
+    near = [(d, w) for d, w in near if d <= reach_ms]
+    return min(near, key=lambda t: t[0])[1] if near else None
+
+
+def _max_size(box: dict, cfg: Config) -> int:
+    """Cỡ chữ trần cho một khung: bằng chiều cao MỘT dòng chữ gốc.
+
+    Vision đo hộp ôm nét chữ, cao cỡ 0.9 lần cỡ font — nên cỡ font Việt tương
+    đương là line_h / 0.9. Khung cố định (không có line_h) thì lấy 1.5 lần cỡ
+    trong config cho khỏi to quá khổ.
+    """
+    line_h = box.get("line_h")
+    if line_h:
+        return max(cfg.subtitle.size // 2, round(line_h / 0.9))
+    return round(cfg.subtitle.size * 1.5)
+
+
 def build_overlays(job: Job, cfg: Config) -> list[Overlay]:
-    """Vẽ mỗi câu tiếng Việt ra một PNG trong suốt, kèm mốc thời gian của nó."""
+    """Vẽ mỗi câu tiếng Việt ra một PNG trong suốt, kèm mốc thời gian của nó.
+
+    Có khung chữ gốc thì chữ Việt được co giãn cho vừa khít khung đó và đặt vào
+    giữa khung. Không có thì lùi về cỡ chữ và vị trí trong config.
+    """
     if not job.translation_json.exists():
         return []
     info = probe(job.source_video)
+    windows = load_cover_windows(job)
     cover = subtitle_cover(job)
     font = find_font(cfg.subtitle.font)
+    outline_ratio = cfg.subtitle.outline / max(1, cfg.subtitle.size)
     out_dir = job.root / "subs"
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -190,17 +298,24 @@ def build_overlays(job: Job, cfg: Config) -> list[Overlay]:
         if not (seg.text or "").strip():
             continue
         png = out_dir / f"sub_{seg.id:04d}.png"
-        _, h = render_line(
-            seg.text, png, info.width, font, cfg.subtitle.size, cfg.subtitle.outline
-        )
-        overlays.append(
-            Overlay(
-                path=png,
-                start_ms=seg.start_ms,
-                end_ms=seg.end_ms,
-                x=0,
-                y=vertical_position(info.height, h, cfg.subtitle.position, cover),
+        box = window_for(seg.start_ms, seg.end_ms, windows) if windows else cover
+        if box:
+            # Không rộng quá khung hình trừ lề, kể cả khi khung chữ gốc sát mép.
+            fit_w = min(box["w"], int(info.width * (1 - SIDE_MARGIN_RATIO * 2)))
+            w, h, _ = render_fitted(
+                seg.text, png, font, fit_w, box["h"], outline_ratio,
+                max_size=_max_size(box, cfg),
+                fill=from_hex(box["color"]) if box.get("color") else None,
+                stroke=from_hex(box["outline"], BLACK) if box.get("outline") else None,
             )
+            x, y = place_in_box(w, h, box, info.width, info.height)
+        else:
+            _, h = render_line(
+                seg.text, png, info.width, font, cfg.subtitle.size, cfg.subtitle.outline
+            )
+            x, y = 0, vertical_position(info.height, h, cfg.subtitle.position, None)
+        overlays.append(
+            Overlay(path=png, start_ms=seg.start_ms, end_ms=seg.end_ms, x=x, y=y)
         )
     return overlays
 

@@ -86,3 +86,114 @@ def test_web_app_exposes_run_first_saved(tmp_path, config_file):
         c.post("/saved", json={"video": video(vid)})
     assert app.state.run_first_saved(5) == 2
     assert len(app.state.runner.started) == 2
+
+
+# --- nút bấm dưới tin nhắn ------------------------------------------------------------
+
+def press(data: str, chat: int = 42, uid: int = 7) -> dict:
+    return {"update_id": uid, "callback_query": {
+        "id": "cb1", "data": data,
+        "message": {"message_id": 99, "chat": {"id": chat}},
+    }}
+
+
+def methods(bot):
+    return [m for m, _ in bot.calls]
+
+
+def test_failed_message_has_retry_and_log_buttons_only_when_enabled(tmp_path):
+    job = create_job(tmp_path / "jobs", "https://a", "zh", job_id="j1")
+    bot = RecordingBot(buttons=True)
+    bot.job_failed(job, "compose", "nổ")
+    keyboard = bot.calls[-1][1]["reply_markup"]["inline_keyboard"]
+    datas = [b["callback_data"] for row in keyboard for b in row]
+    assert datas == ["run:j1", "log:j1", "archive:j1", "delask:j1"]
+
+    plain = RecordingBot()
+    plain.job_failed(job, "compose", "nổ")
+    assert "reply_markup" not in plain.calls[-1][1]
+
+
+def test_done_message_offers_video_and_rerender(tmp_path):
+    job = create_job(tmp_path / "jobs", "https://a", "zh", job_id="j1")
+    bot = RecordingBot(buttons=True)
+    bot.job_done(job, str(tmp_path / "out"))
+    datas = [b["callback_data"] for row in bot.calls[-1][1]["reply_markup"]["inline_keyboard"] for b in row]
+    assert "video:j1" in datas and "rerender:j1" in datas
+
+
+def test_pressing_retry_runs_the_action_and_removes_the_buttons(tmp_path):
+    ran = []
+    p, bot, _ = poller(tmp_path, actions={"run": lambda j: ran.append(j) or "↻ Đã cho chạy lại."})
+    p.handle(press("run:j1"))
+    assert ran == ["j1"]
+    assert methods(bot) == ["editMessageReplyMarkup", "answerCallbackQuery", "sendMessage"]
+    assert bot.calls[0][1]["reply_markup"] == {"inline_keyboard": []}
+    assert bot.calls[2][1]["reply_to_message_id"] == 99
+
+
+def test_delete_asks_for_confirmation_first(tmp_path):
+    deleted = []
+    p, bot, _ = poller(tmp_path, actions={"delete": lambda j: deleted.append(j) or "🗑 Đã xoá dự án."})
+    p.handle(press("delask:j1"))
+    assert deleted == []
+    confirm = bot.calls[0][1]["reply_markup"]["inline_keyboard"][0]
+    assert [b["callback_data"] for b in confirm] == ["delete:j1", "cancel:j1"]
+
+    p.handle(press("cancel:j1"))
+    assert deleted == []
+    p.handle(press("delete:j1"))
+    assert deleted == ["j1"]
+
+
+def test_action_errors_are_shown_not_raised(tmp_path):
+    def boom(job_id):
+        raise ValueError("job đang chạy rồi")
+
+    p, bot, _ = poller(tmp_path, actions={"run": boom})
+    p.handle(press("run:j1"))
+    assert methods(bot) == ["answerCallbackQuery"]
+    assert "đang chạy rồi" in bot.calls[0][1]["text"]
+
+
+def test_strangers_cannot_press_buttons(tmp_path):
+    ran = []
+    p, bot, _ = poller(tmp_path, actions={"delete": lambda j: ran.append(j) or "x"})
+    p.handle(press("delete:j1", chat=999))
+    assert ran == [] and methods(bot) == ["answerCallbackQuery"]
+
+
+def test_log_button_sends_the_last_error(tmp_path):
+    job = create_job(tmp_path / "jobs", "https://a", "zh", job_id="j1")
+    job.log_jsonl.write_text(
+        '{"stage": "fetch", "ok": true}\n{"stage": "compose", "ok": false, "error": "Traceback\\nffmpeg <lỗi>"}\n',
+        encoding="utf-8",
+    )
+    p, bot, _ = poller(tmp_path)
+    p.handle(press("log:j1"))
+    text = bot.texts()[-1]
+    assert "compose" in text and "ffmpeg &lt;lỗi&gt;" in text
+
+
+def test_web_app_exposes_bot_actions(tmp_path, config_file):
+    from fastapi.testclient import TestClient
+
+    from reup.web.app import create_app
+    from tests.test_web_app import FakeRunner
+
+    jobs = tmp_path / "jobs"
+    jobs.mkdir()
+    db = tmp_path / "reup.db"
+    Store(db).init_schema()
+    app = create_app(config_file, jobs, db)
+    app.state.runner = FakeRunner()
+    TestClient(app)
+    create_job(jobs, "https://a", "zh", job_id="j1")
+    s = Store(db); s.upsert_job("j1", "https://a", "failed"); s.close()
+
+    acts = app.state.bot_actions
+    assert "chạy lại" in acts["run"]("j1") and app.state.runner.started == ["j1"]
+    assert "Lưu trữ" in acts["archive"]("j1")
+    import pytest
+    with pytest.raises(ValueError):
+        acts["run"]("khong-co")

@@ -76,6 +76,7 @@ class TelegramNotifier(Notifier):
         stage_updates: bool = True,
         send_video: bool = False,
         web_url: str = "",
+        buttons: bool = False,
         api: str = API,
         timeout: float = 15.0,
     ) -> None:
@@ -84,6 +85,8 @@ class TelegramNotifier(Notifier):
         self.stage_updates = stage_updates
         self.send_video = send_video
         self.web_url = web_url.rstrip("/")
+        # Nút bấm dưới tin Xong/Lỗi chỉ có nghĩa khi bot đang nghe (reup web).
+        self.buttons = buttons
         self.api = api
         self.timeout = timeout
         self._lock = threading.Lock()
@@ -108,12 +111,22 @@ class TelegramNotifier(Notifier):
             return None
         return data.get("result") if data.get("ok") else None
 
-    def send(self, text: str) -> int | None:
-        result = self.call("sendMessage", {
+    def send(self, text: str, keyboard: list | None = None, reply_to: int | None = None) -> int | None:
+        payload = {
             "chat_id": self.chat_id, "text": text[:4000], "parse_mode": "HTML",
             "disable_web_page_preview": True,
-        })
+        }
+        if keyboard:
+            payload["reply_markup"] = {"inline_keyboard": keyboard}
+        if reply_to:
+            payload["reply_to_message_id"] = reply_to
+        result = self.call("sendMessage", payload)
         return result.get("message_id") if isinstance(result, dict) else None
+
+    def _keyboard(self, rows: list[list[tuple[str, str]]], job_id: str) -> list | None:
+        if not self.buttons:
+            return None
+        return [[{"text": t, "callback_data": f"{act}:{job_id}"} for t, act in row] for row in rows]
 
     def edit(self, message_id: int, text: str) -> None:
         self.call("editMessageText", {
@@ -191,7 +204,11 @@ class TelegramNotifier(Notifier):
     def job_needs_review(self, job, gate: str) -> None:
         self._finish(job)
         what = "bản dịch (Chốt A)" if gate == "a" else "thành phẩm (Chốt B)"
-        self.send(f"{self._head(job, '⏸', 'Chờ duyệt')}\nCần duyệt {what}.\n{self._link(job)}")
+        self.send(
+            f"{self._head(job, '⏸', 'Chờ duyệt')}\nCần duyệt {what}.\n{self._link(job)}",
+            self._keyboard([[("✅ Duyệt & chạy tiếp", "approve")],
+                            [("🗄 Lưu trữ", "archive"), ("🗑 Xoá", "delask")]], job.id),
+        )
 
     def job_done(self, job, output_dir: str) -> None:
         took = self._finish(job)
@@ -209,14 +226,24 @@ class TelegramNotifier(Notifier):
         video = out if out.exists() else job.final_mp4
         if self.send_video and video.exists() and video.stat().st_size <= VIDEO_LIMIT:
             self.upload_video(video, text)
-        else:
-            self.send(text)
+        keyboard = self._keyboard(
+            [[("🔄 Dựng lại", "rerender")] if self.send_video else
+             [("📹 Gửi video", "video"), ("🔄 Dựng lại", "rerender")],
+             [("🗄 Lưu trữ", "archive"), ("🗑 Xoá", "delask")]],
+            job.id,
+        )
+        if not (self.send_video and video.exists() and video.stat().st_size <= VIDEO_LIMIT):
+            self.send(text, keyboard)
+        elif keyboard:
+            self.send("Làm gì tiếp với video này?", keyboard)
 
     def job_failed(self, job, stage: str, error: str) -> None:
         self._finish(job)
         self.send(
             f"{self._head(job, '❌', 'Lỗi')}\nỞ bước: {html.escape(_label(stage))}\n"
-            f"<pre>{html.escape((error or '')[:600])}</pre>\n{self._link(job)}"
+            f"<pre>{html.escape((error or '')[:600])}</pre>\n{self._link(job)}",
+            self._keyboard([[("↻ Chạy lại", "run"), ("🔍 Xem lỗi", "log")],
+                            [("🗄 Lưu trữ", "archive"), ("🗑 Xoá", "delask")]], job.id),
         )
 
     def batch_finished(self, counts: dict[str, int]) -> None:
@@ -246,6 +273,7 @@ def from_config(cfg) -> Notifier:
     return TelegramNotifier(
         token, chat, stage_updates=notify.stage_updates,
         send_video=notify.send_video, web_url=notify.web_url,
+        buttons=notify.commands,
     )
 
 

@@ -38,6 +38,7 @@ class BotPoller:
         live: Callable[[], set] = set,
         run_first_saved: Callable[[int], int] | None = None,
         web_url: str = "",
+        actions: dict[str, Callable[[str], str]] | None = None,
     ) -> None:
         self.bot = bot
         self.jobs_dir = Path(jobs_dir)
@@ -45,6 +46,7 @@ class BotPoller:
         self.live = live
         self.run_first_saved = run_first_saved
         self.web_url = web_url.rstrip("/")
+        self.actions = actions or {}
         self.offset: int | None = None
         self._stop = threading.Event()
 
@@ -67,7 +69,7 @@ class BotPoller:
         if backlog:
             self.offset = backlog[-1]["update_id"] + 1
         while not self._stop.is_set():
-            payload = {"timeout": 25, "allowed_updates": ["message"]}
+            payload = {"timeout": 25, "allowed_updates": ["message", "callback_query"]}
             if self.offset is not None:
                 payload["offset"] = self.offset
             updates = self.bot.call("getUpdates", payload)
@@ -85,6 +87,9 @@ class BotPoller:
     # --- xử lý lệnh --------------------------------------------------------------
 
     def handle(self, update: dict) -> None:
+        if update.get("callback_query"):
+            self.handle_button(update["callback_query"])
+            return
         msg = update.get("message") or {}
         if str((msg.get("chat") or {}).get("id")) != self.bot.chat_id:
             return  # người lạ: im lặng, không lộ là bot có tồn tại
@@ -103,6 +108,104 @@ class BotPoller:
             self.bot.send(f"Không có lệnh /{html.escape(cmd)}. Gõ /help.")
             return
         handler(arg.strip())
+
+    # --- nút bấm dưới tin nhắn --------------------------------------------------
+
+    def _answer(self, cq: dict, text: str = "") -> None:
+        self.bot.call("answerCallbackQuery", {"callback_query_id": cq["id"], "text": text[:180]})
+
+    def _set_keyboard(self, message: dict, keyboard: list | None) -> None:
+        self.bot.call("editMessageReplyMarkup", {
+            "chat_id": self.bot.chat_id, "message_id": message["message_id"],
+            "reply_markup": {"inline_keyboard": keyboard or []},
+        })
+
+    def handle_button(self, cq: dict) -> None:
+        message = cq.get("message") or {}
+        if str((message.get("chat") or {}).get("id")) != self.bot.chat_id:
+            self._answer(cq)  # người lạ bấm vào tin bị chuyển tiếp: không làm gì
+            return
+        action, _, job_id = (cq.get("data") or "").partition(":")
+        if not job_id:
+            self._answer(cq)
+            return
+        msg_id = message.get("message_id")
+
+        if action == "delask":
+            # Xoá không hoàn tác được: đổi bàn phím thành bước xác nhận.
+            self._set_keyboard(message, [[
+                {"text": "⚠️ Xoá hẳn", "callback_data": f"delete:{job_id}"},
+                {"text": "Huỷ", "callback_data": f"cancel:{job_id}"},
+            ]])
+            self._answer(cq, "Bấm ⚠️ Xoá hẳn để xác nhận")
+            return
+        if action == "cancel":
+            self._set_keyboard(message, None)
+            self._answer(cq, "Đã huỷ")
+            return
+        if action == "log":
+            self._answer(cq)
+            self.bot.send(self._error_detail(job_id), reply_to=msg_id)
+            return
+        if action == "video":
+            self._answer(cq, "Đang gửi video…")
+            self._send_video(job_id, msg_id)
+            return
+
+        act = self.actions.get(action)
+        if act is None:
+            self._answer(cq, "Nút này chỉ dùng được khi bot chạy cùng reup web")
+            return
+        try:
+            result = act(job_id)
+        except ValueError as exc:
+            self._answer(cq, f"Không làm được: {exc}")
+            return
+        # Bỏ nút ở tin cũ: tránh bấm lại "Chạy lại" hai lần cho cùng một lỗi.
+        self._set_keyboard(message, None)
+        self._answer(cq, result)
+        self.bot.send(f"{html.escape(result)}\n<i>{html.escape(self._title(job_id))}</i>", reply_to=msg_id)
+
+    def _error_detail(self, job_id: str) -> str:
+        from reup.core.job import load_job
+
+        try:
+            job = load_job(self.jobs_dir, job_id)
+        except FileNotFoundError:
+            return "Không còn job này."
+        last = ""
+        if job.log_jsonl.exists():
+            for line in job.log_jsonl.read_text(encoding="utf-8").splitlines():
+                if '"ok": false' in line:
+                    last = line
+        if not last:
+            return "Không thấy chi tiết lỗi trong nhật ký."
+        import json
+
+        entry = json.loads(last)
+        tail = (entry.get("error") or "").strip()[-3000:]
+        return f"🔍 <b>Chi tiết lỗi</b> · bước {html.escape(entry.get('stage', '?'))}\n<pre>{html.escape(tail)}</pre>"
+
+    def _send_video(self, job_id: str, reply_to: int | None) -> None:
+        from reup.core.job import load_job
+        from reup.notify import VIDEO_LIMIT
+
+        try:
+            job = load_job(self.jobs_dir, job_id)
+        except FileNotFoundError:
+            self.bot.send("Không còn job này.", reply_to=reply_to)
+            return
+        if not job.final_mp4.exists():
+            self.bot.send("Chưa có video thành phẩm.", reply_to=reply_to)
+            return
+        size = job.final_mp4.stat().st_size
+        if size > VIDEO_LIMIT:
+            self.bot.send(
+                f"Video nặng {size // (1024 * 1024)}MB, quá giới hạn 50MB của bot.",
+                reply_to=reply_to,
+            )
+            return
+        self.bot.upload_video(job.final_mp4, html.escape(self._title(job_id)))
 
     def _store(self):
         from reup.core.store import Store
@@ -235,6 +338,7 @@ def start_for_app(app) -> BotPoller | None:
         live=app.state.runner.live,
         run_first_saved=getattr(app.state, "run_first_saved", None),
         web_url=cfg.notify.web_url,
+        actions=getattr(app.state, "bot_actions", None),
     )
     poller.start()
     return poller

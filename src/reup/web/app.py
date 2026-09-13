@@ -732,4 +732,35 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             raise HTTPException(status_code=404, detail="chưa có metadata")
         return json.loads(job.meta_json.read_text(encoding="utf-8"))
 
+    def bot_actions() -> dict:
+        """Hành động cho nút bấm trong tin nhắn Telegram.
+
+        Bọc đúng các route của web, nên bấm nút trên Telegram và bấm nút trên
+        web đi cùng một đường. Mỗi hàm trả câu báo kết quả, lỗi thì ném ValueError.
+        """
+
+        def wrap(fn, done: str):
+            def act(job_id: str) -> str:
+                try:
+                    fn(job_id)
+                except HTTPException as exc:
+                    raise ValueError(str(exc.detail)) from exc
+                return done
+            return act
+
+        def run_again(job_id: str) -> None:
+            if app.state.runner.is_running(job_id):
+                raise HTTPException(status_code=409, detail="job đang chạy rồi")
+            run(job_id)
+
+        return {
+            "run": wrap(run_again, "↻ Đã cho chạy lại. Bot sẽ báo tiến độ."),
+            "rerender": wrap(rerender, "🔄 Đang dựng lại video. Bot sẽ báo khi xong."),
+            "approve": wrap(lambda j: approve(j, "a"), "✅ Đã duyệt, đang chạy tiếp."),
+            "archive": wrap(lambda j: archive(j, 1), "🗄 Đã cất vào Lưu trữ."),
+            "delete": wrap(delete, "🗑 Đã xoá dự án."),
+        }
+
+    app.state.bot_actions = bot_actions()
+
     return app

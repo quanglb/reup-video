@@ -270,4 +270,4 @@ def test_blur_radius_never_drops_below_one():
 def test_generated_blur_uses_the_clamped_radius(cfg_fixture):
     regions = [{"x": 40, "y": 700, "w": 460, "h": 80, "kind": "subtitle"}]
     chain = compose_stage.build_filter_complex(cfg_fixture, False, regions)
-    assert "boxblur=19:2" in chain
+    assert "boxblur=19:3" in chain

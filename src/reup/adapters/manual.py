@@ -10,6 +10,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from reup.adapters.crawl import cookie_args
 from reup.adapters.source import Candidate, FetchResult
 
 # Mặc định: lấy bản mp4 nhỏ nhất, kể cả AV1.
@@ -80,10 +81,15 @@ class ManualSource:
         prefer_h264: bool = False,
         js_runtime: str = "",
         remote_components: str = DEFAULT_REMOTE_COMPONENTS,
+        cookies_from_browser: str = "",
+        cookie_file: str = "",
     ) -> None:
         self.prefer_h264 = prefer_h264
         self.js_runtime = js_runtime
         self.remote_components = remote_components
+        # Douyin/TikTok đòi cookie mới trả video ("Fresh cookies are needed").
+        self.cookies_from_browser = cookies_from_browser
+        self.cookie_file = cookie_file
 
     def list_trending(self, region: str, limit: int) -> list[Candidate]:
         raise NotImplementedError(
@@ -102,6 +108,7 @@ class ManualSource:
             "--merge-output-format", "mp4",
             "-f", format_selector(self.prefer_h264),
             *youtube_args(self.js_runtime, self.remote_components),
+            *cookie_args(self.cookies_from_browser, self.cookie_file),
             "-o", str(dest),
             url,
         ]
