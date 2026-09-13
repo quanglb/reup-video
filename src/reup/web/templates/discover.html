@@ -85,14 +85,52 @@
       </div>
     </div>
   {% else %}
-    {% if douyin_exports %}
     <div class="suggest-section">
-      <div class="suggest-title">📂 <b>File đã nạp (bấm để quét lại):</b></div>
+      <div class="suggest-title">⭐ <b>Kênh đã lưu</b> <small>— bấm Quét để dùng lại, không cần nạp file</small></div>
+      {% if douyin_channels %}
+      <div class="dy-channels">
+        {% for ch in douyin_channels %}
+        <div class="dy-channel">
+          <div class="dy-ch-info">
+            <b title="{{ ch.path }}">{{ ch.name }}</b>
+            <small>{% if ch.author != ch.name %}{{ ch.author }} · {% endif %}{{ ch.count }} video · nạp {{ ch.date }}</small>
+          </div>
+          <div class="dy-ch-actions">
+            <a class="btn primary" href="/discover?platform=douyin&run=1&q={{ ch.path|urlencode }}">Quét</a>
+            <details class="dy-ch-edit">
+              <summary title="Đổi tên">✎</summary>
+              <form method="post" action="/discover/douyin/channels">
+                <input type="hidden" name="uid" value="{{ ch.uid }}">
+                <input name="name" value="{{ ch.name }}" placeholder="Tên kênh">
+                <button>Lưu</button>
+              </form>
+            </details>
+            <form method="post" action="/discover/douyin/channels/delete" onsubmit="return confirm('Bỏ lưu kênh này? File đã nạp vẫn giữ.')">
+              <input type="hidden" name="uid" value="{{ ch.uid }}">
+              <button class="icon-btn" title="Bỏ lưu">✕</button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+        <div class="suggest-tips">Chưa lưu kênh nào. Tick “Lưu kênh” khi nạp file, hoặc bấm 💾 ở file nạp gần đây.</div>
+      {% endif %}
+    </div>
+    {% if douyin_recent %}
+    <div class="suggest-section">
+      <div class="suggest-title">📂 <b>File nạp gần đây, chưa lưu</b> <small>— bấm tên để quét, 💾 để lưu kênh</small></div>
       <div class="suggest-chips">
-        {% for f in douyin_exports %}
-          <button type="button" class="chip" data-q="{{ f.path }}" title="{{ f.path }}">
-            <span>{{ f.author }}</span> <small>{{ f.count }} video · {{ f.date }}</small>
-          </button>
+        {% for f in douyin_recent %}
+          <span class="dy-recent">
+            <button type="button" class="chip" data-q="{{ f.path }}" title="{{ f.path }}">
+              <span>{{ f.author }}</span> <small>{{ f.count }} video · {{ f.date }}</small>
+            </button>
+            <form method="post" action="/discover/douyin/channels">
+              <input type="hidden" name="uid" value="{{ f.uid }}">
+              <button class="icon-btn" title="Lưu kênh này">💾</button>
+            </form>
+          </span>
         {% endfor %}
       </div>
     </div>
@@ -121,6 +159,8 @@
       </details>
       <form method="post" action="/discover/douyin/import" enctype="multipart/form-data" class="dy-upload">
         <input type="file" name="file" accept=".json,application/json" required>
+        <label class="check"><input type="checkbox" name="save" value="1" checked> Lưu kênh</label>
+        <input name="name" placeholder="Tên kênh (tuỳ chọn)">
         <button class="primary">Nạp file</button>
       </form>
     </div>
@@ -156,26 +196,44 @@
     <code>{{ result.feed_url }}</code>
   {% endif %}
   {% if result.hidden %}· ẩn {{ result.hidden }} video đã xử lý{% endif %}
+  <span id="translateStatus" class="translate-status"></span>
 </p>
+<nav class="sort-bar">
+  <span>Sắp theo:</span>
+  {% for s in sort_links %}
+    <a href="{{ s.url }}" class="{{ 'on' if s.id == sort }}">{{ {'': '📋', 'views': '👁', 'likes': '♥', 'newest': '📅', 'short': '⏱'}.get(s.id, '') }} {{ s.label }}</a>
+  {% endfor %}
+</nav>
 <div class="cards">
   {% for c in rows %}
-  <article class="card {{ 'used' if c.job_id or c.seen }}">
+  {% set d = (c.published_at or '')|replace('-', '') %}
+  <article class="card {{ 'used' if c.job_id or c.seen }}" data-title="{{ c.title }}"
+           data-video='{{ {"platform": c.platform, "video_id": c.video_id, "url": c.url, "embed_url": c.embed_url, "title": c.title, "uploader": c.uploader, "thumbnail": c.thumbnail, "duration_ms": c.duration_ms, "view_count": c.view_count, "like_count": c.like_count, "share_count": c.share_count, "published_at": c.published_at, "media_url": c.media_url}|tojson }}'>
     <div class="frame" data-embed="{{ c.embed_url }}">
-      {% if c.thumbnail %}<img src="{{ c.thumbnail }}" alt="" loading="lazy">{% endif %}
-      <button class="play-embed" {{ 'disabled' if not c.embed_url }}>▶ Xem</button>
+      {% if c.thumbnail %}<img src="{{ c.thumbnail }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
+      <button class="play-embed" {{ 'disabled' if not c.embed_url }} title="Xem ngay tại đây">▶</button>
+      {% if c.position %}<span class="fbadge pos">#{{ c.position }}</span>{% endif %}
+      {% if not c.job_id %}
+      <button type="button" class="star-btn {{ 'on' if c.saved }}" data-star title="{{ 'Bỏ khỏi hàng chờ' if c.saved else 'Lưu vào hàng chờ để làm sau' }}">{{ '★' if c.saved else '☆' }}</button>
+      {% endif %}
+      <span class="fbadge dur">{{ c.duration_ms | duration }}</span>
+      {% if c.job_id %}<span class="fbadge got">✓ Đã có job</span>
+      {% elif c.seen %}<span class="fbadge seen">đã quét trước</span>{% endif %}
     </div>
-    <h3 title="{{ c.title }}">{{ c.title }}</h3>
-    <p class="meta">
-      {% if c.position %}#{{ c.position }} ·{% endif %}
-      {{ c.duration_ms | duration }}
-      {% if c.uploader %}· {{ c.uploader }}{% endif %}
-      {% if c.view_count %}· {{ c.view_count | views }} lượt xem{% endif %}
-      {% if c.like_count %}· {{ c.like_count | views }} ♥{% endif %}
-      {% if c.share_count %}· {{ c.share_count | views }} chia sẻ{% endif %}
-    </p>
+    <div class="card-info">
+      <h3 class="title-vi" title="{{ c.title }}">{{ c.title }}</h3>
+      <p class="title-src" hidden></p>
+      <div class="stats">
+        {% if c.view_count %}<span title="Lượt xem">👁 {{ c.view_count | views }}</span>{% endif %}
+        {% if c.like_count %}<span title="Lượt thích">{{ c.like_count | views }} ♥</span>{% endif %}
+        {% if c.share_count %}<span title="Lượt chia sẻ">↗ {{ c.share_count | views }}</span>{% endif %}
+        {% if d|length == 8 %}<span title="Ngày đăng">📅 {{ d[6:8] }}/{{ d[4:6] }}/{{ d[2:4] }}</span>{% endif %}
+      </div>
+      {% if c.uploader %}<p class="meta" title="{{ c.uploader }}">👤 {{ c.uploader }}</p>{% endif %}
+    </div>
     <div class="card-actions">
       {% if c.job_id %}
-        <a class="done" href="/jobs/{{ c.job_id }}">Đã có job {{ c.job_id }}</a>
+        <a class="done" href="/jobs/{{ c.job_id }}">Đã có job → mở</a>
       {% else %}
         <form method="post" action="/discover/pick">
           <input type="hidden" name="url" value="{{ c.url }}">
@@ -185,16 +243,15 @@
             <input type="hidden" name="media_url" value="{{ c.media_url }}">
             <input type="hidden" name="title" value="{{ c.title }}">
           {% endif %}
-          <select name="lang">
+          <select name="lang" title="Ngôn ngữ gốc">
             <option value="auto">tự nhận</option>
             <option value="zh" {{ 'selected' if c.platform == 'douyin' }}>Trung</option>
             <option value="en">Anh</option>
           </select>
           <button class="primary">Chọn và chạy</button>
         </form>
-        {% if c.seen %}<span class="flag">đã quét trước đó</span>{% endif %}
       {% endif %}
-      <a class="ext" href="{{ c.url }}" target="_blank" rel="noopener">nguồn ↗</a>
+      <a class="ext" href="{{ c.url }}" target="_blank" rel="noopener" title="Mở trang gốc">↗</a>
     </div>
   </article>
   {% endfor %}

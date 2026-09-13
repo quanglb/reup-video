@@ -163,6 +163,16 @@ class DiscoverConfig:
 
 
 @dataclass(frozen=True)
+class NotifyConfig:
+    telegram: bool = False
+    chat_id: str = ""  # trống thì đọc TELEGRAM_CHAT_ID trong .env
+    stage_updates: bool = True  # một tin nhắn tiến trình, sửa sau từng stage
+    send_video: bool = False  # gửi kèm file thành phẩm (≤ 50MB)
+    web_url: str = "http://127.0.0.1:8765"  # để tin nhắn có link mở job
+    commands: bool = True  # bot nghe lệnh (/status, /lam...) khi chạy `reup web`
+
+
+@dataclass(frozen=True)
 class ReviewConfig:
     auto_approve_b: bool = False
     auto_approve_a: bool = False
@@ -189,6 +199,7 @@ class Config:
     fetch: FetchConfig = FetchConfig()
     translate: TranslateConfig = TranslateConfig()
     llm_roles: LLMRoles | None = None
+    notify: NotifyConfig = NotifyConfig()
 
     def llm_for(self, role: str) -> LLMConfig:
         """Cấu hình LLM cho một stage. Không khai riêng thì dùng [llm] chung."""
@@ -251,7 +262,15 @@ def load_config(path: Path) -> Config:
         discover=discover,
         fetch=fetch,
         translate=translate,
+        notify=_notify(raw.get("notify", {})),
     )
+
+
+def _notify(raw: dict) -> NotifyConfig:
+    raw = dict(raw)
+    if "chat_id" in raw:
+        raw["chat_id"] = str(raw["chat_id"])  # toml cho viết số trần
+    return NotifyConfig(**raw)
 
 
 def _llm(raw: dict) -> tuple[LLMConfig, LLMRoles]:

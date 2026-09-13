@@ -37,7 +37,7 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     disc.add_argument(
-        "--sort", default="", choices=["", "likes", "views", "short"],
+        "--sort", default="", choices=["", "likes", "views", "newest", "short"],
         help="likes/views chỉ có số liệu với file xuất Douyin (likes) hoặc YouTube (views)",
     )
     disc.add_argument(
@@ -65,6 +65,12 @@ def _build_parser() -> argparse.ArgumentParser:
     sub.add_parser("status", help="liệt kê job")
     sub.add_parser("doctor", help="kiểm tra môi trường trước khi chạy")
     sub.add_parser("benchmark", help="đo thời gian từng stage trên máy này")
+
+    tg = sub.add_parser("telegram", help="bot Telegram báo cáo tình hình")
+    tg.add_argument(
+        "action", choices=["test", "chat-id"],
+        help="test: gửi thử một tin; chat-id: tìm chat id từ tin bạn vừa nhắn cho bot",
+    )
 
     web = sub.add_parser("web", help="bật giao diện duyệt")
     web.add_argument("--host", default="127.0.0.1")
@@ -270,10 +276,63 @@ def _cmd_web(args, store: Store) -> int:
         return 1
     from reup.web.app import create_app
 
+    import socket
+
+    # Kiểm cổng TRƯỚC khi bật bot: để uvicorn tự phát hiện thì bot đã kịp nghe
+    # lệnh rồi mới chết theo, và lỗi Errno 48 không nói cách sửa.
+    with socket.socket() as probe:
+        probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            probe.bind((args.host, args.port))
+        except OSError:
+            print(
+                f"cổng {args.port} đang bận — có thể reup web đã chạy ở cửa sổ khác.\n"
+                f"  mở luôn: http://{args.host}:{args.port}\n"
+                f"  hoặc tắt nó: lsof -ti tcp:{args.port} | xargs kill\n"
+                f"  hoặc chạy cổng khác: uv run reup web --port {args.port + 1}",
+                file=sys.stderr,
+            )
+            return 1
+
     app = create_app(args.config, args.jobs_dir, args.db)
-    print(f"giao diện ở http://{args.host}:{args.port}")
+    print(f"giao diện ở http://{args.host}:{args.port}", flush=True)
+    # Bot Telegram nghe lệnh chạy nền cùng web: bật web là có bot.
+    from reup.telegram_bot import start_for_app
+
+    if start_for_app(app) is not None:
+        print("bot Telegram đang nghe lệnh (/help trên Telegram)", flush=True)
     uvicorn.run(app, host=args.host, port=args.port, log_level="warning")
     return 0
+
+
+def _cmd_telegram(args, store: Store) -> int:
+    from reup import notify
+
+    token = notify.token_from_env()
+    if not token:
+        print("chưa có TELEGRAM_BOT_TOKEN trong .env (lấy từ @BotFather)", file=sys.stderr)
+        return 1
+    if args.action == "chat-id":
+        found = notify.chat_ids(token)
+        if not found:
+            print("chưa thấy chat nào. Mở bot trên Telegram, bấm Start hoặc nhắn một tin, rồi chạy lại.")
+            return 1
+        for chat_id, name in found:
+            print(f"{chat_id}\t{name}")
+        print("\nChép số vào [notify] chat_id trong config.toml, hoặc TELEGRAM_CHAT_ID trong .env")
+        return 0
+
+    cfg = load_config(args.config)
+    bot = notify.from_config(cfg)
+    if not isinstance(bot, notify.TelegramNotifier):
+        print(
+            "Telegram chưa bật: cần [notify] telegram = true và chat id "
+            "([notify] chat_id hoặc TELEGRAM_CHAT_ID)", file=sys.stderr,
+        )
+        return 1
+    ok = bot.send("👋 <b>reup</b> đã kết nối. Bot sẽ báo khi làm video.")
+    print("đã gửi" if ok else "gửi hỏng — xem lỗi phía trên")
+    return 0 if ok else 1
 
 
 def _cmd_status(args, store: Store) -> int:
@@ -304,6 +363,7 @@ def main(argv: list[str] | None = None) -> int:
             "web": _cmd_web,
             "discover": _cmd_discover,
             "doctor": _cmd_doctor,
+            "telegram": _cmd_telegram,
         }[args.command](args, store)
     finally:
         store.close()

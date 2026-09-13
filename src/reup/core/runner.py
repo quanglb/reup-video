@@ -95,27 +95,50 @@ def blocking_gate(job: Job, stages: list[StageSpec], cfg: Config) -> str | None:
     return None
 
 
-def run_job(job: Job, cfg: Config, store: Store, stages: list[StageSpec]) -> str:
+def run_job(
+    job: Job, cfg: Config, store: Store, stages: list[StageSpec], notifier=None
+) -> str:
+    """Chạy tới chốt hoặc tới cuối. `notifier` trống thì dựng từ [notify].
+
+    Chỉ báo khi lần gọi này thật sự chạy stage nào đó: bấm "chạy" một job đã
+    xong hay đang kẹt ở chốt thì không gửi lại tin cũ.
+    """
+    if notifier is None:
+        from reup.notify import from_config
+
+        notifier = from_config(cfg)
+    ran = 0
     while True:
         gate = blocking_gate(job, stages, cfg)
         if gate is not None:
             store.upsert_job(
                 job.id, job.source_url, "needs_review", stage=f"gate_{gate}"
             )
+            if ran:
+                notifier.job_needs_review(job, gate)
             return "needs_review"
 
         spec = next_stage(job, stages)
         if spec is None:
             break
+        if not ran:
+            notifier.job_started(job, len(stages))
+        started = time.time()
         try:
             run_stage(job, cfg, spec, store)
         except Exception as exc:
             store.upsert_job(
                 job.id, job.source_url, "failed", stage=spec.name, error=str(exc)
             )
+            notifier.job_failed(job, spec.name, str(exc))
             return "failed"
+        ran += 1
+        done = sum(1 for s in stages if artifacts_present(job, s))
+        notifier.stage_done(job, spec.name, time.time() - started, done, len(stages))
 
     store.upsert_job(job.id, job.source_url, "done", stage=None)
+    if ran:
+        notifier.job_done(job, cfg.review.output_dir)
     return "done"
 
 

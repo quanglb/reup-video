@@ -1,9 +1,43 @@
 {% extends "base.html" %}
 {% block content %}
-<h1>{{ job.id }}
-  <span class="pill {{ row.status if row else 'unknown' }}" id="jobStatusBadge">{{ row.status if row else '?' }}</span>
-  {% if row and row.stage %}<span class="stage" id="jobStageBadge">{{ row.stage }}</span>{% endif %}
-</h1>
+<div class="job-head" data-job-id="{{ job.id }}" data-title="{{ details.title or job.id }}" data-name="{{ details.name }}">
+  <a href="{{ '/?view=archived' if details.archived else '/' }}" class="back">← {{ 'Lưu trữ' if details.archived else 'Dự án' }}</a>
+  <div class="title-row">
+    <h1 class="job-title" title="{{ details.title or job.id }}">{{ details.title or job.id }}</h1>
+    <button type="button" class="icon-btn" data-action="rename" title="Đổi tên">✎</button>
+    <span class="pill {{ row.status if row else 'unknown' }}" id="jobStatusBadge">{{ row.status if row else '?' }}</span>
+    {% if row and row.stage %}<span class="stage" id="jobStageBadge">{{ row.stage }}</span>{% endif %}
+    {% if details.archived %}<span class="pill archived">🗄 đã lưu trữ</span>{% endif %}
+    <span class="spacer"></span>
+    <a class="btn ghost" href="{{ job.source_url }}" target="_blank" rel="noopener">↗ Link gốc</a>
+    {% if details.archived %}
+      <button type="button" class="ghost" data-action="unarchive">↩ Bỏ lưu trữ</button>
+    {% else %}
+      <button type="button" class="ghost" data-action="archive">🗄 Lưu trữ</button>
+    {% endif %}
+    <button type="button" class="ghost danger-text" data-action="delete" {% if running %}disabled title="Đang chạy, dừng rồi mới xoá được"{% endif %}>🗑 Xoá</button>
+  </div>
+  <p class="sub">
+    <span class="job-id">{{ job.id }}</span>
+    {% if details.source_title and details.source_title != details.title %} · {{ details.source_title }}{% endif %}
+    {% if details.uploader %} · 👤 {{ details.uploader }}{% endif %}
+  </p>
+</div>
+
+<dialog id="confirmDelete" class="modal">
+  <form method="dialog">
+    <h2>Xoá dự án?</h2>
+    <p>Xoá vĩnh viễn <b id="deleteName"></b> — gồm video gốc, bản dịch, giọng đọc, thành phẩm trong <code>output/</code>. Không hoàn tác được.</p>
+    <p class="hint-soft">Muốn giữ lại để xem sau thì dùng <b>Lưu trữ</b>.</p>
+    <div class="modal-actions">
+      <button value="archive">🗄 Lưu trữ thay vì xoá</button>
+      <span class="spacer"></span>
+      <button value="cancel">Huỷ</button>
+      <button value="ok" class="danger-btn">🗑 Xoá</button>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast" hidden></div>
 
 <div class="progress-card" id="jobProgressCard" data-job-id="{{ job.id }}" data-status="{{ row.status if row else 'pending' }}">
   <div class="progress-header">

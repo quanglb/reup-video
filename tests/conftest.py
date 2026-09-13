@@ -17,6 +17,17 @@ def require_ffmpeg():
             pytest.skip(f"cần {tool} trong PATH", allow_module_level=True)
 
 
+@pytest.fixture(autouse=True)
+def no_real_telegram(monkeypatch):
+    """Test không bao giờ nhắn bot thật.
+
+    config.toml bật [notify], còn `reup` nạp .env thật lúc chạy lệnh. Đặt sẵn
+    biến rỗng thì `load_dotenv` không ghi đè, nên token thật không lọt vào.
+    """
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "")
+
+
 def _run(args: list[str]) -> None:
     subprocess.run(args, check=True, capture_output=True)
 

@@ -132,6 +132,32 @@ class Job:
         )
 
     @property
+    def settings(self) -> dict:
+        """Toàn bộ job.json, gồm cả phần người dùng đặt: tên, lưu trữ."""
+        return json.loads(self.job_json.read_text(encoding="utf-8"))
+
+    def update_settings(self, **fields) -> dict:
+        """Ghi thêm khoá vào job.json. Giá trị None là xoá khoá đó.
+
+        Tên và cờ lưu trữ nằm ở đây chứ không ở SQLite, cùng lý do với dấu
+        duyệt: mất reup.db thì vẫn dựng lại được từ thư mục job.
+        """
+        from reup.core.runner import atomic_write
+
+        data = self.settings
+        for key, value in fields.items():
+            if value is None:
+                data.pop(key, None)
+            else:
+                data[key] = value
+        atomic_write(self.job_json, json.dumps(data, ensure_ascii=False, indent=2))
+        return data
+
+    @property
+    def thumb_jpg(self) -> Path:
+        return self.root / "thumb.jpg"
+
+    @property
     def log_jsonl(self) -> Path:
         return self.root / "log.jsonl"
 

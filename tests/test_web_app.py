@@ -422,3 +422,94 @@ def test_reveal_endpoint_and_rerender(client, monkeypatch):
     assert r_re.status_code == 303
     assert not job.final_mp4.exists()
     assert c.app.state.runner.started == ["j_rev"]
+
+
+# --- đổi tên, lưu trữ, xoá ---------------------------------------------------
+
+def test_renaming_a_job_shows_the_new_name(client):
+    c, jobs, db = client
+    create_job(jobs, "https://a/1", "zh", job_id="j1")
+    s = Store(db); s.upsert_job("j1", "https://a/1", "pending"); s.close()
+
+    r = c.post("/jobs/j1/rename", data={"name": "  Món   chay ngon "})
+    assert r.json() == {"name": "Món chay ngon", "title": "Món chay ngon"}
+    assert load_job(jobs, "j1").settings["name"] == "Món chay ngon"
+    assert "Món chay ngon" in c.get("/").text
+    assert "Món chay ngon" in c.get("/jobs/j1").text
+
+
+def test_empty_name_falls_back_to_the_generated_title(client):
+    c, jobs, db = client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    job.meta_json.write_text(json.dumps({"title": "Tiêu đề Việt"}), encoding="utf-8")
+    c.post("/jobs/j1/rename", data={"name": "Tên tạm"})
+
+    r = c.post("/jobs/j1/rename", data={"name": ""})
+    assert r.json() == {"name": "", "title": "Tiêu đề Việt"}
+    assert "name" not in load_job(jobs, "j1").settings
+
+
+def test_archived_jobs_move_to_the_archive_view_and_are_not_run(client):
+    c, jobs, db = client
+    for jid in ("keep", "old"):
+        create_job(jobs, f"https://a/{jid}", "zh", job_id=jid)
+    s = Store(db)
+    s.upsert_job("keep", "https://a/keep", "pending")
+    s.upsert_job("old", "https://a/old", "pending")
+    s.close()
+
+    assert c.post("/jobs/old/archive", data={"archived": 1}).json() == {"archived": True}
+    assert 'data-job-id="old"' not in c.get("/").text
+    assert 'data-job-id="old"' in c.get("/?view=archived").text
+
+    c.post("/run-all")
+    assert c.app.state.runner.started == ["keep"]
+
+    c.post("/jobs/old/archive", data={"archived": 0})
+    assert 'data-job-id="old"' in c.get("/").text
+
+
+def test_deleting_a_job_removes_folder_output_and_row(client, tmp_path, monkeypatch):
+    c, jobs, db = client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    s = Store(db); s.upsert_job("j1", "https://a/1", "done"); s.close()
+    monkeypatch.chdir(tmp_path)  # output_dir mặc định là "output" tương đối
+    out = tmp_path / "output"
+    out.mkdir()
+    (out / "j1.mp4").write_bytes(b"x")
+
+    assert c.post("/jobs/j1/delete").json() == {"deleted": "j1"}
+    assert not job.root.exists()
+    assert not (out / "j1.mp4").exists()
+    s = Store(db); assert s.get_job("j1") is None; s.close()
+
+
+def test_deleting_a_running_job_is_refused(client):
+    c, jobs, db = client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    c.app.state.runner.is_running = lambda job_id: True
+    assert c.post("/jobs/j1/delete").status_code == 409
+    assert job.root.exists()
+
+
+def test_deleting_an_orphan_row_without_folder(client):
+    c, _, db = client
+    s = Store(db); s.upsert_job("ghost", "https://a/1", "failed"); s.close()
+    assert c.post("/jobs/ghost/delete").status_code == 200
+    assert c.post("/jobs/ghost/delete").status_code == 404
+
+
+def test_thumbnail_is_cut_from_the_video(client, sample_video: Path):
+    c, jobs, _ = client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    job.source_video.write_bytes(sample_video.read_bytes())
+    r = c.get("/jobs/j1/thumb")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "image/jpeg"
+    assert job.thumb_jpg.exists()
+
+
+def test_thumbnail_without_video_is_404(client):
+    c, jobs, _ = client
+    create_job(jobs, "https://a/1", "zh", job_id="j1")
+    assert c.get("/jobs/j1/thumb").status_code == 404

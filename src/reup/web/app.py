@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -52,24 +52,95 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             raise HTTPException(status_code=404, detail=f"không có job {job_id}")
 
     @app.get("/", response_class=HTMLResponse)
-    def queue(request: Request, status: str | None = None):
+    def queue(
+        request: Request, status: str | None = None, view: str = "", platform: str = ""
+    ):
+        """Danh sách dự án. `view=archived` là kho lưu trữ, còn lại là đang làm.
+
+        Đếm trước khi lọc, để các nút lọc luôn hiện đủ số. Kết quả chia nhóm
+        theo nền tảng.
+        """
         s = store()
         c = cfg()
         try:
-            rows = service.list_jobs(s, status, c)
+            every = service.list_jobs(s, None, c, app.state.jobs_dir)
         finally:
             s.close()
+        archived = view == "archived"
+        in_view = [r for r in every if r.archived == archived]
+        by_status = [r for r in in_view if not status or r.status == status]
+        rows = [r for r in by_status if not platform or r.platform == platform]
+        order = ["youtube", "tiktok", "douyin", "bilibili", ""]
+        groups = [
+            {
+                "key": key or "other",
+                "label": service.PLATFORM_LABELS.get(key, key.capitalize() or "Khác"),
+                "rows": [r for r in rows if r.platform == key],
+            }
+            for key in order + sorted({r.platform for r in rows} - set(order))
+        ]
+        platform_counts = {"": len(by_status)}
+        for r in by_status:
+            platform_counts[r.platform] = platform_counts.get(r.platform, 0) + 1
         return templates.TemplateResponse(
             request,
             "queue.html",
             {
                 "rows": rows,
                 "status": status or "",
+                "view": "archived" if archived else "",
+                "counts": service.status_counts(in_view),
+                "platform": platform,
+                "platform_counts": platform_counts,
+                "groups": [g for g in groups if g["rows"]],
+                "archived_count": sum(1 for r in every if r.archived),
+                "statuses": service.STATUS_LABELS,
                 "running": app.state.runner.live(),
                 "tab": "queue",
-                "title": "Hàng đợi",
+                "title": "Lưu trữ" if archived else "Dự án",
             },
         )
+
+    @app.get("/jobs/{job_id}/thumb")
+    def job_thumb(job_id: str):
+        job = job_or_404(job_id)
+        try:
+            path = service.thumbnail(job)
+        except Exception as exc:  # chưa có video, hoặc ffmpeg không cắt được
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return FileResponse(path, media_type="image/jpeg")
+
+    @app.post("/jobs/{job_id}/rename")
+    def rename(job_id: str, name: str = Form("")):
+        job = job_or_404(job_id)
+        name = service.rename_job(job, name)
+        title = service.job_details(app.state.jobs_dir, job_id).get("title") or job_id
+        return {"name": name, "title": title}
+
+    @app.post("/jobs/{job_id}/archive")
+    def archive(job_id: str, archived: int = Form(1)):
+        job = job_or_404(job_id)
+        service.set_archived(job, bool(archived))
+        return {"archived": bool(archived)}
+
+    @app.post("/jobs/{job_id}/delete")
+    def delete(job_id: str):
+        """Xoá hẳn. Đang chạy thì từ chối: stage vẫn đang ghi vào thư mục đó."""
+        if app.state.runner.is_running(job_id):
+            raise HTTPException(status_code=409, detail="job đang chạy, chưa xoá được")
+        s = store()
+        try:
+            try:
+                job = load_job(app.state.jobs_dir, job_id)
+            except FileNotFoundError:
+                if s.get_job(job_id) is None:
+                    raise HTTPException(status_code=404, detail=f"không có job {job_id}")
+                s.delete_job(job_id)  # chỉ còn dòng mồ côi trong sổ cái
+                return {"deleted": job_id}
+            service.delete_job(job, s, cfg())
+        finally:
+            s.close()
+        return {"deleted": job_id}
 
     @app.get("/api/progress")
     def all_progress():
@@ -120,6 +191,11 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             ids = [r["id"] for r in s.list_jobs("pending") + s.list_jobs("failed")]
         finally:
             s.close()
+        # Job đã cất vào lưu trữ là người dùng gác lại, đừng tự chạy.
+        ids = [
+            i for i in ids
+            if not service.job_details(app.state.jobs_dir, i).get("archived")
+        ]
         for job_id in ids:
             app.state.runner.start(job_id)
         return RedirectResponse("/", status_code=303)
@@ -168,7 +244,12 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         return app.state.jobs_dir.parent / "douyin-exports"
 
     @app.post("/discover/douyin/import", response_class=HTMLResponse)
-    async def douyin_import(request: Request, file: UploadFile = File(...)):
+    async def douyin_import(
+        request: Request,
+        file: UploadFile = File(...),
+        save: int = Form(0),
+        name: str = Form(""),
+    ):
         """Nạp file JSON xuất từ console Douyin, lưu lại, rồi mở kết quả.
 
         Lưu ra đĩa thay vì giữ trong bộ nhớ để URL kết quả (sắp theo like, đổi
@@ -193,14 +274,41 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         out = exports_dir() / f"douyin_{uid or 'kenh'}_{stamp}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_bytes(body)
+        if save:
+            from reup.web import douyin_channels
+
+            douyin_channels.save_channel(
+                exports_dir(), douyin_channels.channel_id(raw, out), name
+            )
         query = urlencode({"platform": "douyin", "run": 1, "q": str(out.resolve())})
         return RedirectResponse(f"/discover?{query}", status_code=303)
 
+    @app.post("/discover/douyin/channels")
+    def douyin_save_channel(uid: str = Form(...), name: str = Form("")):
+        """Lưu kênh từ một file đã nạp, hoặc đổi tên kênh đã lưu."""
+        from reup.web import douyin_channels
+
+        try:
+            douyin_channels.save_channel(exports_dir(), uid, name)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return RedirectResponse("/discover?platform=douyin", status_code=303)
+
+    @app.post("/discover/douyin/channels/delete")
+    def douyin_remove_channel(uid: str = Form(...)):
+        from reup.web import douyin_channels
+
+        douyin_channels.remove_channel(exports_dir(), uid)
+        return RedirectResponse("/discover?platform=douyin", status_code=303)
+
     def douyin_suggestions() -> dict:
         from reup.adapters import douyin_export as dx
+        from reup.web import douyin_channels
 
         return {
-            "douyin_exports": dx.recent_exports(exports_dir()),
+            "douyin_channels": douyin_channels.saved_channels(exports_dir()),
+            "douyin_recent": douyin_channels.recent_unsaved(exports_dir()),
+            "douyin_exports": douyin_channels.exports(exports_dir()),
             "douyin_topics": [
                 {"q": kw, "label": label, "url": dx.search_url(kw)}
                 for kw, label in dx.SEARCH_TOPICS
@@ -230,6 +338,18 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "sorts": [
                     {"id": k, "label": v[0]} for k, v in service.SORTS.items()
                 ],
+                # Bấm đổi cách sắp ngay trên kết quả, giữ nguyên mọi tham số quét.
+                "sort_links": [
+                    {
+                        "id": k,
+                        "label": v[0],
+                        "url": "/discover?" + urlencode({
+                            "platform": platform, "run": 1, "q": q, "limit": limit,
+                            "start": start, "sort": k, "hide_seen": int(bool(hide_seen)),
+                        }),
+                    }
+                    for k, v in service.SORTS.items()
+                ],
                 "hide_seen": hide_seen,
                 "error": error,
                 **(douyin_suggestions() if platform == "douyin" else {}),
@@ -242,6 +362,43 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             },
             status_code=status_code,
         )
+
+    @app.post("/api/translate-titles")
+    def translate_titles(payload: dict = Body(...)):
+        """Tiêu đề ở tab quét → tiếng Việt. Hàm thường nên chạy trong threadpool."""
+        from reup.adapters.registry import make_llm
+        from reup.web import title_translate
+
+        titles = [str(t) for t in (payload.get("titles") or [])][:300]
+        try:
+            llm = make_llm(cfg(), "export")
+        except Exception as exc:
+            return {"translations": {}, "error": f"không dựng được LLM: {exc}"}
+        cache = app.state.jobs_dir.parent / "title-vi-cache.json"
+        found, error = title_translate.translate(titles, cache, llm)
+        return {"translations": found, "error": error}
+
+    def start_candidate(
+        url: str, lang: str, platform: str, video_id: str, media_url: str, title: str
+    ) -> str:
+        """Tạo job từ một video đã quét, đánh dấu đã xử lý, bỏ khỏi hàng chờ, chạy."""
+        if media_url and not media_url.startswith(("https://", "http://")):
+            raise HTTPException(status_code=400, detail="link tải phải là http(s)")
+        job = create_job(app.state.jobs_dir, url.strip(), lang)
+        if media_url:
+            from reup.adapters.douyin_export import save_direct
+
+            save_direct(job.root, media_url, video_id=video_id, url=url.strip(), title=title)
+        s = store()
+        try:
+            s.upsert_job(job.id, job.source_url, "pending")
+            if platform and video_id:
+                s.mark_seen(platform, video_id)
+                s.unsave_video(platform, video_id)
+        finally:
+            s.close()
+        app.state.runner.start(job.id)
+        return job.id
 
     @app.post("/discover/pick")
     def pick(
@@ -260,22 +417,158 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         Chạy luôn vì "chọn video này" nghĩa là "làm video này": tạo job rồi bắt
         người dùng nhảy ra terminal gõ `reup run` là cắt đôi một thao tác duy nhất.
         """
-        if media_url and not media_url.startswith(("https://", "http://")):
-            raise HTTPException(status_code=400, detail="link tải phải là http(s)")
-        job = create_job(app.state.jobs_dir, url.strip(), lang)
-        if media_url:
-            from reup.adapters.douyin_export import save_direct
+        job_id = start_candidate(url, lang, platform, video_id, media_url, title)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
-            save_direct(job.root, media_url, video_id=video_id, url=url.strip(), title=title)
+    # --- hàng chờ ----------------------------------------------------------------
+
+    SAVED_FIELDS = (
+        "url", "embed_url", "title", "uploader", "thumbnail", "duration_ms",
+        "view_count", "like_count", "share_count", "published_at", "media_url",
+    )
+
+    def saved_count() -> int:
         s = store()
         try:
-            s.upsert_job(job.id, job.source_url, "pending")
-            if platform and video_id:
-                s.mark_seen(platform, video_id)
+            return len(s.saved_keys())
         finally:
             s.close()
-        app.state.runner.start(job.id)
-        return RedirectResponse(f"/jobs/{job.id}", status_code=303)
+
+    templates.env.globals["saved_count"] = saved_count
+
+    @app.post("/saved")
+    def toggle_saved(payload: dict = Body(...)):
+        """Thêm/bỏ một video ở tab quét khỏi hàng chờ. Không tạo job."""
+        video = payload.get("video") or {}
+        platform = str(video.get("platform") or "")
+        video_id = str(video.get("video_id") or "")
+        url = str(video.get("url") or "")
+        if not (platform and video_id and url.startswith(("https://", "http://"))):
+            raise HTTPException(status_code=400, detail="thiếu nền tảng, id hoặc link video")
+        s = store()
+        try:
+            if payload.get("saved", True):
+                s.save_video(platform, video_id, {k: video.get(k) for k in SAVED_FIELDS})
+            else:
+                s.unsave_video(platform, video_id)
+            count = len(s.saved_keys())
+        finally:
+            s.close()
+        return {"saved": bool(payload.get("saved", True)), "count": count}
+
+    @app.get("/saved", response_class=HTMLResponse)
+    def saved_page(request: Request, platform: str = ""):
+        s = store()
+        try:
+            every = s.saved_videos()
+        finally:
+            s.close()
+        counts = {"": len(every)}
+        for v in every:
+            counts[v["platform"]] = counts.get(v["platform"], 0) + 1
+        return templates.TemplateResponse(
+            request,
+            "saved.html",
+            {
+                "rows": [v for v in every if not platform or v["platform"] == platform],
+                "platform": platform,
+                "counts": counts,
+                "auto_approve": bool(
+                    getattr(cfg().review, "auto_approve", False)
+                    or getattr(cfg().review, "auto_approve_a", False)
+                ),
+                "tab": "saved",
+                "title": "Hàng chờ",
+            },
+        )
+
+    def run_saved(platform: str, video_id: str, lang: str) -> str:
+        s = store()
+        try:
+            found = [v for v in s.saved_videos(platform) if v["video_id"] == video_id]
+        finally:
+            s.close()
+        if not found:
+            raise HTTPException(status_code=404, detail="video không còn trong hàng chờ")
+        v = found[0]
+        return start_candidate(
+            v["url"], lang, platform, video_id, v.get("media_url") or "", v.get("title") or ""
+        )
+
+    @app.post("/saved/run")
+    def saved_run(
+        platform: str = Form(...), video_id: str = Form(...), lang: str = Form("auto")
+    ):
+        job_id = run_saved(platform, video_id, lang)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/saved/next")
+    def saved_next(platform: str = Form("")):
+        """Làm video lưu lâu nhất. Ở lại trang hàng chờ để bấm tiếp nếu muốn."""
+        s = store()
+        try:
+            queue = s.saved_videos(platform or None)
+        finally:
+            s.close()
+        if not queue:
+            raise HTTPException(status_code=404, detail="hàng chờ trống")
+        v = queue[0]
+        lang = "zh" if v["platform"] == "douyin" else "auto"
+        run_saved(v["platform"], v["video_id"], lang)
+        back = f"/saved?platform={platform}" if platform else "/saved"
+        return RedirectResponse(back, status_code=303)
+
+    @app.post("/saved/run-batch")
+    def saved_run_batch(
+        keys: list[str] = Form(default=[]),
+        first: int = Form(0),
+        platform: str = Form(""),
+    ):
+        """Làm hàng loạt: các video đã tick, hoặc `first` video đầu hàng chờ.
+
+        Tạo job cho tất cả ngay, còn chạy thì runner tự xếp lượt theo
+        `profile.concurrency` — bấm 20 video không có nghĩa 20 job chạy cùng lúc.
+        """
+        s = store()
+        try:
+            queue = s.saved_videos(platform or None)
+        finally:
+            s.close()
+        if first > 0:
+            picked = queue[:first]
+        else:
+            wanted = {tuple(k.split(":", 1)) for k in keys if ":" in k}
+            picked = [v for v in queue if (v["platform"], v["video_id"]) in wanted]
+        if not picked:
+            raise HTTPException(status_code=400, detail="chưa chọn video nào")
+        run_picked(picked)
+        return RedirectResponse(f"/?batch={len(picked)}", status_code=303)
+
+    def run_picked(picked: list[dict]) -> int:
+        for v in picked:
+            lang = "zh" if v["platform"] == "douyin" else "auto"
+            run_saved(v["platform"], v["video_id"], lang)
+        return len(picked)
+
+    def run_first_saved(n: int, platform: str = "") -> int:
+        """Làm `n` video đầu hàng chờ. Bot Telegram gọi qua `app.state`."""
+        s = store()
+        try:
+            queue = s.saved_videos(platform or None)
+        finally:
+            s.close()
+        return run_picked(queue[: max(0, n)])
+
+    app.state.run_first_saved = run_first_saved
+
+    @app.post("/saved/remove")
+    def saved_remove(platform: str = Form(...), video_id: str = Form(...)):
+        s = store()
+        try:
+            s.unsave_video(platform, video_id)
+        finally:
+            s.close()
+        return RedirectResponse("/saved", status_code=303)
 
     @app.get("/jobs/{job_id}", response_class=HTMLResponse)
     def review(request: Request, job_id: str):
@@ -292,6 +585,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             "review.html",
             {
                 "job": job,
+                "details": service.job_details(app.state.jobs_dir, job_id),
                 "row": row,
                 "rows": service.review_rows(job),
                 "voices": service.voices_for(c),

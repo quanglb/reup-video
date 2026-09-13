@@ -221,7 +221,7 @@ def test_imported_files_are_offered_again_as_suggestions(client):
         follow_redirects=False,
     )
     body = c.get("/discover?platform=douyin").text
-    assert "File đã nạp" in body
+    assert "File nạp gần đây" in body
     assert "厨师小王" in body and "3 video" in body
 
 

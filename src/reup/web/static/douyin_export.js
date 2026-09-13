@@ -44,10 +44,10 @@
   let index = 0; // vị trí trên kênh, đếm cả bài ảnh để khớp với thứ tự người xem thấy
   let author = "";
 
+  let stalls = 0;
   while (hasMore) {
     const data = await page(cursor);
     const list = data.aweme_list || [];
-    if (!list.length) break;
     for (const item of list) {
       index++;
       const play = item.video?.play_addr?.url_list?.[0];
@@ -71,8 +71,19 @@
     }
     console.log(`reup: đã lấy ${videos.length} video`);
     hasMore = Boolean(data.has_more);
-    cursor = data.max_cursor;
-    await sleep(500); // tránh rate-limit
+    // Douyin hay trả trang ngắn, có khi 0 video, mà has_more vẫn là 1. Dừng ở
+    // trang rỗng đầu tiên thì một kênh 486 video chỉ ra 25 (đo trên 街头二郎).
+    // Chỉ bỏ cuộc khi con trỏ đứng yên hoặc rỗng 5 lần liền.
+    const advanced = data.max_cursor && data.max_cursor !== cursor;
+    if (!list.length || !advanced) {
+      stalls++;
+      if (stalls >= 5) break;
+      await sleep(1500 * stalls);
+    } else {
+      stalls = 0;
+    }
+    if (advanced) cursor = data.max_cursor;
+    await sleep(600); // tránh rate-limit
   }
 
   if (!videos.length) {

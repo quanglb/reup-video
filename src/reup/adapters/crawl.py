@@ -7,6 +7,7 @@ xử lý lỗi riêng, và bản nào cũng sẽ thiếu một nhánh.
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 
 # Spec §3: đích là video dưới ~3 phút, 9:16.
@@ -82,10 +83,17 @@ def dump_flat(
 
 
 # Nền tảng không nhận tham số sắp xếp qua yt-dlp, nên sắp tại chỗ.
+def _date_key(c) -> int:
+    """"20250912" hay "2025-09-12" đều về 20250912. Không có ngày thì xếp cuối."""
+    digits = re.sub(r"\D", "", str(c.published_at or ""))[:8]
+    return -int(digits) if len(digits) == 8 else 0
+
+
 SORTS = {
     "": ("thứ tự trang", None),
-    "likes": ("lượt thích", lambda c: -c.like_count),
     "views": ("lượt xem", lambda c: -c.view_count),
+    "likes": ("lượt thích", lambda c: -c.like_count),
+    "newest": ("mới nhất", _date_key),
     "short": ("ngắn nhất", lambda c: c.duration_ms or 10**9),
 }
 

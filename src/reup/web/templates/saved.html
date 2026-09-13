@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="board-head">
+  <div class="board-title">
+    <h1>⭐ Hàng chờ</h1>
+    <span class="hint-inline">Video đã lưu từ tab quét, chưa tạo job. Làm dần từ trên xuống — cái lưu trước nằm trước.</span>
+  </div>
+  <div class="board-tools">
+    {% if rows %}
+    <form method="post" action="/saved/next">
+      <input type="hidden" name="platform" value="{{ platform }}">
+      <button class="primary" title="Tạo job và chạy video đầu hàng chờ">▶ Làm video tiếp theo</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+
+<nav class="filters platform-filters">
+  <a href="/saved" class="{{ 'on' if not platform }}">Mọi nền tảng <b>{{ counts.get('', 0) }}</b></a>
+  {% for key, label in [('youtube', '▶ YouTube'), ('tiktok', '♪ TikTok'), ('douyin', '♪ Douyin')] %}
+    <a href="/saved?platform={{ key }}" class="pf pf-{{ key }} {{ 'on' if platform == key }}">{{ label }} <b>{{ counts.get(key, 0) }}</b></a>
+  {% endfor %}
+</nav>
+
+{% if not rows %}
+  <div class="empty-state">
+    <p>Hàng chờ trống.</p>
+    <small>Ở tab YouTube / TikTok / Douyin, bấm ☆ trên góc ảnh video để lưu vào đây.</small>
+  </div>
+{% else %}
+<form id="batchForm" method="post" action="/saved/run-batch" class="batch-bar">
+  <input type="hidden" name="platform" value="{{ platform }}">
+  <label class="check"><input type="checkbox" id="pickAll"> Chọn tất cả</label>
+  <span class="batch-count">Đã chọn <b id="pickCount">0</b> / {{ rows|length }}</span>
+  <button class="primary" id="runPicked" disabled>▶ Làm các video đã chọn</button>
+  <span class="batch-sep"></span>
+  <span class="batch-first">
+    hoặc làm
+    <input type="number" name="first" id="firstN" min="1" max="{{ rows|length }}" value="{{ [3, rows|length]|min }}">
+    video đầu
+    <button type="submit" id="runFirst" formnovalidate>▶ Làm</button>
+  </span>
+  <span id="translateStatus" class="translate-status"></span>
+</form>
+<p class="batch-hint">Job được tạo hết một lượt, rồi chạy lần lượt theo <code>profile.concurrency</code>. {% if auto_approve %}Đang bật tự duyệt nên job chạy thẳng ra thành phẩm.{% else %}Mỗi job sẽ dừng ở <b>Chốt A</b> chờ bạn duyệt bản dịch.{% endif %}</p>
+<div class="cards">
+  {% for c in rows %}
+  {% set d = (c.published_at or '')|replace('-', '') %}
+  <article class="card" data-title="{{ c.title }}">
+    <div class="frame" data-embed="{{ c.embed_url or '' }}">
+      {% if c.thumbnail %}<img src="{{ c.thumbnail }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
+      <button class="play-embed" {{ 'disabled' if not c.embed_url }} title="Xem ngay tại đây">▶</button>
+      <label class="pick" title="Chọn để làm hàng loạt">
+        <input type="checkbox" name="keys" value="{{ c.platform }}:{{ c.video_id }}" form="batchForm">
+        <span>{{ loop.index }}</span>
+      </label>
+      <span class="badge platform {{ c.platform }}">{{ {"youtube": "▶ YouTube", "tiktok": "♪ TikTok", "douyin": "♪ Douyin"}.get(c.platform, c.platform) }}</span>
+      {% if c.duration_ms %}<span class="fbadge dur">{{ c.duration_ms | duration }}</span>{% endif %}
+    </div>
+    <div class="card-info">
+      <h3 class="title-vi" title="{{ c.title }}">{{ c.title }}</h3>
+      <p class="title-src" hidden></p>
+      <div class="stats">
+        {% if c.view_count %}<span title="Lượt xem">👁 {{ c.view_count | views }}</span>{% endif %}
+        {% if c.like_count %}<span title="Lượt thích">{{ c.like_count | views }} ♥</span>{% endif %}
+        {% if c.share_count %}<span title="Lượt chia sẻ">↗ {{ c.share_count | views }}</span>{% endif %}
+        {% if d|length == 8 %}<span title="Ngày đăng">📅 {{ d[6:8] }}/{{ d[4:6] }}/{{ d[2:4] }}</span>{% endif %}
+      </div>
+      {% if c.uploader %}<p class="meta" title="{{ c.uploader }}">👤 {{ c.uploader }}</p>{% endif %}
+    </div>
+    <div class="card-actions">
+      <form method="post" action="/saved/run">
+        <input type="hidden" name="platform" value="{{ c.platform }}">
+        <input type="hidden" name="video_id" value="{{ c.video_id }}">
+        <select name="lang" title="Ngôn ngữ gốc">
+          <option value="auto">tự nhận</option>
+          <option value="zh" {{ 'selected' if c.platform == 'douyin' }}>Trung</option>
+          <option value="en">Anh</option>
+        </select>
+        <button class="primary">▶ Làm</button>
+      </form>
+      <form method="post" action="/saved/remove">
+        <input type="hidden" name="platform" value="{{ c.platform }}">
+        <input type="hidden" name="video_id" value="{{ c.video_id }}">
+        <button class="icon-btn" title="Bỏ khỏi hàng chờ">✕</button>
+      </form>
+      <a class="ext" href="{{ c.url }}" target="_blank" rel="noopener" title="Mở trang gốc">↗</a>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

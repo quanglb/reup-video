@@ -35,6 +35,15 @@ STAGE_LABELS: dict[str, str] = {
 }
 
 
+STATUS_LABELS: dict[str, str] = {
+    "pending": "Đang chờ",
+    "running": "Đang chạy",
+    "needs_review": "Chờ duyệt",
+    "done": "Xong",
+    "failed": "Lỗi",
+}
+
+
 @dataclass(frozen=True)
 class JobRow:
     id: str
@@ -44,6 +53,66 @@ class JobRow:
     stage_label: str
     percent: int
     error: str
+    name: str = ""  # tên người dùng đặt
+    title: str = ""  # tên hiển thị: tên đặt > tiêu đề Việt > tiêu đề gốc > id
+    source_title: str = ""
+    uploader: str = ""
+    platform: str = ""
+    duration_s: int = 0
+    thumb_url: str = ""  # ảnh gốc của nền tảng, dùng khi chưa có video để cắt
+    has_source: bool = False
+    has_final: bool = False
+    archived: bool = False
+    updated_at: float = 0.0
+    exists: bool = True  # False khi sổ cái có mà thư mục job đã mất
+
+    @property
+    def status_label(self) -> str:
+        return STATUS_LABELS.get(self.status, self.status)
+
+
+def _read_json(path: Path) -> dict:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def _platform_of(url: str) -> str:
+    for key in ("douyin", "tiktok", "youtube", "youtu.be", "bilibili"):
+        if key in url:
+            return "youtube" if key == "youtu.be" else key
+    return ""
+
+
+def job_details(jobs_dir: Path | None, job_id: str) -> dict:
+    """Thông tin để hiển thị một job, đọc từ thư mục job. Thiếu gì thì bỏ trống."""
+    root = Path(jobs_dir) / job_id if jobs_dir else None
+    if root is None or not (root / "job.json").exists():
+        return {"exists": False}
+    settings = _read_json(root / "job.json")
+    info = _read_json(root / "source.info.json")
+    meta = _read_json(root / "meta.json")
+    thumb = info.get("thumbnail")
+    try:
+        duration = int(float(info.get("duration") or 0))
+    except (TypeError, ValueError):
+        duration = 0
+    source_title = str(info.get("title") or info.get("description") or "").strip()
+    name = str(settings.get("name") or "").strip()
+    return {
+        "exists": True,
+        "name": name,
+        "title": name or str(meta.get("title") or "").strip() or source_title,
+        "source_title": source_title,
+        "uploader": str(info.get("uploader") or ""),
+        "duration_s": duration,
+        "thumb_url": thumb if isinstance(thumb, str) and thumb.startswith("http") else "",
+        "has_source": (root / "source.mp4").exists(),
+        "has_final": (root / "render" / "final.mp4").exists(),
+        "archived": bool(settings.get("archived")),
+    }
 
 
 def calculate_progress(
@@ -90,11 +159,20 @@ def calculate_progress(
 
 
 def list_jobs(
-    store: Store, status: str | None = None, cfg: Config | None = None
+    store: Store,
+    status: str | None = None,
+    cfg: Config | None = None,
+    jobs_dir: Path | None = None,
+    archived: bool | None = None,
 ) -> list[JobRow]:
+    """`archived=None` lấy cả hai; True/False lọc theo cờ lưu trữ trong job.json."""
     rows = []
     for r in store.list_jobs(status):
         pct, label = calculate_progress(r["status"], r["stage"], cfg)
+        details = job_details(jobs_dir, r["id"])
+        if archived is not None and bool(details.get("archived")) != archived:
+            continue
+        details["title"] = details.get("title") or r["id"]
         rows.append(
             JobRow(
                 id=r["id"],
@@ -104,9 +182,66 @@ def list_jobs(
                 stage_label=label,
                 percent=pct,
                 error=r["error"] or "",
+                platform=_platform_of(r["url"]),
+                updated_at=r.get("updated_at") or 0.0,
+                **details,
             )
         )
     return rows
+
+
+def status_counts(rows: list[JobRow]) -> dict[str, int]:
+    counts = {"": len(rows)}
+    for r in rows:
+        counts[r.status] = counts.get(r.status, 0) + 1
+    return counts
+
+
+def rename_job(job: Job, name: str) -> str:
+    """Đặt tên cho job. Chuỗi rỗng là bỏ tên, quay về tiêu đề tự sinh."""
+    name = " ".join((name or "").split())[:120]
+    job.update_settings(name=name or None)
+    return name
+
+
+def set_archived(job: Job, archived: bool) -> None:
+    job.update_settings(archived=True if archived else None)
+
+
+def delete_job(job: Job, store: Store, cfg: Config) -> None:
+    """Xoá hẳn thư mục job, file xuất ra `output/`, và dòng trong sổ cái."""
+    import shutil
+
+    out = Path(cfg.review.output_dir)
+    for path in (out / f"{job.id}.mp4", out / f"{job.id}.json"):
+        path.unlink(missing_ok=True)
+    if job.root.exists():
+        shutil.rmtree(job.root)
+    store.delete_job(job.id)
+
+
+def thumbnail(job: Job) -> Path:
+    """Ảnh bìa cắt từ video (ưu tiên thành phẩm). Cắt một lần rồi dùng lại.
+
+    Cắt sau khi render xong thì ảnh cũ (từ video gốc) phải bỏ, nên so mtime.
+    """
+    from reup.media.ffmpeg import run_ffmpeg
+
+    src = job.final_mp4 if job.final_mp4.exists() else job.source_video
+    if not src.exists():
+        raise FileNotFoundError("chưa có video để cắt ảnh")
+    out = job.thumb_jpg
+    if out.exists() and out.stat().st_mtime >= src.stat().st_mtime:
+        return out
+    tmp = out.with_suffix(".tmp.jpg")
+    run_ffmpeg([
+        "-ss", "1", "-i", str(src), "-frames:v", "1",
+        "-vf", "scale=360:-2", "-q:v", "4", str(tmp),
+    ])
+    if not tmp.exists():  # video ngắn hơn 1 giây: lấy khung đầu
+        run_ffmpeg(["-i", str(src), "-frames:v", "1", "-vf", "scale=360:-2", str(tmp)])
+    tmp.replace(out)
+    return out
 
 
 def get_job_progress(job: Job, row: dict | None, cfg: Config) -> dict:
@@ -371,6 +506,7 @@ class CandidateRow:
     share_count: int = 0
     position: int = 0
     media_url: str = ""
+    saved: bool = False  # đang nằm trong hàng chờ
 
 
 def duration_label(ms: int) -> str:
@@ -433,6 +569,7 @@ def discover(
     found = order_and_slice(everything, sort, start, limit)
     feed, kind = source.describe()
     by_url = {r["url"]: r["id"] for r in store.list_jobs()}
+    saved = store.saved_keys()
 
     rows = [
         CandidateRow(
@@ -452,6 +589,7 @@ def discover(
             share_count=c.share_count,
             position=c.position,
             media_url=c.media_url,
+            saved=(c.platform, c.video_id) in saved,
         )
         for c in found
     ]

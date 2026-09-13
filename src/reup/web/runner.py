@@ -29,6 +29,9 @@ class BackgroundRunner:
         self._live: set[str] = set()
         self._lock = threading.Lock()
         self._slots: threading.Semaphore | None = None
+        # Kết quả của lượt chạy hiện tại (từ lúc rảnh tới lúc rảnh lại), để báo
+        # tổng kết một lần khi chạy hàng loạt xong.
+        self._round: dict[str, int] = {}
 
     def _semaphore(self) -> threading.Semaphore:
         """Dựng trễ, và dựng TRONG luồng nền.
@@ -77,6 +80,7 @@ class BackgroundRunner:
         return True
 
     def _run(self, job_id: str) -> None:
+        status = "failed"
         try:
             with self._semaphore():
                 cfg = load_config(self.config_path)
@@ -84,7 +88,7 @@ class BackgroundRunner:
                 store = Store(self.db_path)
                 store.init_schema()
                 try:
-                    run_job(job, cfg, store, stages_for(cfg))
+                    status = run_job(job, cfg, store, stages_for(cfg))
                 finally:
                     store.close()
         except Exception as exc:  # config hỏng, job bị xoá tay, ...
@@ -95,6 +99,20 @@ class BackgroundRunner:
         finally:
             with self._lock:
                 self._live.discard(job_id)
+                self._round[status] = self._round.get(status, 0) + 1
+                finished_round = dict(self._round) if not self._live else None
+                if finished_round is not None:
+                    self._round = {}
+            if finished_round and sum(finished_round.values()) >= 2:
+                self._report_round(finished_round)
+
+    def _report_round(self, counts: dict[str, int]) -> None:
+        try:
+            from reup.notify import from_config
+
+            from_config(load_config(self.config_path)).batch_finished(counts)
+        except Exception:
+            pass  # báo cáo hỏng không được làm hỏng runner
 
     def _mark_failed(self, job_id: str, exc: Exception) -> None:
         try:

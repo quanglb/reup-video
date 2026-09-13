@@ -41,6 +41,17 @@ auto_approve   = true   # Tự động 100%: bỏ qua các bước duyệt thủ
 auto_approve_a = true   # Tự động duyệt bản dịch (chốt A)
 auto_approve_b = true   # Tự động duyệt thành phẩm (chốt B)
 
+# Bot Telegram báo cáo tình hình khi làm video. Token để trong .env:
+#   TELEGRAM_BOT_TOKEN=...   (lấy ở @BotFather)
+# Chat id: nhắn cho bot một tin rồi chạy `uv run reup telegram chat-id`.
+[notify]
+telegram      = true
+chat_id       = 5236378815          # trống = đọc TELEGRAM_CHAT_ID trong .env
+stage_updates = true        # một tin tiến trình, tự sửa sau từng bước
+send_video    = false       # gửi kèm file thành phẩm (≤ 50MB)
+web_url       = "http://127.0.0.1:8765"
+commands      = true        # bot nghe lệnh /status /lam... khi chạy `reup web`
+
 [tts]
 engine     = "capcut"          # "capcut" | "stub"
 voice      = "BV074_streaming" # Cô Gái Hoạt Ngôn — xem Voice.json của CapCut

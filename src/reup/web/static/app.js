@@ -4,9 +4,12 @@
 // Cập nhật tiến trình thời gian thực (Live Progress Polling)
 (function () {
   // 1. Polling trang Hàng đợi (Queue)
-  const rows = document.querySelectorAll('tr[data-job-id]');
+  const STATUS_LABELS = {
+    pending: 'Đang chờ', running: 'Đang chạy', needs_review: 'Chờ duyệt', done: 'Xong', failed: 'Lỗi',
+  };
+  const rows = document.querySelectorAll('.job-card[data-job-id]');
   if (rows.length > 0) {
-    const hasRunning = Array.from(rows).some(r => r.dataset.status === 'running' || r.querySelector('.spin') || r.querySelector('.spin-dot'));
+    const hasRunning = Array.from(rows).some(r => r.dataset.status === 'running' || r.querySelector('.spin') || r.querySelector('.dot'));
     if (hasRunning) {
       const queueTimer = setInterval(async () => {
         try {
@@ -35,10 +38,10 @@
             const pctText = row.querySelector('.pct-text');
             if (pctText) pctText.textContent = info.percent + '%';
 
-            const pill = row.querySelector('.pill');
-            if (pill) {
-              pill.className = 'pill ' + info.status;
-              pill.textContent = info.status;
+            const badge = row.querySelector('.status-badge');
+            if (badge && row.dataset.status !== info.status) {
+              badge.className = 'badge status-badge ' + info.status;
+              badge.textContent = STATUS_LABELS[info.status] || info.status;
             }
           });
 
@@ -331,4 +334,297 @@
       }
     });
   }
+})();
+
+// Trang Dự án & đầu trang chi tiết: xem thử khi rê chuột, đổi tên,
+// lưu trữ, xoá. Thao tác nào cũng gọi API rồi sửa tại chỗ, không tải lại trang.
+(function () {
+  const toastEl = document.getElementById('toast');
+  let toastTimer;
+  function toast(text, bad) {
+    if (!toastEl) return;
+    toastEl.textContent = text;
+    toastEl.classList.toggle('bad', !!bad);
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastEl.hidden = true; }, 3000);
+  }
+
+  async function post(url, fields) {
+    const body = new FormData();
+    Object.entries(fields || {}).forEach(([k, v]) => body.append(k, v));
+    const res = await fetch(url, { method: 'POST', body });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || res.status);
+    return data;
+  }
+
+  // Ảnh bìa: server cắt từ video; chưa cắt được thì dùng ảnh của nền tảng.
+  document.querySelectorAll('.thumb img').forEach((img) => {
+    img.addEventListener('error', () => {
+      const fb = img.dataset.fallback;
+      if (fb && img.src !== fb) {
+        img.referrerPolicy = 'no-referrer';
+        img.src = fb;
+      } else {
+        img.remove();
+      }
+    });
+  });
+
+  // Rê chuột lên ảnh là phát video câm; rời chuột thì gỡ hẳn để không giữ kết nối.
+  document.querySelectorAll('.thumb[data-preview]').forEach((thumb) => {
+    let video, timer;
+    thumb.addEventListener('mouseenter', () => {
+      timer = setTimeout(() => {
+        video = document.createElement('video');
+        video.src = thumb.dataset.preview;
+        video.muted = true;
+        video.loop = true;
+        video.playsInline = true;
+        video.autoplay = true;
+        thumb.appendChild(video);
+        thumb.classList.add('playing');
+        video.play().catch(() => {});
+      }, 250);
+    });
+    thumb.addEventListener('mouseleave', () => {
+      clearTimeout(timer);
+      if (video) {
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        video.remove();
+        video = null;
+      }
+      thumb.classList.remove('playing');
+    });
+  });
+
+  function closeMenus(except) {
+    document.querySelectorAll('.menu-pop').forEach((m) => { if (m !== except) m.hidden = true; });
+  }
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.menu')) closeMenus();
+  });
+
+  function startRename(host) {
+    const h = host.querySelector('.job-title');
+    if (!h || host.querySelector('.title-input')) return;
+    const input = document.createElement('input');
+    input.className = 'title-input';
+    input.value = host.dataset.name || host.dataset.title || '';
+    input.placeholder = 'Để trống = dùng tiêu đề tự sinh';
+    h.hidden = true;
+    h.after(input);
+    input.focus();
+    input.select();
+
+    let done = false;
+    async function finish(save) {
+      if (done) return;
+      done = true;
+      if (save && input.value.trim() !== (host.dataset.name || host.dataset.title || '')) {
+        try {
+          const data = await post(`/jobs/${host.dataset.jobId}/rename`, { name: input.value });
+          host.dataset.name = data.name;
+          host.dataset.title = data.title;
+          h.textContent = data.title;
+          h.title = data.title;
+          if (host.dataset.search !== undefined) {
+            host.dataset.search = (data.title + ' ' + host.dataset.search).toLowerCase();
+          }
+          toast(data.name ? 'Đã đổi tên ✓' : 'Đã bỏ tên, dùng tiêu đề tự sinh');
+        } catch (err) {
+          toast('Đổi tên hỏng: ' + err.message, true);
+        }
+      }
+      input.remove();
+      h.hidden = false;
+    }
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener('blur', () => finish(true));
+  }
+
+  function removeCard(host) {
+    if (!host.classList.contains('job-card')) return false;
+    host.classList.add('removing');
+    setTimeout(() => {
+      const group = host.closest('.platform-group');
+      host.remove();
+      if (group && !group.querySelector('.job-card')) group.remove();
+      if (!document.querySelector('.job-card')) location.reload();
+    }, 250);
+    return true;
+  }
+
+  async function setArchived(host, archived) {
+    try {
+      await post(`/jobs/${host.dataset.jobId}/archive`, { archived: archived ? 1 : 0 });
+      if (!removeCard(host)) { location.reload(); return; }
+      toast(archived ? 'Đã cất vào Lưu trữ 🗄' : 'Đã đưa về Đang làm ↩');
+    } catch (err) {
+      toast('Không lưu trữ được: ' + err.message, true);
+    }
+  }
+
+  const dialog = document.getElementById('confirmDelete');
+  function askDelete(host) {
+    if (!dialog) return;
+    document.getElementById('deleteName').textContent = host.dataset.title || host.dataset.jobId;
+    const archiveBtn = dialog.querySelector('button[value="archive"]');
+    if (archiveBtn) archiveBtn.hidden = !host.querySelector('[data-action="archive"]');
+    dialog.returnValue = '';
+    dialog.onclose = async () => {
+      if (dialog.returnValue === 'archive') return setArchived(host, true);
+      if (dialog.returnValue !== 'ok') return;
+      try {
+        await post(`/jobs/${host.dataset.jobId}/delete`);
+        if (!removeCard(host)) { location.href = '/'; return; }
+        toast('Đã xoá dự án');
+      } catch (err) {
+        toast('Xoá hỏng: ' + err.message, true);
+      }
+    };
+    dialog.showModal();
+  }
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-action]');
+    if (!btn || btn.disabled) return;
+    const host = btn.closest('.job-card, .job-head');
+    if (!host) return;
+    const action = btn.dataset.action;
+    if (action === 'menu') {
+      const pop = btn.nextElementSibling;
+      closeMenus(pop);
+      pop.hidden = !pop.hidden;
+      return;
+    }
+    closeMenus();
+    if (action === 'rename') startRename(host);
+    else if (action === 'archive') setArchived(host, true);
+    else if (action === 'unarchive') setArchived(host, false);
+    else if (action === 'delete') askDelete(host);
+  });
+
+  // Nhấp đúp vào tên cũng là đổi tên.
+  document.querySelectorAll('.job-card .job-title, .job-head .job-title').forEach((h) => {
+    h.addEventListener('dblclick', () => startRename(h.closest('.job-card, .job-head')));
+  });
+})();
+
+// Tab quét: dịch tiêu đề sang tiếng Việt sau khi trang đã hiện. Tiêu đề gốc
+// lùi xuống một dòng nhỏ bên dưới để vẫn đối chiếu được.
+(function () {
+  const cards = document.querySelectorAll('.cards .card[data-title]');
+  if (!cards.length) return;
+  const titles = [...new Set([...cards].map((c) => c.dataset.title).filter(Boolean))];
+  const status = document.getElementById('translateStatus');
+  if (status) status.textContent = '· 🌐 đang dịch tiêu đề…';
+  fetch('/api/translate-titles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ titles }),
+  })
+    .then((r) => r.json())
+    .then((data) => {
+      const map = data.translations || {};
+      cards.forEach((card) => {
+        const vi = map[card.dataset.title];
+        if (!vi || vi === card.dataset.title) return;
+        const h = card.querySelector('.title-vi');
+        h.textContent = vi;
+        h.title = vi;
+        const src = card.querySelector('.title-src');
+        src.textContent = card.dataset.title;
+        src.title = card.dataset.title;
+        src.hidden = false;
+      });
+      if (status) status.textContent = data.error ? '· ⚠ dịch tiêu đề lỗi: ' + data.error : '';
+    })
+    .catch(() => { if (status) status.textContent = '· ⚠ không dịch được tiêu đề'; });
+})();
+
+// Tab quét: ☆/★ lưu video vào hàng chờ để làm sau, không tạo job.
+(function () {
+  const counter = document.getElementById('savedCount');
+  document.querySelectorAll('.card [data-star]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const card = btn.closest('.card');
+      const want = !btn.classList.contains('on');
+      btn.disabled = true;
+      try {
+        const res = await fetch('/saved', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ video: JSON.parse(card.dataset.video), saved: want }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.status);
+        btn.classList.toggle('on', data.saved);
+        btn.textContent = data.saved ? '★' : '☆';
+        btn.title = data.saved ? 'Bỏ khỏi hàng chờ' : 'Lưu vào hàng chờ để làm sau';
+        if (counter) counter.textContent = data.count;
+      } catch (err) {
+        alert('Không lưu được: ' + err.message);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  });
+})();
+
+// Hàng chờ: tick nhiều video rồi làm hàng loạt.
+(function () {
+  const form = document.getElementById('batchForm');
+  if (!form) return;
+  const boxes = [...document.querySelectorAll('input[name="keys"][form="batchForm"]')];
+  const all = document.getElementById('pickAll');
+  const count = document.getElementById('pickCount');
+  const runPicked = document.getElementById('runPicked');
+  const firstN = document.getElementById('firstN');
+
+  function refresh() {
+    const n = boxes.filter((b) => b.checked).length;
+    count.textContent = n;
+    runPicked.disabled = n === 0;
+    runPicked.textContent = n ? `▶ Làm ${n} video đã chọn` : '▶ Làm các video đã chọn';
+    all.checked = n > 0 && n === boxes.length;
+    all.indeterminate = n > 0 && n < boxes.length;
+    boxes.forEach((b) => b.closest('.card').classList.toggle('picked', b.checked));
+  }
+  boxes.forEach((b) => b.addEventListener('change', refresh));
+  all.addEventListener('change', () => {
+    boxes.forEach((b) => { b.checked = all.checked; });
+    refresh();
+  });
+
+  // Hai nút cùng một form: nút "Làm N video đầu" gửi `first`, nút kia bỏ `first`
+  // để server lấy theo các ô đã tick.
+  form.addEventListener('submit', (e) => {
+    const byFirst = e.submitter && e.submitter.id === 'runFirst';
+    const n = byFirst ? parseInt(firstN.value, 10) || 0 : boxes.filter((b) => b.checked).length;
+    if (!n) { e.preventDefault(); return; }
+    if (!confirm(`Tạo và chạy ${n} job?`)) { e.preventDefault(); return; }
+    firstN.disabled = !byFirst;
+    if (byFirst) boxes.forEach((b) => { b.disabled = true; });
+  });
+  refresh();
+})();
+
+// Trang Dự án: báo vừa làm hàng loạt bao nhiêu video.
+(function () {
+  const n = new URLSearchParams(location.search).get('batch');
+  const toast = document.getElementById('toast');
+  if (!n || !toast) return;
+  toast.textContent = `Đã tạo ${n} job từ hàng chờ — đang chạy lần lượt ▶`;
+  toast.hidden = false;
+  setTimeout(() => { toast.hidden = true; }, 4000);
+  history.replaceState(null, '', location.pathname);
 })();

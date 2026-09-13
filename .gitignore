@@ -11,3 +11,8 @@ capcut-tts-api/
 reup.db-shm
 reup.db-wal
 douyin-exports/
+
+# cache dịch tiêu đề ở tab quét, sinh lúc chạy
+title-vi-cache.json
+# cấu hình công cụ trên máy
+.claude/

@@ -208,9 +208,22 @@ def check_openai(cfg: Config) -> list[Check]:
     return out
 
 
+def check_telegram(cfg: Config) -> Check | None:
+    """Chỉ xét khi đã bật. Thiếu token/chat id không chặn chạy: chỉ mất báo cáo."""
+    if not cfg.notify.telegram:
+        return None
+    if not os.environ.get("TELEGRAM_BOT_TOKEN"):
+        return Check("Telegram", WARN, "đã bật nhưng thiếu TELEGRAM_BOT_TOKEN",
+                     "tạo bot ở @BotFather rồi điền token vào .env")
+    if not (cfg.notify.chat_id or os.environ.get("TELEGRAM_CHAT_ID")):
+        return Check("Telegram", WARN, "thiếu chat id",
+                     "nhắn cho bot một tin rồi chạy `uv run reup telegram chat-id`")
+    return Check("Telegram", OK, "bật — kiểm thử bằng `uv run reup telegram test`")
+
+
 def run_checks(cfg: Config, jobs_dir: Path) -> list[Check]:
     checks = [*check_ffmpeg(), check_ytdlp(), check_js_runtime()]
-    for maybe in (check_gemini_key(cfg), check_capcut(cfg)):
+    for maybe in (check_gemini_key(cfg), check_capcut(cfg), check_telegram(cfg)):
         if maybe is not None:
             checks.append(maybe)
     checks.extend(check_ollama(cfg))
