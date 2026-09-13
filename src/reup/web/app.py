@@ -51,8 +51,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     @app.get("/", response_class=HTMLResponse)
     def queue(request: Request, status: str | None = None):
         s = store()
+        c = cfg()
         try:
-            rows = service.list_jobs(s, status)
+            rows = service.list_jobs(s, status, c)
         finally:
             s.close()
         return templates.TemplateResponse(
@@ -66,6 +67,29 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "title": "Hàng đợi",
             },
         )
+
+    @app.get("/api/progress")
+    def all_progress():
+        s = store()
+        c = cfg()
+        try:
+            jobs = s.list_jobs()
+            live_running = app.state.runner.live()
+        finally:
+            s.close()
+        out = {}
+        for r in jobs:
+            pct, label = service.calculate_progress(r["status"], r["stage"], c)
+            out[r["id"]] = {
+                "id": r["id"],
+                "status": r["status"],
+                "stage": r["stage"] or "-",
+                "stage_label": label,
+                "percent": pct,
+                "is_running": r["id"] in live_running,
+                "error": r["error"] or "",
+            }
+        return out
 
     @app.post("/jobs")
     def add_job(url: str = Form(...), lang: str = Form("auto")):
@@ -183,10 +207,12 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     def review(request: Request, job_id: str):
         job = job_or_404(job_id)
         s = store()
+        c = cfg()
         try:
             row = s.get_job(job_id)
         finally:
             s.close()
+        progress = service.get_job_progress(job, row, c)
         return templates.TemplateResponse(
             request,
             "review.html",
@@ -194,15 +220,30 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "job": job,
                 "row": row,
                 "rows": service.review_rows(job),
-                "voices": service.voices_for(cfg()),
-                "voice": service.pick_voice(job, cfg()),
+                "voices": service.voices_for(c),
+                "voice": service.pick_voice(job, c),
                 "has_video": job.final_mp4.exists(),
                 "gate_a": job.gate_approved("a"),
                 "gate_b": job.gate_approved("b"),
                 "running": app.state.runner.is_running(job_id),
+                "progress": progress,
                 "title": f"Duyệt {job_id}",
             },
         )
+
+    @app.get("/jobs/{job_id}/progress")
+    def job_progress_api(job_id: str):
+        job = job_or_404(job_id)
+        s = store()
+        c = cfg()
+        try:
+            row = s.get_job(job_id)
+            is_running = app.state.runner.is_running(job_id)
+        finally:
+            s.close()
+        prog = service.get_job_progress(job, row, c)
+        prog["is_running"] = is_running
+        return prog
 
     @app.post("/jobs/{job_id}/segments")
     async def save_segments(job_id: str, request: Request):
@@ -234,10 +275,59 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             s.upsert_job(job_id, row["url"], "pending", stage=row["stage"])
         finally:
             s.close()
-        # Duyệt xong mà vẫn phải ra terminal gõ `reup run` thì chốt duyệt chưa
-        # xong việc của nó.
         app.state.runner.start(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/rerender")
+    def rerender(job_id: str):
+        job = job_or_404(job_id)
+        for path in (job.dub_wav, job.final_mp4, job.sub_ass, job.meta_json):
+            if path.exists():
+                path.unlink()
+        c = cfg()
+        out_mp4 = Path(c.review.output_dir) / f"{job.id}.mp4"
+        if out_mp4.exists():
+            out_mp4.unlink()
+        out_json = Path(c.review.output_dir) / f"{job.id}.json"
+        if out_json.exists():
+            out_json.unlink()
+        s = store()
+        try:
+            row = s.get_job(job_id)
+            url = row["url"] if row else job.source_url
+            s.upsert_job(job_id, url, "pending", stage=None)
+        finally:
+            s.close()
+        app.state.runner.start(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/reveal")
+    def reveal(job_id: str):
+        job = job_or_404(job_id)
+        c = cfg()
+        out_mp4 = Path(c.review.output_dir) / f"{job.id}.mp4"
+        target = None
+        if out_mp4.exists():
+            target = out_mp4
+        elif job.final_mp4.exists():
+            target = job.final_mp4
+        elif job.root.exists():
+            target = job.root
+
+        if target and target.exists():
+            import subprocess
+
+            resolved = str(target.resolve())
+            subprocess.run(["open", "-R", resolved])
+            try:
+                subprocess.run(
+                    ["osascript", "-e", 'tell application "Finder" to activate'],
+                    timeout=2.0,
+                )
+            except Exception:
+                pass
+            return {"ok": True, "path": resolved}
+        raise HTTPException(status_code=404, detail="Chưa có file thành phẩm để mở")
 
     @app.get("/jobs/{job_id}/source")
     def source_video(job_id: str):

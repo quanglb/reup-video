@@ -15,13 +15,26 @@
   <p class="empty">Chưa có job nào. Dán một link ở trên để bắt đầu.</p>
 {% else %}
 <table>
-  <thead><tr><th>Job</th><th>Trạng thái</th><th>Stage</th><th>Nguồn</th><th></th></tr></thead>
+  <thead><tr><th>Job</th><th>Trạng thái</th><th>Tiến trình</th><th>Nguồn</th><th></th></tr></thead>
   <tbody>
   {% for r in rows %}
-    <tr>
+    <tr id="row-{{ r.id }}" data-job-id="{{ r.id }}" data-status="{{ r.status }}">
       <td><a href="/jobs/{{ r.id }}">{{ r.id }}</a></td>
-      <td><span class="pill {{ r.status }}">{{ r.status }}</span></td>
-      <td>{{ r.stage }}</td>
+      <td>
+        <span class="pill {{ r.status }}">{{ r.status }}</span>
+        {% if r.id in running %}<span class="spin-dot">●</span>{% endif %}
+      </td>
+      <td class="col-progress">
+        <div class="progress-wrap">
+          <div class="progress-bar">
+            <div class="progress-fill {{ r.status }}" style="width: {{ r.percent }}%"></div>
+          </div>
+          <div class="progress-label">
+            <span class="stage-text">{{ r.stage_label }}</span>
+            <span class="pct-text">{{ r.percent }}%</span>
+          </div>
+        </div>
+      </td>
       <td class="url">{{ r.url }}{% if r.error %}<div class="err">{{ r.error }}</div>{% endif %}</td>
       <td>
         {% if r.id in running %}

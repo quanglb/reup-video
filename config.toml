@@ -37,41 +37,47 @@ outline  = 4
 position = "bottom"
 
 [review]
-auto_approve_b = false
+auto_approve   = true   # Tự động 100%: bỏ qua các bước duyệt thủ công, chạy thẳng ra file xuất bản
+auto_approve_a = true   # Tự động duyệt bản dịch (chốt A)
+auto_approve_b = true   # Tự động duyệt thành phẩm (chốt B)
 
 [tts]
 engine     = "capcut"          # "capcut" | "stub"
 voice      = "BV074_streaming" # Cô Gái Hoạt Ngôn — xem Voice.json của CapCut
 capcut_dir = "/Applications/_QuangLB/Workspace/Agent/capcut-tts-api"
 
+# Luật dịch theo thể loại (src/reup/translate_styles.py).
+# "auto" = LLM tự nhận thể loại. Hoặc ép: hai_tinh_huong, drama_tinh_cam,
+# review_ban_hang, huong_dan, kien_thuc_ke_chuyen, vlog_doi_song, dong_vat_cute, chung.
+# Ghi đè từng job: thêm {"genre": "..."} vào jobs/<id>/overrides.json.
+[translate]
+genre = "auto"
+
 [asr]
 engine = "whisper"             # "whisper" | "capcut"
 
-# provider = "ollama" chạy model local: không hạn mức, không API key, không cần
-# mạng. Cần `ollama serve` đang chạy và đã `ollama pull <model>`.
-# Đổi lại chậm hơn và chất lượng tiếng Việt phụ thuộc model — đo trước khi tin.
+# Chạy AI qua 9router local (OpenAI-compatible) với Gemini 3.7 Flash Medium.
 [llm]
-provider  = "gemini"            # "gemini" | "ollama" | "cassette"
-model     = "gemini-3.6-flash"
-base_url  = "http://localhost:11434"   # chỉ dùng cho ollama
-timeout_s = 600.0                      # chỉ dùng cho ollama
+provider  = "openai"            # "gemini" | "ollama" | "openai" | "cassette"
+model     = "ag/gemini-3.7-flash-medium"
+base_url  = "http://localhost:20128/v1"
+timeout_s = 120.0
 
-# Ghi đè theo stage. Khoá nào không khai thì thừa kế từ [llm] ở trên.
-# Chỉ `translate` cần model giỏi — nó quyết định sản phẩm, và đo trên một job
-# thật thì qwen3:8b vượt trần âm tiết 6/23 câu (Gemini 0/23) và dịch sai chỗ
-# cần suy luận. Ba việc còn lại không phải suy luận kiểu đó, đẩy sang local để
-# hạn mức miễn phí chỉ còn gánh 1 request mỗi video.
+[llm.translate]
+provider = "openai"
+model    = "ag/gemini-3.7-flash-medium"
+
 [llm.reconcile]
-provider = "ollama"
-model    = "qwen3:8b"
+provider = "openai"
+model    = "ag/gemini-3.7-flash-medium"
 
 [llm.fit]
-provider = "ollama"
-model    = "qwen3:8b"
+provider = "openai"
+model    = "ag/gemini-3.7-flash-medium"
 
 [llm.export]
-provider = "ollama"
-model    = "qwen3:8b"
+provider = "openai"
+model    = "ag/gemini-3.7-flash-medium"
 
 # YouTube bắt giải "JS challenge" mới trả link tải. yt-dlp cần một JS runtime
 # (deno, node, hoặc bun) và script giải challenge tải từ GitHub. Thiếu chúng thì

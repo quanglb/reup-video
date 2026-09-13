@@ -85,9 +85,10 @@ def test_cassette_llm_without_a_path_says_which_knob_is_missing(cfg_fixture):
 
 
 def test_unknown_llm_provider(cfg_fixture):
-    cfg = replace(cfg_fixture, llm=LLMConfig("openai", "gpt", ""))
-    with pytest.raises(ValueError, match="openai"):
+    cfg = replace(cfg_fixture, llm=LLMConfig("unknown_provider", "gpt", ""))
+    with pytest.raises(ValueError, match="unknown_provider"):
         make_llm(cfg)
+
 
 
 def test_gemini_needs_a_key_not_a_registry_change(cfg_fixture, monkeypatch):

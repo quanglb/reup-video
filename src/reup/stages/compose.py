@@ -222,6 +222,10 @@ def run(job: Job, cfg: Config) -> None:
     for ov in overlays:
         inputs += ["-i", str(ov.path)]
 
+    tmp_mp4 = job.final_mp4.with_suffix(".tmp.mp4")
+    if tmp_mp4.exists():
+        tmp_mp4.unlink()
+
     run_ffmpeg([
         *inputs,
         "-filter_complex",
@@ -237,8 +241,11 @@ def run(job: Job, cfg: Config) -> None:
         "-c:v", cfg.profile.encoder, "-b:v", str(bitrate),
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
-        str(job.final_mp4),
+        str(tmp_mp4),
     ])
+
+    import os
+    os.replace(tmp_mp4, job.final_mp4)
 
 
 # Chốt B đứng sau đây: xem thành phẩm trước khi xuất (spec §8.3).

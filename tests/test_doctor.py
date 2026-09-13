@@ -112,6 +112,28 @@ def test_a_pulled_model_passes(cfg_fixture, monkeypatch):
     assert not any(c.blocking for c in doctor.check_ollama(cfg))
 
 
+def test_check_openai_missing_key_blocks(cfg_fixture, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("ROUTER_API_KEY", raising=False)
+    monkeypatch.delenv("LLM_API_KEY", raising=False)
+    cfg = replace(
+        cfg_fixture,
+        llm_roles=roles(fit=LLMConfig(provider="openai", model="ag/gemini-3.7-flash-medium", api_key="")),
+    )
+    checks = doctor.check_openai(cfg)
+    assert any(c.blocking and "chưa đặt" in c.detail for c in checks)
+
+
+def test_check_openai_with_key_passes(cfg_fixture):
+    cfg = replace(
+        cfg_fixture,
+        llm_roles=roles(fit=LLMConfig(provider="openai", model="ag/gemini-3.7-flash-medium", api_key="sk-test")),
+    )
+    checks = doctor.check_openai(cfg)
+    assert not any(c.blocking for c in checks)
+    assert any("OpenAI/Router API Key" in c.name for c in checks)
+
+
 # --- CapCut, đĩa, báo cáo ---------------------------------------------------
 
 def test_capcut_is_skipped_for_the_stub_engine(cfg_fixture):

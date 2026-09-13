@@ -11,12 +11,17 @@ def duration_ms(path: Path) -> int:
 
 
 def extract_audio(src: Path, out: Path, sample_rate: int, channels: int) -> None:
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp.wav")
+    if tmp.exists():
+        tmp.unlink()
     run_ffmpeg([
         "-i", str(src), "-vn",
         "-ac", str(channels), "-ar", str(sample_rate),
-        "-c:a", "pcm_s16le", str(out),
+        "-c:a", "pcm_s16le", str(tmp),
     ])
+    tmp.replace(out)
 
 
 def atempo_filter(ratio: float) -> str:
@@ -36,27 +41,42 @@ def atempo_filter(ratio: float) -> str:
 
 
 def apply_tempo(src: Path, out: Path, ratio: float) -> None:
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp.wav")
+    if tmp.exists():
+        tmp.unlink()
     run_ffmpeg([
         "-i", str(src), "-filter:a", atempo_filter(ratio),
-        "-c:a", "pcm_s16le", str(out),
+        "-c:a", "pcm_s16le", str(tmp),
     ])
+    tmp.replace(out)
 
 
 def silence(out: Path, ms: int, sample_rate: int = 48000, channels: int = 2) -> None:
     layout = "mono" if channels == 1 else "stereo"
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp.wav")
+    if tmp.exists():
+        tmp.unlink()
     run_ffmpeg([
         "-f", "lavfi", "-i", f"anullsrc=r={sample_rate}:cl={layout}",
-        "-t", f"{ms / 1000:.3f}", "-c:a", "pcm_s16le", str(out),
+        "-t", f"{ms / 1000:.3f}", "-c:a", "pcm_s16le", str(tmp),
     ])
+    tmp.replace(out)
 
 
 def build_timeline(
     placements: list[tuple[int, Path]], total_ms: int, out: Path
 ) -> None:
     """Đặt mỗi wav vào mốc start_ms của nó trên nền im lặng dài total_ms."""
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp.wav")
+    if tmp.exists():
+        tmp.unlink()
+
     if not placements:
         silence(out, total_ms)
         return
@@ -78,9 +98,10 @@ def build_timeline(
     args += [
         "-filter_complex", ";".join(chains),
         "-map", "[out]", "-t", f"{total_ms / 1000:.3f}",
-        "-c:a", "pcm_s16le", str(out),
+        "-c:a", "pcm_s16le", str(tmp),
     ]
     run_ffmpeg(args)
+    tmp.replace(out)
 
 
 def to_wav(src: Path, out: Path, sample_rate: int = 48000, channels: int = 2) -> None:

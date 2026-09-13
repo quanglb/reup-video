@@ -76,9 +76,14 @@ def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> None:
     }
     atomic_write(job.meta_json, json.dumps(meta, ensure_ascii=False, indent=2))
 
+    import os
+
     out_dir = cfg.output_dir_path()
     out_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(job.final_mp4, out_dir / f"{job.id}.mp4")
+    target_mp4 = out_dir / f"{job.id}.mp4"
+    tmp_target = out_dir / f"{job.id}.tmp.mp4"
+    shutil.copy2(job.final_mp4, tmp_target)
+    os.replace(tmp_target, target_mp4)
     atomic_write(
         out_dir / f"{job.id}.json", json.dumps(meta, ensure_ascii=False, indent=2)
     )

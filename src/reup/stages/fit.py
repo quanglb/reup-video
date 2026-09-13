@@ -23,7 +23,7 @@ from reup.core.stage import StageSpec
 from reup.fit import decide_fit
 from reup.media.audio import apply_tempo, build_timeline, duration_ms
 from reup.models import Transcript
-from reup.stages.translate import rewrite_shorter_batch
+from reup.stages.translate import load_style_hint, rewrite_shorter_batch
 from reup.stages.tts import LANG, write_manifest
 from reup.text import count_syllables
 from reup.translate import syllable_budget
@@ -63,6 +63,7 @@ def _rewrite_rounds(job: Job, segments, tts, llm, voice: str) -> tuple[dict, dic
         rewritten = rewrite_shorter_batch(
             llm,
             [(seg.id, seg.text, syllable_budget(seg.slot_ms)) for seg in pending],
+            style=load_style_hint(job),
         )
         for seg in pending:
             new_text = rewritten.get(seg.id)

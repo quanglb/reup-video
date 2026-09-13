@@ -302,3 +302,39 @@ def test_preview_of_an_unknown_segment_is_an_error(tmp_path: Path, stub_cfg):
     seed(job, [(1, 0, 3000, "hôm nay trời đẹp", [])])
     with pytest.raises(KeyError):
         preview_audio(job, stub_cfg, 9)
+
+
+def test_calculate_progress_percentages(stub_cfg):
+    from reup.web.service import calculate_progress
+
+    pct, label = calculate_progress("done", None, stub_cfg)
+    assert pct == 100
+    assert "Hoàn tất" in label
+
+    pct, label = calculate_progress("pending", None, stub_cfg)
+    assert pct == 0
+
+    pct, label = calculate_progress("running", "fetch", stub_cfg)
+    assert 0 < pct < 20
+    assert "Tải video" in label
+
+    pct, label = calculate_progress("needs_review", "gate_a", stub_cfg)
+    assert pct >= 50
+    assert "Chốt A" in label
+
+
+def test_get_job_progress_structure(tmp_path: Path, stub_cfg):
+    from reup.web.service import get_job_progress
+
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j_prog")
+    job.log_jsonl.write_text(
+        json.dumps({"stage": "fetch", "ok": True, "started": 10.0, "finished": 12.0}) + "\n"
+    )
+    prog = get_job_progress(job, {"status": "running", "stage": "demux"}, stub_cfg)
+    assert prog["id"] == "j_prog"
+    assert prog["status"] == "running"
+    assert len(prog["stages"]) == 12
+    assert prog["stages"][0]["status"] == "done"
+    assert prog["stages"][1]["status"] == "running"
+    assert len(prog["logs"]) == 1
+    assert prog["logs"][0]["stage"] == "fetch"

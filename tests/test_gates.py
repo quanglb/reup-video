@@ -97,10 +97,20 @@ def test_auto_approve_b_does_not_skip_gate_a(tmp_path: Path, cfg_fixture, store)
     """Chốt A là chỗ sửa bản dịch — bỏ qua nó thì mọi lỗi dịch đi thẳng ra video."""
     job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
     store.upsert_job("j1", "https://a/1", "pending")
-    cfg = replace(cfg_fixture, review=replace(cfg_fixture.review, auto_approve_b=True))
+    cfg = replace(cfg_fixture, review=replace(cfg_fixture.review, auto_approve_b=True, auto_approve_a=False, auto_approve=False))
     stages = [make("one", "a.json", gate="a"), make("two", "b.json")]
 
     assert run_job(job, cfg, store, stages) == "needs_review"
+
+
+def test_auto_approve_skips_all_gates(tmp_path: Path, cfg_fixture, store):
+    """Tự động 100% bỏ qua cả chốt A và B."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    store.upsert_job("j1", "https://a/1", "pending")
+    cfg = replace(cfg_fixture, review=replace(cfg_fixture.review, auto_approve=True))
+    stages = [make("one", "a.json", gate="a"), make("two", "b.json", gate="b"), make("three", "c.json")]
+
+    assert run_job(job, cfg, store, stages) == "done"
 
 
 def test_no_gate_blocks_before_its_stage_has_run(tmp_path: Path, cfg_fixture):

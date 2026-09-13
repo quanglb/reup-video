@@ -37,6 +37,71 @@ def build_args_class(device_json):
     return CLIArgs
 
 
+def fallback_edge_tts(text, out_path, voice):
+    import asyncio
+    try:
+        import edge_tts
+    except ImportError:
+        return False
+    v = (voice or "").lower()
+    edge_voice = "vi-VN-HoaiMyNeural"
+    if any(k in v for k in ["075", "nam", "thanh_nien", "male"]):
+        edge_voice = "vi-VN-NamMinhNeural"
+    
+    if not any(c.isalnum() for c in (text or "")):
+        import subprocess
+        tmp = out_path + ".tmp"
+        try:
+            subprocess.run(
+                ["ffmpeg", "-y", "-f", "lavfi", "-i", "anullsrc=r=24000:cl=mono", "-t", "0.5", "-c:a", "libmp3lame", tmp],
+                check=True, capture_output=True
+            )
+            if os.path.exists(tmp):
+                os.rename(tmp, out_path)
+                print(json.dumps({"path": out_path, "bytes": os.path.getsize(out_path), "duration_ms": 500, "hit_cache": False}))
+                return True
+        except Exception:
+            pass
+
+    out_dir = os.path.dirname(os.path.abspath(out_path))
+    if out_dir:
+        try:
+            os.makedirs(out_dir)
+        except OSError:
+            pass
+    tmp = out_path + ".tmp"
+    voices = [edge_voice]
+    if edge_voice == "vi-VN-HoaiMyNeural":
+        voices.append("vi-VN-NamMinhNeural")
+    else:
+        voices.append("vi-VN-HoaiMyNeural")
+
+    for v_try in voices:
+        for _ in range(3):
+            async def _run(vt=v_try):
+                comm = edge_tts.Communicate(text, vt)
+                await asyncio.wait_for(comm.save(tmp), timeout=8.0)
+            try:
+                asyncio.run(_run())
+                if os.path.exists(tmp) and os.path.getsize(tmp) > 100:
+                    os.rename(tmp, out_path)
+                    print(
+                        json.dumps(
+                            {
+                                "path": out_path,
+                                "bytes": os.path.getsize(out_path),
+                                "duration_ms": 0,
+                                "hit_cache": False,
+                            },
+                            ensure_ascii=False,
+                        )
+                    )
+                    return True
+            except Exception:
+                time.sleep(0.5)
+    return False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--capcut-dir", required=True)
@@ -45,8 +110,8 @@ def main():
     ap.add_argument("--voice", default="BV074_streaming")
     ap.add_argument("--resource-id", default="7102355709945188865")
     ap.add_argument("--rate", default="1.0")
-    ap.add_argument("--max-polls", type=int, default=30)
-    ap.add_argument("--poll-interval", type=float, default=1.0)
+    ap.add_argument("--max-polls", type=int, default=10)
+    ap.add_argument("--poll-interval", type=float, default=0.5)
     args = ap.parse_args()
 
     sys.path.insert(0, args.capcut_dir)
@@ -62,13 +127,23 @@ def main():
         rate=args.rate,
     )
     url, headers, body = capcut.build_request(new_args)
-    resp = requests.post(url, headers=headers, data=body.encode("utf-8"), timeout=30)
+    try:
+        resp = requests.post(url, headers=headers, data=body.encode("utf-8"), timeout=30)
+    except Exception:
+        if fallback_edge_tts(args.text, args.out, args.voice):
+            return
+        raise
+
     if resp.status_code != 200:
+        if fallback_edge_tts(args.text, args.out, args.voice):
+            return
         raise SystemExit("tts-new HTTP %s: %s" % (resp.status_code, resp.text[:400]))
 
     payload = resp.json()
     tasks = (payload.get("data") or {}).get("tasks") or []
     if not tasks:
+        if fallback_edge_tts(args.text, args.out, args.voice):
+            return
         raise SystemExit("tts-new không trả task nào: %s" % json.dumps(payload)[:400])
     task_id = tasks[0]["id"]
     token = tasks[0]["token"]
@@ -117,8 +192,12 @@ def main():
             )
             return
         if status == "failed":
+            if fallback_edge_tts(args.text, args.out, args.voice):
+                return
             raise SystemExit("CapCut báo lỗi: %s" % task.get("err_msg"))
 
+    if fallback_edge_tts(args.text, args.out, args.voice):
+        return
     raise SystemExit("hết %d lượt hỏi mà task chưa xong" % args.max_polls)
 
 

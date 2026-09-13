@@ -25,7 +25,13 @@ def atomic_write(path: Path, data: bytes | str) -> None:
 
 
 def artifacts_present(job: Job, spec: StageSpec) -> bool:
-    return all((job.root / rel).exists() for rel in spec.produces)
+    for rel in spec.produces:
+        p = job.root / rel
+        if not p.exists():
+            return False
+        if p.is_file() and p.stat().st_size == 0:
+            return False
+    return True
 
 
 def next_stage(job: Job, stages: list[StageSpec]) -> StageSpec | None:
@@ -80,7 +86,9 @@ def blocking_gate(job: Job, stages: list[StageSpec], cfg: Config) -> str | None:
             return None  # chưa chạy tới đây
         if spec.gate is None:
             continue
-        if spec.gate == "b" and cfg.review.auto_approve_b:
+        if spec.gate == "a" and (cfg.review.auto_approve_a or cfg.review.auto_approve):
+            continue
+        if spec.gate == "b" and (cfg.review.auto_approve_b or cfg.review.auto_approve):
             continue
         if not job.gate_approved(spec.gate):
             return spec.gate

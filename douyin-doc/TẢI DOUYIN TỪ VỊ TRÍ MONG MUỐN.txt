@@ -1,0 +1,64 @@
+async function getIdPage(sec_user_id, max_cursor) {
+    const url = `https://www.douyin.com/aweme/v1/web/aweme/post/?device_platform=webapp&aid=6383&channel=channel_pc_web&sec_user_id=${sec_user_id}&max_cursor=${max_cursor}`;
+    try {
+        const res = await fetch(url, { method: "GET", credentials: "include" });
+        return await res.json();
+    } catch (e) {
+        await waitFor(800);
+        return getIdPage(sec_user_id, max_cursor);
+    }
+}
+
+async function downloadBlob(url, fileName) {
+    try {
+        const resp = await fetch(url, { method: "GET", credentials: "omit" });
+        const blob = await resp.blob();
+        const a = document.createElement("a");
+        a.href = window.URL.createObjectURL(blob);
+        a.download = fileName;
+        a.click();
+        setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+    } catch(e){}
+}
+
+function waitFor(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+function safeFilename(name) {
+    name = name || "untitled";
+    name = name.slice(0,60);
+    return name.replace(/[\\\/:*?"<>|]/g,"_").replace(/\s+/g,"_");
+}
+
+(async function run(){
+    const sec_user_id = location.pathname.replace("/user/","");
+    let startIndex = Number(prompt("Nhập vị trí video bắt đầu tải (1 = video đầu tiên):","1"))-1;
+    let downloadCount = Number(prompt("Nhập số lượng video cần tải:","5"));
+    if(startIndex<0||downloadCount<=0){alert("Sai input"); return;}
+
+    let max_cursor=0, hasMore=1;
+    let globalIndex=0, downloaded=0;
+
+    while(hasMore==1 && downloaded<downloadCount){
+        const page = await getIdPage(sec_user_id,max_cursor);
+        hasMore = page.has_more;
+        max_cursor = page.max_cursor;
+
+        for(let i=0;i<page.aweme_list.length;i++){
+            let item = page.aweme_list[i];
+            let url=item.video.play_addr.url_list[0];
+            if(url.startsWith("http://")) url=url.replace("http://","https://");
+
+            if(globalIndex >= startIndex && downloaded < downloadCount){
+                let desc = safeFilename(item.desc);
+                let fileName = `Video_${globalIndex+1}_${desc}.mp4`;
+                console.log("Downloading:",fileName);
+                await waitFor(900);
+                downloadBlob(url,fileName);
+                downloaded++;
+            }
+            globalIndex++;
+            if(downloaded>=downloadCount) break;
+        }
+    }
+    alert(`Đã tải xong ${downloaded} video từ vị trí ${startIndex+1}`);
+})();

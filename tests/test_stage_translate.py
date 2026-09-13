@@ -100,7 +100,7 @@ def test_prompt_carries_neighbour_context(tmp_path: Path, cfg_fixture):
 
     translate_stage.run_with(job, cfg_fixture, llm)
 
-    prompt = llm.prompts[0]
+    prompt = llm.prompts[-1]  # prompts[0] là lượt phân tích bối cảnh
     assert "第一句" in prompt and "第二句" in prompt and "第三句" in prompt
 
 
@@ -109,7 +109,7 @@ def test_prompt_states_the_syllable_budget(tmp_path: Path, cfg_fixture):
     _seed(job, [(0, 2000, "今天")])
     llm = ScriptedLLM({1: "Hôm nay"})
     translate_stage.run_with(job, cfg_fixture, llm)
-    assert "9" in llm.prompts[0]
+    assert "9" in llm.prompts[-1]
 
 
 def test_missing_segment_in_answer_is_an_error(tmp_path: Path, cfg_fixture):

@@ -355,3 +355,70 @@ def test_queue_shows_a_run_button_for_waiting_jobs(client):
     body = c.get("/").text
     assert 'action="/jobs/a/run"' in body
     assert "Chạy lại" in body  # job hỏng thì nói rõ là chạy LẠI
+
+
+def test_api_progress_endpoint(client):
+    c, _, db = client
+    s = Store(db)
+    s.upsert_job("j1", "https://a/1", "running", stage="separate")
+    s.upsert_job("j2", "https://a/2", "done")
+    s.close()
+
+    r = c.get("/api/progress")
+    assert r.status_code == 200
+    data = r.json()
+    assert "j1" in data and "j2" in data
+    assert data["j1"]["percent"] > 0
+    assert "Tách nhạc nền" in data["j1"]["stage_label"]
+    assert data["j2"]["percent"] == 100
+
+
+def test_job_progress_endpoint_and_logs(client):
+    c, jobs, db = client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j_log")
+    s = Store(db)
+    s.upsert_job("j_log", "https://a/1", "running", stage="asr")
+    s.close()
+
+    job.log_jsonl.write_text(
+        json.dumps({"stage": "fetch", "ok": True, "started": 100.0, "finished": 102.5}) + "\n"
+        + json.dumps({"stage": "demux", "ok": True, "started": 102.5, "finished": 103.0}) + "\n"
+    )
+
+    r = c.get("/jobs/j_log/progress")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["id"] == "j_log"
+    assert data["status"] == "running"
+    assert len(data["logs"]) == 2
+    assert data["logs"][0]["label"] == "Tải video nguồn"
+    assert data["logs"][0]["duration_s"] == 2.5
+    assert len(data["stages"]) == 12
+
+    # Check review page contains progress card
+    review_html = c.get("/jobs/j_log").text
+    assert "jobProgressCard" in review_html
+    assert "Nhật ký hoạt động" in review_html
+
+
+def test_reveal_endpoint_and_rerender(client, monkeypatch):
+    c, jobs, db = client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j_rev")
+    job.final_mp4.parent.mkdir(parents=True, exist_ok=True)
+    job.final_mp4.write_bytes(b"dummy")
+    s = Store(db)
+    s.upsert_job("j_rev", "https://a/1", "done")
+    s.close()
+
+    opened = []
+    monkeypatch.setattr("subprocess.run", lambda cmd, **kw: opened.append(cmd))
+
+    r = c.post("/jobs/j_rev/reveal")
+    assert r.status_code == 200
+    assert opened and "open" in opened[0]
+
+    # Test rerender clears final_mp4 and starts runner
+    r_re = c.post("/jobs/j_rev/rerender", follow_redirects=False)
+    assert r_re.status_code == 303
+    assert not job.final_mp4.exists()
+    assert c.app.state.runner.started == ["j_rev"]

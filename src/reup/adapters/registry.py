@@ -47,6 +47,15 @@ def make_llm(cfg: Config, role: str | None = None):
             base_url=llm.base_url,
             timeout_s=llm.timeout_s,
         )
+    if provider == "openai":
+        from reup.adapters.openai import OpenAILLM
+
+        return OpenAILLM(
+            model=llm.model,
+            base_url=llm.base_url,
+            api_key=llm.api_key,
+            timeout_s=llm.timeout_s,
+        )
     if provider == "cassette":
         from reup.adapters.cassette_llm import CassetteLLM
 

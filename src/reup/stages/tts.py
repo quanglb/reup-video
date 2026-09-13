@@ -14,6 +14,9 @@ from reup.models import Transcript
 LANG = "vi"
 
 
+from reup.media.audio import duration_ms
+
+
 def synthesize_all(job: Job, transcript: Transcript, adapter, voice: str) -> list[dict]:
     """Sinh wav cho mọi đoạn, trả về bản kê. Dùng lại được từ stage fit."""
     entries = []

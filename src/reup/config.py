@@ -8,7 +8,7 @@ from pathlib import Path
 AUDIO_MODES = ("separate", "drop_original")
 TTS_ENGINES = ("capcut", "stub")
 ASR_ENGINES = ("whisper", "capcut")
-LLM_PROVIDERS = ("gemini", "ollama", "cassette")
+LLM_PROVIDERS = ("gemini", "ollama", "cassette", "openai")
 PLATFORMS = ("youtube", "tiktok", "douyin")
 # Bốn stage gọi LLM. Mỗi cái chịu được một model khác nhau: chỉ `translate`
 # thật sự cần model giỏi, ba cái còn lại không phải suy luận gì nhiều.
@@ -75,6 +75,14 @@ class TTSConfig:
 
 
 @dataclass(frozen=True)
+class TranslateConfig:
+    """`genre` = "auto" để LLM tự nhận thể loại, hoặc một khoá trong
+    `reup.translate_styles.GENRES` để ép mọi video dùng một bộ luật."""
+
+    genre: str = "auto"
+
+
+@dataclass(frozen=True)
 class ASRConfig:
     engine: str = "whisper"
 
@@ -84,9 +92,11 @@ class LLMConfig:
     provider: str = "gemini"
     model: str = "gemini-3.6-flash"
     cassette: str = ""
-    # Chỉ dùng cho provider "ollama".
+    # Dùng cho provider "ollama" và "openai".
     base_url: str = "http://localhost:11434"
+    api_key: str = ""
     timeout_s: float = 600.0
+
 
 
 @dataclass(frozen=True)
@@ -154,7 +164,9 @@ class DiscoverConfig:
 
 @dataclass(frozen=True)
 class ReviewConfig:
-    auto_approve_b: bool
+    auto_approve_b: bool = False
+    auto_approve_a: bool = False
+    auto_approve: bool = False
     output_dir: str = "output"
 
 
@@ -175,6 +187,7 @@ class Config:
     llm: LLMConfig = LLMConfig()
     discover: DiscoverConfig = DiscoverConfig()
     fetch: FetchConfig = FetchConfig()
+    translate: TranslateConfig = TranslateConfig()
     llm_roles: LLMRoles | None = None
 
     def llm_for(self, role: str) -> LLMConfig:
@@ -211,6 +224,18 @@ def load_config(path: Path) -> Config:
     llm, llm_roles = _llm(raw.get("llm", {}))
     discover = _discover(raw.get("discover", {}))
     fetch = FetchConfig(**raw.get("fetch", {}))
+    from reup.translate_styles import validate_genre
+
+    translate = TranslateConfig(**raw.get("translate", {}))
+    translate = TranslateConfig(genre=validate_genre(translate.genre, "translate.genre"))
+
+    review_raw = dict(raw.get("review", {}))
+    if review_raw.get("auto_approve"):
+        review_raw.setdefault("auto_approve_a", True)
+        review_raw.setdefault("auto_approve_b", True)
+    review_raw.setdefault("auto_approve_a", False)
+    review_raw.setdefault("auto_approve_b", False)
+    review_raw.setdefault("auto_approve", False)
 
     return Config(
         profile_name=name,
@@ -218,13 +243,14 @@ def load_config(path: Path) -> Config:
         audio=AudioConfig(**audio),
         transform=TransformConfig(**raw["transform"]),
         subtitle=SubtitleConfig(**raw["subtitle"]),
-        review=ReviewConfig(**raw["review"]),
+        review=ReviewConfig(**review_raw),
         tts=tts,
         asr=asr,
         llm=llm,
         llm_roles=llm_roles,
         discover=discover,
         fetch=fetch,
+        translate=translate,
     )
 
 

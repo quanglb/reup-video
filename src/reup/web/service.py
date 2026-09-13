@@ -16,26 +16,183 @@ from reup.text import count_syllables
 from reup.translate import syllable_budget
 
 
+STAGE_LABELS: dict[str, str] = {
+    "fetch": "Tải video nguồn",
+    "demux": "Tách luồng âm thanh",
+    "separate": "Tách nhạc nền (Demucs)",
+    "asr": "Nhận diện giọng nói (Whisper)",
+    "subdetect": "Dò vùng phụ đề gốc",
+    "ocr": "Đọc chữ phụ đề (Apple Vision)",
+    "reconcile": "Hợp nhất ASR + OCR",
+    "translate": "Dịch sang tiếng Việt",
+    "gate_a": "Chờ duyệt bản dịch (Chốt A)",
+    "tts": "Tạo giọng đọc (CapCut TTS)",
+    "fit": "Khớp câu & nhịp độ (LLM Local)",
+    "compose": "Render video & chèn phụ đề",
+    "gate_b": "Chờ duyệt video thành phẩm (Chốt B)",
+    "export": "Tạo tiêu đề/hashtag & xuất bản",
+}
+
+
 @dataclass(frozen=True)
 class JobRow:
     id: str
     url: str
     status: str
     stage: str
+    stage_label: str
+    percent: int
     error: str
 
 
-def list_jobs(store: Store, status: str | None = None) -> list[JobRow]:
-    return [
-        JobRow(
-            id=r["id"],
-            url=r["url"],
-            status=r["status"],
-            stage=r["stage"] or "-",
-            error=r["error"] or "",
+def calculate_progress(
+    status: str, stage: str | None, cfg: Config | None = None
+) -> tuple[int, str]:
+    """Tính % tiến trình và tên mô tả tiếng Việt cho stage/status hiện tại."""
+    from reup.stages import ALL_STAGES, stages_for
+
+    stages = [s.name for s in (stages_for(cfg) if cfg else ALL_STAGES)]
+    total = len(stages) or 12
+
+    if status == "done":
+        return 100, "Hoàn tất 100%"
+
+    if not stage or stage == "-":
+        if status == "pending":
+            return 0, "Đang chờ chạy"
+        return 0, status
+
+    if stage == "gate_a":
+        t_idx = stages.index("translate") if "translate" in stages else 7
+        pct = round(((t_idx + 1) / total) * 100)
+        return pct, STAGE_LABELS.get("gate_a", "Chờ duyệt bản dịch (Chốt A)")
+    if stage == "gate_b":
+        c_idx = stages.index("compose") if "compose" in stages else 10
+        pct = round(((c_idx + 1) / total) * 100)
+        return pct, STAGE_LABELS.get("gate_b", "Chờ duyệt thành phẩm (Chốt B)")
+
+    clean_stage = stage.removeprefix("gate_")
+    if clean_stage in stages:
+        idx = stages.index(clean_stage)
+        if status == "running":
+            pct = max(5, round(((idx + 0.5) / total) * 100))
+        elif status == "failed":
+            pct = round((idx / total) * 100)
+        elif status == "needs_review":
+            pct = round(((idx + 1) / total) * 100)
+        else:
+            pct = round((idx / total) * 100)
+        label = STAGE_LABELS.get(clean_stage, clean_stage)
+        return min(99, pct), label
+
+    return 0, STAGE_LABELS.get(stage, stage)
+
+
+def list_jobs(
+    store: Store, status: str | None = None, cfg: Config | None = None
+) -> list[JobRow]:
+    rows = []
+    for r in store.list_jobs(status):
+        pct, label = calculate_progress(r["status"], r["stage"], cfg)
+        rows.append(
+            JobRow(
+                id=r["id"],
+                url=r["url"],
+                status=r["status"],
+                stage=r["stage"] or "-",
+                stage_label=label,
+                percent=pct,
+                error=r["error"] or "",
+            )
         )
-        for r in store.list_jobs(status)
-    ]
+    return rows
+
+
+def get_job_progress(job: Job, row: dict | None, cfg: Config) -> dict:
+    """Chi tiết tiến trình và nhật ký cho từng job."""
+    from reup.stages import stages_for
+
+    specs = stages_for(cfg)
+    status = row["status"] if row else ("done" if job.final_mp4.exists() else "pending")
+    stage = row["stage"] if row else None
+    pct, stage_label = calculate_progress(status, stage, cfg)
+
+    logs = []
+    log_map: dict[str, dict] = {}
+    if job.log_jsonl.exists():
+        try:
+            for line in job.log_jsonl.read_text(encoding="utf-8").splitlines():
+                if not line.strip():
+                    continue
+                entry = json.loads(line)
+                st = entry.get("stage", "")
+                label = STAGE_LABELS.get(st, st)
+                started = entry.get("started", 0)
+                finished = entry.get("finished", 0)
+                dur = round(finished - started, 1) if (finished and started) else 0.0
+                entry_data = {
+                    "stage": st,
+                    "label": label,
+                    "ok": entry.get("ok", True),
+                    "started": started,
+                    "finished": finished,
+                    "duration_s": dur,
+                    "error": entry.get("error", ""),
+                }
+                logs.append(entry_data)
+                log_map[st] = entry_data
+        except Exception:
+            pass
+
+    stage_list = []
+    current_found = False
+    cur_clean = (stage or "").removeprefix("gate_")
+
+    for i, s in enumerate(specs):
+        s_name = s.name
+        s_label = STAGE_LABELS.get(s_name, s_name)
+        log_entry = log_map.get(s_name)
+
+        if status == "done":
+            s_status = "done"
+        elif s_name == cur_clean and status == "running":
+            s_status = "running"
+            current_found = True
+        elif s_name == cur_clean and status == "failed":
+            s_status = "failed"
+            current_found = True
+        elif stage == "gate_a" and s_name == "translate":
+            s_status = "needs_review"
+        elif stage == "gate_b" and s_name == "compose":
+            s_status = "needs_review"
+        elif log_entry and log_entry["ok"]:
+            s_status = "done"
+        elif not current_found and any((job.root / p).exists() for p in s.produces):
+            s_status = "done"
+        else:
+            s_status = "waiting"
+
+        stage_list.append(
+            {
+                "name": s_name,
+                "label": s_label,
+                "step": i + 1,
+                "status": s_status,
+                "duration_s": log_entry.get("duration_s") if log_entry else None,
+                "error": log_entry.get("error") if log_entry else None,
+            }
+        )
+
+    return {
+        "id": job.id,
+        "status": status,
+        "stage": stage or "-",
+        "stage_label": stage_label,
+        "percent": pct,
+        "total_stages": len(specs),
+        "stages": stage_list,
+        "logs": logs,
+    }
 
 
 def review_rows(job: Job) -> list[dict]:

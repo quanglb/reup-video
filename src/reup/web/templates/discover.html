@@ -1,9 +1,32 @@
 {% extends "base.html" %}
 {% block content %}
-<form class="scan" method="get" action="/discover">
+<form class="scan" id="scanForm" method="get" action="/discover">
   <input type="hidden" name="platform" value="{{ platform }}">
   <input type="hidden" name="run" value="1">
-  <input name="q" value="{{ q }}" placeholder="hashtag, @tên, hoặc URL trang nguồn">
+  <input name="q" id="scanQueryInput" value="{{ q }}" placeholder="hashtag, @tên, từ khóa hot hoặc URL" list="suggest-list" autocomplete="off">
+  <datalist id="suggest-list">
+    {% if platform == 'youtube' %}
+      <option value="抖音">Douyin / TikTok Trung Quốc</option>
+      <option value="中国短视频">Shorts Trung Quốc hot</option>
+      <option value="搞笑 抖音">Douyin hài hước</option>
+      <option value="短剧">Drama / Phim ngắn Trung Quốc</option>
+      <option value="美食 制作">Ẩm thực / Nấu ăn Trung Quốc</option>
+      <option value="乡村 生活">Cuộc sống thôn quê Trung Quốc</option>
+      <option value="手工 制作">Thủ công / DIY sáng tạo</option>
+      <option value="修车">Sửa xe / Mẹo vặt</option>
+      <option value="街头 采访">Phỏng vấn đường phố</option>
+      <option value="#douyin">Hashtag #douyin</option>
+      <option value="#chineseshorts">Hashtag #chineseshorts</option>
+      <option value="#tiktokchina">Hashtag #tiktokchina</option>
+      <option value="#shorts">Hashtag #shorts</option>
+    {% elif platform == 'tiktok' %}
+      <option value="#douyin">#douyin</option>
+      <option value="#chinesedrama">#chinesedrama</option>
+      <option value="#chinesefood">#chinesefood</option>
+      <option value="#douyinviral">#douyinviral</option>
+      <option value="#funny">#funny</option>
+    {% endif %}
+  </datalist>
   <input name="limit" type="number" min="1" max="50" value="{{ limit }}" title="số video">
   <select name="sort" title="sắp xếp">
     {% for s in sorts %}
@@ -13,14 +36,62 @@
   <label class="check" title="Ẩn video đã tạo job hoặc đã quét lần trước">
     <input type="checkbox" name="hide_seen" value="1" {{ 'checked' if hide_seen }}> ẩn đã xử lý
   </label>
-  <button class="primary">Quét</button>
+  <button class="primary" id="btnScan">Quét</button>
 </form>
+
+<div class="suggest-box">
+  {% if platform == 'youtube' %}
+    <div class="suggest-section">
+      <div class="suggest-title">🔥 <b>Gợi ý chủ đề Shorts Trung Quốc (Bấm để quét ngay):</b></div>
+      <div class="suggest-chips">
+        <button type="button" class="chip" data-q="抖音" title="Video Douyin tổng hợp"><span>抖音</span> <small>Douyin hot</small></button>
+        <button type="button" class="chip" data-q="中国短视频" title="Video ngắn Trung Quốc thịnh hành"><span>中国短视频</span> <small>Shorts TQ</small></button>
+        <button type="button" class="chip" data-q="搞笑 抖音" title="Video hài hước Douyin"><span>搞笑 抖音</span> <small>Hài Douyin</small></button>
+        <button type="button" class="chip" data-q="短剧" title="Drama, phim ngắn tình huống"><span>短剧</span> <small>Phim ngắn/Drama</small></button>
+        <button type="button" class="chip" data-q="美食 制作" title="Ẩm thực, nấu ăn thôn quê"><span>美食 制作</span> <small>Nấu ăn/Ẩm thực</small></button>
+        <button type="button" class="chip" data-q="乡村 生活" title="Cuộc sống nông thôn"><span>乡村 生活</span> <small>Thôn quê</small></button>
+        <button type="button" class="chip" data-q="手工 制作" title="Thủ công, chế tạo sáng tạo"><span>手工 制作</span> <small>Thủ công/DIY</small></button>
+        <button type="button" class="chip" data-q="修车" title="Sửa xe, phục chế, mẹo vặt"><span>修车</span> <small>Sửa xe/Phục chế</small></button>
+        <button type="button" class="chip" data-q="街头 采访" title="Phỏng vấn đường phố"><span>街头 采访</span> <small>Phỏng vấn</small></button>
+        <button type="button" class="chip" data-q="萌宠 搞笑" title="Thú cưng hài hước"><span>萌宠 搞笑</span> <small>Thú cưng</small></button>
+      </div>
+    </div>
+    <div class="suggest-section">
+      <div class="suggest-title">🏷️ <b>Hashtags phổ biến:</b></div>
+      <div class="suggest-chips">
+        <button type="button" class="chip hash" data-q="#douyin">#douyin</button>
+        <button type="button" class="chip hash" data-q="#chineseshorts">#chineseshorts</button>
+        <button type="button" class="chip hash" data-q="#tiktokchina">#tiktokchina</button>
+        <button type="button" class="chip hash" data-q="#douyinviral">#douyinviral</button>
+        <button type="button" class="chip hash" data-q="#chinesefood">#chinesefood</button>
+        <button type="button" class="chip hash" data-q="#shorts">#shorts</button>
+      </div>
+    </div>
+  {% elif platform == 'tiktok' %}
+    <div class="suggest-section">
+      <div class="suggest-title">🏷️ <b>Hashtag TikTok thịnh hành:</b></div>
+      <div class="suggest-chips">
+        <button type="button" class="chip hash" data-q="#douyin">#douyin</button>
+        <button type="button" class="chip hash" data-q="#chinesedrama">#chinesedrama</button>
+        <button type="button" class="chip hash" data-q="#chinesefood">#chinesefood</button>
+        <button type="button" class="chip hash" data-q="#douyinviral">#douyinviral</button>
+        <button type="button" class="chip hash" data-q="#tiktokchina">#tiktokchina</button>
+        <button type="button" class="chip hash" data-q="#funny">#funny</button>
+      </div>
+    </div>
+  {% else %}
+    <div class="suggest-section">
+      <div class="suggest-title">💡 <b>Cách lấy video Douyin:</b></div>
+      <div class="suggest-tips">
+        <span>Nhập <code>sec_uid</code> (User ID) của tài khoản Douyin hoặc dán link video / profile trực tiếp.</span>
+      </div>
+    </div>
+  {% endif %}
+</div>
 
 <p class="hint">
   {% if platform == 'youtube' %}
-    Ô trên hiểu bốn kiểu: <code>mèo hài</code> là <b>tìm kiếm</b> (tự kèm bộ lọc
-    dưới 4 phút), <code>#shorts</code> là <b>hashtag</b>, <code>@tên</code> là
-    <b>tab Shorts của kênh</b>, còn dán URL thì quét đúng URL đó.
+    Ô trên hiểu 4 kiểu: từ khóa (tự lọc dưới 4 phút), <code>#shorts</code> (hashtag), <code>@tên</code> (tab Shorts của kênh), hoặc dán link trực tiếp.
   {% elif platform == 'tiktok' %}
     Hashtag hoặc <code>@tên</code>. TikTok thường đòi cookie — xem <code>[discover.tiktok]</code>.
   {% else %}

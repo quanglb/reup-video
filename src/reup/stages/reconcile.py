@@ -74,8 +74,13 @@ def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> None:
 
     picks: dict[int, str] = {}
     if pending:
-        answer = llm.complete_json(build_prompt(pending), CHOICE_SCHEMA)
-        picks = {int(c["id"]): c["pick"] for c in answer.get("choices", [])}
+        batch_size = 20
+        for i in range(0, len(pending), batch_size):
+            chunk = pending[i : i + batch_size]
+            answer = llm.complete_json(build_prompt(chunk), CHOICE_SCHEMA)
+            for c in answer.get("choices", []):
+                if c.get("id") is not None and c.get("pick"):
+                    picks[int(c["id"])] = c["pick"]
 
     segments = []
     for seg in asr.segments:

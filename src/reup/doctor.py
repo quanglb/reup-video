@@ -171,12 +171,50 @@ def check_disk(jobs_dir: Path, min_gb: float = 5.0) -> Check:
     )
 
 
+def check_openai(cfg: Config) -> list[Check]:
+    roles: list[str] = []
+    base_url = ""
+    api_key = ""
+    for r in LLM_ROLES:
+        one = cfg.llm_for(r)
+        if one.provider == "openai":
+            roles.append(r)
+            base_url = one.base_url.rstrip("/")
+            if one.api_key:
+                api_key = one.api_key
+    if not roles:
+        return []
+    if not api_key:
+        api_key = (
+            os.environ.get("OPENAI_API_KEY")
+            or os.environ.get("ROUTER_API_KEY")
+            or os.environ.get("LLM_API_KEY")
+            or ""
+        )
+    out = []
+    if api_key:
+        out.append(Check("OpenAI/Router API Key", OK, f"dùng cho: {', '.join(roles)}"))
+    else:
+        out.append(
+            Check(
+                "OpenAI/Router API Key",
+                BAD,
+                f"chưa đặt, nhưng {', '.join(roles)} đang dùng provider openai",
+                "điền api_key vào config.toml hoặc đặt OPENAI_API_KEY trong .env",
+            )
+        )
+    if base_url:
+        out.append(Check("OpenAI/Router Base URL", OK, base_url))
+    return out
+
+
 def run_checks(cfg: Config, jobs_dir: Path) -> list[Check]:
     checks = [*check_ffmpeg(), check_ytdlp(), check_js_runtime()]
     for maybe in (check_gemini_key(cfg), check_capcut(cfg)):
         if maybe is not None:
             checks.append(maybe)
     checks.extend(check_ollama(cfg))
+    checks.extend(check_openai(cfg))
     checks.append(check_disk(jobs_dir))
     return checks
 

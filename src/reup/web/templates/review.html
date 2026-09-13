@@ -1,16 +1,87 @@
 {% extends "base.html" %}
 {% block content %}
 <h1>{{ job.id }}
-  <span class="pill {{ row.status if row else 'unknown' }}">{{ row.status if row else '?' }}</span>
-  {% if row and row.stage %}<span class="stage">{{ row.stage }}</span>{% endif %}
+  <span class="pill {{ row.status if row else 'unknown' }}" id="jobStatusBadge">{{ row.status if row else '?' }}</span>
+  {% if row and row.stage %}<span class="stage" id="jobStageBadge">{{ row.stage }}</span>{% endif %}
 </h1>
+
+<div class="progress-card" id="jobProgressCard" data-job-id="{{ job.id }}" data-status="{{ row.status if row else 'pending' }}">
+  <div class="progress-header">
+    <div class="progress-title">
+      <span class="progress-status-text" id="progressStatusText">
+        {% if row and row.status == 'running' %}
+          Đang thực hiện: <b>{{ progress.stage_label }}</b>
+        {% elif row and row.status == 'needs_review' %}
+          <b>{{ progress.stage_label }}</b>
+        {% elif row and row.status == 'done' %}
+          <b>Hoàn thành toàn bộ quy trình</b>
+        {% elif row and row.status == 'failed' %}
+          <b>Lỗi tại: {{ progress.stage_label }}</b>
+        {% else %}
+          <b>{{ progress.stage_label }}</b>
+        {% endif %}
+      </span>
+    </div>
+    <div class="progress-pct-badge" id="progressPctBadge">{{ progress.percent }}%</div>
+  </div>
+
+  <div class="progress-bar-large">
+    <div class="progress-fill {{ row.status if row else 'pending' }}" id="progressBarFill" style="width: {{ progress.percent }}%"></div>
+  </div>
+
+  <div class="pipeline-stepper" id="pipelineStepper">
+    {% for st in progress.stages %}
+      <div class="step-item step-{{ st.status }}" data-stage-name="{{ st.name }}" title="{{ st.label }}{% if st.duration_s %} ({{ st.duration_s }}s){% endif %}">
+        <div class="step-icon">
+          {% if st.status == 'done' %}✓
+          {% elif st.status == 'running' %}⏳
+          {% elif st.status == 'needs_review' %}⏸
+          {% elif st.status == 'failed' %}✕
+          {% else %}{{ st.step }}
+          {% endif %}
+        </div>
+        <div class="step-name">{{ st.label }}</div>
+        {% if st.duration_s %}
+          <div class="step-time">{{ st.duration_s }}s</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <details class="logs-accordion" id="logsAccordion" {% if progress.logs or (row and row.status in ('running', 'failed')) %}open{% endif %}>
+    <summary>Nhật ký hoạt động (<span id="logsCount">{{ progress.logs|length }}</span> mục)</summary>
+    <div class="logs-console" id="logsConsole">
+      {% if not progress.logs %}
+        <div class="log-empty">Chưa có nhật ký hoạt động nào.</div>
+      {% else %}
+        {% for l in progress.logs %}
+          <div class="log-line {{ 'log-ok' if l.ok else 'log-err' }}">
+            <span class="log-tag">[{{ l.stage }}]</span>
+            <span class="log-desc">{{ l.label }}</span>
+            <span class="log-status">{{ '✓ Xong' if l.ok else '✕ Lỗi' }}</span>
+            {% if l.duration_s %}<span class="log-dur">({{ l.duration_s }}s)</span>{% endif %}
+            {% if l.error %}<pre class="log-err-detail">{{ l.error }}</pre>{% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </details>
+</div>
 
 <div class="split">
   <section class="player">
-    <video controls src="/jobs/{{ job.id }}/source"></video>
+    <div class="player-block">
+      <h3>Video gốc</h3>
+      <video controls src="/jobs/{{ job.id }}/source"></video>
+    </div>
     {% if has_video %}
-      <h3>Thành phẩm</h3>
-      <video controls src="/jobs/{{ job.id }}/final"></video>
+      <div class="player-block final-block">
+        <div class="final-header">
+          <h3>Thành phẩm</h3>
+          <button type="button" class="btn-finder" id="btnRevealFinder" title="Mở file thành phẩm trong Finder (Mac)">📁 Mở trong Finder</button>
+        </div>
+        <video controls src="/jobs/{{ job.id }}/final"></video>
+      </div>
     {% endif %}
   </section>
 
@@ -55,10 +126,20 @@
       </label>
       {% endif %}
       <button id="save">Lưu sửa</button>
-      <form method="post" action="/jobs/{{ job.id }}/approve" style="display:inline">
-        <input type="hidden" name="gate" value="a">
-        <button class="primary">Duyệt và chạy tiếp</button>
-      </form>
+      {% if row and row.status == 'needs_review' %}
+        <form method="post" action="/jobs/{{ job.id }}/approve" style="display:inline">
+          <input type="hidden" name="gate" value="a">
+          <button class="primary">Duyệt và chạy tiếp</button>
+        </form>
+      {% elif row and row.status == 'done' %}
+        <form method="post" action="/jobs/{{ job.id }}/rerender" style="display:inline">
+          <button class="primary" title="Dựng lại video với câu/giọng đã sửa">🔄 Dựng lại video</button>
+        </form>
+      {% elif row and row.status == 'failed' %}
+        <form method="post" action="/jobs/{{ job.id }}/run" style="display:inline">
+          <button class="primary">Chạy lại</button>
+        </form>
+      {% endif %}
       <span id="msg"></span>
     </div>
     {% endif %}

@@ -87,10 +87,18 @@ class CapCutTTS:
         out.parent.mkdir(parents=True, exist_ok=True)
         mp3 = out.with_suffix(".mp3")
 
+        from reup.text import sanitize_for_tts
+
+        clean_text = sanitize_for_tts(text)
+        if not clean_text or not any(ch.isalnum() for ch in clean_text):
+            from reup.media.audio import silence
+            silence(out, 500)
+            return TTSResult(path=out, actual_ms=500)
+
         cmd = [
             str(self._python), str(DRIVER),
             "--capcut-dir", str(self.capcut_dir),
-            "--text", text,
+            "--text", clean_text,
             "--out", str(mp3),
             "--voice", voice,
             "--resource-id", table[voice]["resource_id"],
@@ -100,14 +108,16 @@ class CapCutTTS:
 
         last = ""
         for attempt in range(self.retries):
-            proc = subprocess.run(cmd, capture_output=True, text=True)
-            if proc.returncode == 0:
-                to_wav(mp3, out)
-                mp3.unlink(missing_ok=True)
-                # Đo lại từ file thật: fit quyết định dựa trên con số này, và
-                # `duration` của API là độ dài mp3 trước khi ta đổi định dạng.
-                return TTSResult(path=out, actual_ms=duration_ms(out))
-            last = (proc.stderr or proc.stdout).strip()
+            try:
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15.0)
+            except subprocess.TimeoutExpired:
+                last = "Driver timeout sau 15s"
+            else:
+                if proc.returncode == 0:
+                    to_wav(mp3, out)
+                    mp3.unlink(missing_ok=True)
+                    return TTSResult(path=out, actual_ms=duration_ms(out))
+                last = (proc.stderr or proc.stdout).strip()
             if attempt < self.retries - 1:
                 self.sleep(2**attempt)
 
