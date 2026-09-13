@@ -89,7 +89,11 @@ def blur_radius_for(w: int, h: int, wanted: int = BLUR_RADIUS) -> int:
 def build_blur_chain(regions: list[dict]) -> tuple[str, str]:
     """Chuỗi filter che các vùng chữ gốc. Trả (chuỗi, nhãn đầu ra).
 
-    Mỗi vùng một cặp crop -> boxblur -> phủ trắng -> overlay, nối tiếp nhau.
+    Nguồn được `split` MỘT lần thành khung nền + mỗi vùng một nhánh
+    crop -> boxblur -> phủ trắng, rồi các nhánh overlay lần lượt lên nền.
+    Đừng split nối tiếp từng vùng: mỗi tầng split lồng nhau làm hàng đợi khung
+    trong filtergraph phình theo cấp số nhân — 16 vùng mất vài giây, 31 vùng
+    thì ffmpeg treo ở frame=0.
     Vùng có `start_ms`/`end_ms` chỉ được che trong khoảng đó: mỗi câu gốc một
     khung riêng, đổi theo câu. Toạ độ tính trên khung GỐC nên khâu này phải
     chạy trước mọi phép biến hình.
@@ -97,12 +101,12 @@ def build_blur_chain(regions: list[dict]) -> tuple[str, str]:
     if not regions:
         return "", "[0:v]"
 
-    parts = []
-    current = "[0:v]"
+    branches = "".join(f"[reg{i}]" for i in range(len(regions)))
+    parts = [f"[0:v]split={len(regions) + 1}[base]{branches}"]
+    current = "[base]"
     for i, r in enumerate(regions):
         geom = f"{r['w']}:{r['h']}:{r['x']}:{r['y']}"
         radius = blur_radius_for(r["w"], r["h"])
-        parts.append(f"{current}split=2[base{i}][reg{i}]")
         parts.append(
             f"[reg{i}]crop={geom},boxblur={radius}:{BLUR_PASSES},"
             f"drawbox=x=0:y=0:w=iw:h=ih:color={COVER_COLOR}@{COVER_OPACITY}:t=fill[bl{i}]"
@@ -113,7 +117,7 @@ def build_blur_chain(regions: list[dict]) -> tuple[str, str]:
                 f":enable='between(t,{r['start_ms'] / 1000:.3f},{r['end_ms'] / 1000:.3f})'"
             )
         nxt = f"[cl{i}]"
-        parts.append(f"[base{i}][bl{i}]overlay={r['x']}:{r['y']}{enable}{nxt}")
+        parts.append(f"{current}[bl{i}]overlay={r['x']}:{r['y']}{enable}{nxt}")
         current = nxt
     return ";".join(parts) + ";", current
 
