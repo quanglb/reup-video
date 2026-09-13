@@ -584,6 +584,11 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .dy-ch-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .dy-ch-info b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dy-ch-info small { color: var(--dim); font-size: 12px; }
+.dy-ch-info small.dy-stale, .dy-recent small.dy-stale { color: #f59e0b; }
+.dy-ch-actions button.btn { font-size: 12px; padding: 3px 10px; }
+.dy-ch-actions button.btn:disabled { opacity: .7; cursor: progress; }
+.dy-ch-info small.dy-rescan-msg { white-space: normal; }
+.dy-ch-actions a.icon-btn { text-decoration: none; }
 .dy-ch-actions { display: flex; align-items: center; gap: 4px; position: relative; }
 .dy-ch-actions form { margin: 0; }
 .dy-ch-actions a.btn { font-size: 12px; padding: 3px 10px; }
@@ -686,3 +691,15 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .pick input { margin: 0; width: 15px; height: 15px; accent-color: var(--accent); cursor: pointer; }
 .card.picked { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
 .card.picked .pick { background: var(--accent); }
+
+/* Tab Tag */
+.tag-form { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex: 1; margin: 0; }
+.tag-form input[name="vi"] { flex: 1 1 180px; min-width: 140px; }
+.tag-form input[name="q"] { flex: 1 1 160px; min-width: 120px; }
+.tag-new { margin: 12px 0 16px; padding: 10px; border: 1px solid #2a303b; border-radius: 8px; }
+.tag-list { display: flex; flex-direction: column; gap: 6px; }
+.tag-row { display: flex; align-items: center; gap: 6px; }
+.tag-row > form:last-child { margin: 0; }
+.tag-row:target { outline: 1px solid #60a5fa; border-radius: 6px; }
+.suggest-edit { font-size: 12px; margin-left: 6px; color: var(--accent); text-decoration: none; }
+.suggest-edit:hover { text-decoration: underline; }

@@ -215,6 +215,73 @@
       setTimeout(() => { copyBtn.textContent = 'Chép script'; }, 2000);
     });
   }
+
+  // Nút Quét lại: server mở kênh trong Chrome đã đăng nhập, xuất file mới ở nền.
+  const rescanUrl = (uid) => '/discover/douyin/channels/rescan?uid=' + encodeURIComponent(uid);
+  document.querySelectorAll('[data-rescan]').forEach((btn) => {
+    const uid = btn.dataset.rescan;
+    const msg = btn.closest('.dy-channel')?.querySelector('.dy-rescan-msg');
+    const show = (text, bad) => {
+      if (!msg) return;
+      msg.hidden = !text;
+      msg.textContent = text;
+      msg.classList.toggle('dy-stale', Boolean(bad));
+    };
+    const reset = () => { btn.disabled = false; btn.textContent = 'Quét lại'; };
+    const poll = async () => {
+      let s;
+      try {
+        s = await (await fetch(rescanUrl(uid))).json();
+      } catch (e) {
+        setTimeout(poll, 3000);
+        return;
+      }
+      if (s.status === 'running') {
+        btn.disabled = true;
+        btn.textContent = s.videos ? `Đang quét… ${s.videos}` : 'Đang mở Chrome…';
+        setTimeout(poll, 2000);
+      } else if (s.status === 'done') {
+        btn.textContent = `Xong ✓ ${s.videos}`;
+        location.reload();
+      } else if (s.status === 'error') {
+        reset();
+        show(s.error, true);
+      }
+    };
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Đang mở Chrome…';
+      show('');
+      const r = await fetch('/discover/douyin/channels/rescan', {
+        method: 'POST', body: new URLSearchParams({ uid }),
+      });
+      const s = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        reset();
+        show(s.detail || 'Không quét lại được', true);
+        return;
+      }
+      poll();
+    });
+    // Tải lại trang giữa lúc đang quét thì theo dõi tiếp.
+    fetch(rescanUrl(uid)).then((r) => r.json()).then((s) => {
+      if (s.status === 'running') poll();
+    }).catch(() => {});
+  });
+
+  // Nút chép lệnh /douyin-export cho Claude Code (kênh chưa lưu).
+  document.querySelectorAll('[data-copy]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const label = btn.textContent;
+      try {
+        await navigator.clipboard.writeText(btn.dataset.copy);
+        btn.textContent = 'Đã chép ✓';
+      } catch (e) {
+        window.prompt('Chép lệnh này vào Claude Code:', btn.dataset.copy);
+      }
+      setTimeout(() => { btn.textContent = label; }, 2000);
+    });
+  });
 })();
 
 (function () {
@@ -627,4 +694,40 @@
   toast.hidden = false;
   setTimeout(() => { toast.hidden = true; }, 4000);
   history.replaceState(null, '', location.pathname);
+})();
+
+(function () {
+  // Tab Tag: dịch tên tiếng Việt thành từ khoá bằng AI, điền vào ô để sửa trước khi lưu.
+  document.querySelectorAll('[data-translate]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const form = btn.closest('form');
+      const vi = form.elements.vi.value.trim();
+      if (!vi) { form.elements.vi.focus(); return; }
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '…';
+      try {
+        const r = await fetch('/api/tags/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ vi, lang: form.elements.lang.value, group: form.elements.group.value }),
+        });
+        const s = await r.json();
+        if (s.q) form.elements.q.value = s.q;
+        else alert(s.error || 'AI không dịch được');
+      } catch (e) {
+        alert('Không gọi được AI: ' + e);
+      }
+      btn.disabled = false;
+      btn.textContent = label;
+    });
+  });
+
+  // Đổi nền tảng khi thêm tag thì đổi luôn ngôn ngữ dịch mặc định.
+  const newTag = document.querySelector('.tag-new');
+  if (newTag) {
+    newTag.elements.platform.addEventListener('change', () => {
+      newTag.elements.lang.value = newTag.elements.platform.value === 'douyin' ? 'zh' : 'en';
+    });
+  }
 })();

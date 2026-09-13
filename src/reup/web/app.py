@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -243,6 +242,10 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         # Cạnh thư mục jobs chứ không bên trong: jobs/ chỉ chứa thư mục job.
         return app.state.jobs_dir.parent / "douyin-exports"
 
+    from reup.web.douyin_rescan import Rescanner
+
+    app.state.douyin_rescanner = Rescanner(exports_dir())
+
     @app.post("/discover/douyin/import", response_class=HTMLResponse)
     async def douyin_import(
         request: Request,
@@ -269,14 +272,10 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 f"file {file.filename or ''} không nạp được: {exc}",
                 status_code=400,
             )
-        uid = re.sub(r"[^A-Za-z0-9_-]", "", str(raw.get("sec_user_id") or ""))[:24]
-        stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-        out = exports_dir() / f"douyin_{uid or 'kenh'}_{stamp}.json"
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_bytes(body)
-        if save:
-            from reup.web import douyin_channels
+        from reup.web import douyin_channels
 
+        out = douyin_channels.store_export(exports_dir(), body, raw)
+        if save:
             douyin_channels.save_channel(
                 exports_dir(), douyin_channels.channel_id(raw, out), name
             )
@@ -301,6 +300,23 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         douyin_channels.remove_channel(exports_dir(), uid)
         return RedirectResponse("/discover?platform=douyin", status_code=303)
 
+    @app.post("/discover/douyin/channels/rescan")
+    def douyin_rescan(uid: str = Form(...)):
+        """Nút Quét lại: mở kênh trong Chrome đã đăng nhập và xuất file mới.
+
+        Chạy nền vì kênh vài trăm video mất 1–2 phút; UI hỏi tiến độ ở GET cùng đường.
+        """
+        if not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", uid):
+            raise HTTPException(status_code=400, detail="sec_uid không hợp lệ")
+        try:
+            return app.state.douyin_rescanner.start(uid)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    @app.get("/discover/douyin/channels/rescan")
+    def douyin_rescan_status(uid: str):
+        return app.state.douyin_rescanner.status(uid)
+
     def douyin_suggestions() -> dict:
         from reup.adapters import douyin_export as dx
         from reup.web import douyin_channels
@@ -310,8 +326,8 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             "douyin_recent": douyin_channels.recent_unsaved(exports_dir()),
             "douyin_exports": douyin_channels.exports(exports_dir()),
             "douyin_topics": [
-                {"q": kw, "label": label, "url": dx.search_url(kw)}
-                for kw, label in dx.SEARCH_TOPICS
+                {"q": t["q"], "label": t["vi"], "url": dx.search_url(t["q"])}
+                for t in discover_tags("douyin")["tags_all"]
             ],
         }
 
@@ -358,10 +374,127 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                     if platform == "douyin"
                     else ""
                 ),
+                **discover_tags(platform),
                 "title": f"Quét {service.PLATFORM_LABELS[platform]}",
             },
             status_code=status_code,
         )
+
+    def tags_path() -> Path:
+        return app.state.jobs_dir.parent / "tags.json"
+
+    def tag_llm():
+        from reup.adapters.registry import make_llm
+
+        return make_llm(cfg(), "export")
+
+    def discover_tags(platform: str) -> dict:
+        from reup.web import tags as tag_store
+
+        every = tag_store.for_platform(tag_store.load(tags_path()), platform)
+        return {
+            "tags_all": every,
+            "tags_topic": [t for t in every if t["group"] == "topic"],
+            "tags_hashtag": [t for t in every if t["group"] == "hashtag"],
+        }
+
+    def render_tags(request, platform="", form=None, error="", status_code=200):
+        from reup.web import tags as tag_store
+
+        platform = platform if platform in tag_store.PLATFORMS else ""
+        every = tag_store.load(tags_path())
+        counts = {"": len(every)}
+        for t in every:
+            counts[t["platform"]] = counts.get(t["platform"], 0) + 1
+        start = platform or "youtube"
+        return templates.TemplateResponse(
+            request,
+            "tags.html",
+            {
+                "rows": [t for t in every if not platform or t["platform"] == platform],
+                "platform": platform,
+                "counts": counts,
+                "platforms": tag_store.PLATFORMS,
+                "platform_labels": service.PLATFORM_LABELS,
+                "groups": tag_store.GROUPS,
+                "langs": tag_store.LANGS,
+                "form": form or {
+                    "platform": start, "group": "topic", "vi": "", "q": "",
+                    "lang": tag_store.default_lang(start),
+                },
+                "error": error,
+                "tab": "tags",
+                "title": "Tag gợi ý",
+            },
+            status_code=status_code,
+        )
+
+    @app.get("/tags", response_class=HTMLResponse)
+    def tags_page(request: Request, platform: str = ""):
+        return render_tags(request, platform)
+
+    @app.post("/tags", response_class=HTMLResponse)
+    def tags_create(
+        request: Request,
+        platform: str = Form(""),
+        group: str = Form("topic"),
+        vi: str = Form(""),
+        q: str = Form(""),
+        lang: str = Form(""),
+    ):
+        """Thêm tag. Từ khoá trống thì AI dịch từ tên tiếng Việt trước khi lưu."""
+        from reup.web import tags as tag_store
+
+        form = {"platform": platform, "group": group, "vi": vi, "q": q, "lang": lang}
+        try:
+            tag = tag_store.create(tags_path(), form, tag_llm)
+        except ValueError as exc:
+            return render_tags(request, platform, form, str(exc), status_code=400)
+        return RedirectResponse(f"/tags?platform={tag['platform']}#tag-{tag['id']}", status_code=303)
+
+    @app.post("/tags/{tag_id}", response_class=HTMLResponse)
+    def tags_update(
+        request: Request,
+        tag_id: str,
+        platform: str = Form(""),
+        group: str = Form("topic"),
+        vi: str = Form(""),
+        q: str = Form(""),
+        lang: str = Form(""),
+        back: str = Form(""),
+    ):
+        from reup.web import tags as tag_store
+
+        form = {"platform": platform, "group": group, "vi": vi, "q": q, "lang": lang}
+        try:
+            tag_store.update(tags_path(), tag_id, form, tag_llm)
+        except ValueError as exc:
+            return render_tags(request, back, None, str(exc), status_code=400)
+        return RedirectResponse(f"/tags?{urlencode({'platform': back})}#tag-{tag_id}", status_code=303)
+
+    @app.post("/tags/{tag_id}/delete")
+    def tags_delete(tag_id: str, back: str = Form("")):
+        from reup.web import tags as tag_store
+
+        try:
+            tag_store.delete(tags_path(), tag_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        return RedirectResponse(f"/tags?{urlencode({'platform': back})}", status_code=303)
+
+    @app.post("/api/tags/translate")
+    def tags_translate(payload: dict = Body(...)):
+        """Nút ✨ Dịch: xem trước từ khoá AI dịch, chưa lưu gì."""
+        from reup.web import tags as tag_store
+
+        try:
+            q = tag_store.suggest(
+                str(payload.get("vi") or ""), str(payload.get("lang") or "en"),
+                str(payload.get("group") or "topic"), tag_llm,
+            )
+        except ValueError as exc:
+            return {"q": "", "error": str(exc)}
+        return {"q": q}
 
     @app.post("/api/translate-titles")
     def translate_titles(payload: dict = Body(...)):

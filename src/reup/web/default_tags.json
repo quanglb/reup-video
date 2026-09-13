@@ -1,0 +1,661 @@
+{
+ "version": 1,
+ "tags": [
+  {
+   "id": "t59004d8f",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Douyin hot",
+   "q": "抖音",
+   "lang": "zh"
+  },
+  {
+   "id": "t06229032",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Shorts TQ",
+   "q": "中国短视频",
+   "lang": "zh"
+  },
+  {
+   "id": "t2a1ac08b",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Hài Douyin",
+   "q": "搞笑 抖音",
+   "lang": "zh"
+  },
+  {
+   "id": "ta6f371c6",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Phim ngắn/Drama",
+   "q": "短剧",
+   "lang": "zh"
+  },
+  {
+   "id": "t7cc03a1c",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Nấu ăn/Ẩm thực",
+   "q": "美食 制作",
+   "lang": "zh"
+  },
+  {
+   "id": "t880351ca",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Thôn quê",
+   "q": "乡村 生活",
+   "lang": "zh"
+  },
+  {
+   "id": "t22aa6b35",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Thủ công/DIY",
+   "q": "手工 制作",
+   "lang": "zh"
+  },
+  {
+   "id": "tda91041e",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Sửa xe/Phục chế",
+   "q": "修车",
+   "lang": "zh"
+  },
+  {
+   "id": "tdc208d7d",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Phỏng vấn",
+   "q": "街头 采访",
+   "lang": "zh"
+  },
+  {
+   "id": "t3d178145",
+   "platform": "youtube",
+   "group": "topic",
+   "vi": "Thú cưng",
+   "q": "萌宠 搞笑",
+   "lang": "zh"
+  },
+  {
+   "id": "tb702e7db",
+   "platform": "youtube",
+   "group": "hashtag",
+   "vi": "Douyin",
+   "q": "#douyin",
+   "lang": "en"
+  },
+  {
+   "id": "t3c0101ac",
+   "platform": "youtube",
+   "group": "hashtag",
+   "vi": "Shorts Trung Quốc",
+   "q": "#chineseshorts",
+   "lang": "en"
+  },
+  {
+   "id": "tece3851c",
+   "platform": "youtube",
+   "group": "hashtag",
+   "vi": "TikTok Trung Quốc",
+   "q": "#tiktokchina",
+   "lang": "en"
+  },
+  {
+   "id": "t79195dce",
+   "platform": "youtube",
+   "group": "hashtag",
+   "vi": "Douyin viral",
+   "q": "#douyinviral",
+   "lang": "en"
+  },
+  {
+   "id": "tc31b4f97",
+   "platform": "youtube",
+   "group": "hashtag",
+   "vi": "Ẩm thực Trung Quốc",
+   "q": "#chinesefood",
+   "lang": "en"
+  },
+  {
+   "id": "t5004d80f",
+   "platform": "youtube",
+   "group": "hashtag",
+   "vi": "Shorts",
+   "q": "#shorts",
+   "lang": "en"
+  },
+  {
+   "id": "td75699f9",
+   "platform": "tiktok",
+   "group": "hashtag",
+   "vi": "Douyin",
+   "q": "#douyin",
+   "lang": "en"
+  },
+  {
+   "id": "te9ff0619",
+   "platform": "tiktok",
+   "group": "hashtag",
+   "vi": "Phim Trung Quốc",
+   "q": "#chinesedrama",
+   "lang": "en"
+  },
+  {
+   "id": "t57c7c644",
+   "platform": "tiktok",
+   "group": "hashtag",
+   "vi": "Ẩm thực Trung Quốc",
+   "q": "#chinesefood",
+   "lang": "en"
+  },
+  {
+   "id": "tf5dea9ce",
+   "platform": "tiktok",
+   "group": "hashtag",
+   "vi": "Douyin viral",
+   "q": "#douyinviral",
+   "lang": "en"
+  },
+  {
+   "id": "t4c6713f0",
+   "platform": "tiktok",
+   "group": "hashtag",
+   "vi": "TikTok Trung Quốc",
+   "q": "#tiktokchina",
+   "lang": "en"
+  },
+  {
+   "id": "t8d0669c0",
+   "platform": "tiktok",
+   "group": "hashtag",
+   "vi": "Hài hước",
+   "q": "#funny",
+   "lang": "en"
+  },
+  {
+   "id": "te8f70d19",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Nấu ăn",
+   "q": "美食 制作",
+   "lang": "zh"
+  },
+  {
+   "id": "tfd2bd126",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Hài hước",
+   "q": "搞笑",
+   "lang": "zh"
+  },
+  {
+   "id": "t76f96e25",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Phim ngắn",
+   "q": "短剧",
+   "lang": "zh"
+  },
+  {
+   "id": "t172d5076",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Thôn quê",
+   "q": "乡村 生活",
+   "lang": "zh"
+  },
+  {
+   "id": "td16c5c1d",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Thủ công/DIY",
+   "q": "手工 制作",
+   "lang": "zh"
+  },
+  {
+   "id": "tcfaebc4a",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Sửa xe",
+   "q": "修车",
+   "lang": "zh"
+  },
+  {
+   "id": "tdd5d6953",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Phỏng vấn",
+   "q": "街头 采访",
+   "lang": "zh"
+  },
+  {
+   "id": "tfdbd1a88",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Thú cưng",
+   "q": "萌宠",
+   "lang": "zh"
+  },
+  {
+   "id": "t227e28c4",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Kiến thức",
+   "q": "科普",
+   "lang": "zh"
+  },
+  {
+   "id": "t50657e9e",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Review",
+   "q": "开箱 测评",
+   "lang": "zh"
+  },
+  {
+   "id": "t560cc978",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Makeup",
+   "q": "美妆 教程",
+   "lang": "zh"
+  },
+  {
+   "id": "t0db71d11",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Món nhà làm",
+   "q": "家常菜",
+   "lang": "zh"
+  },
+  {
+   "id": "tcd612889",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Ăn vặt đường phố",
+   "q": "街头 小吃",
+   "lang": "zh"
+  },
+  {
+   "id": "t1061afa8",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Mukbang",
+   "q": "吃播",
+   "lang": "zh"
+  },
+  {
+   "id": "t4112d253",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Làm bánh",
+   "q": "烘焙",
+   "lang": "zh"
+  },
+  {
+   "id": "te9bc153f",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Ẩm thực quê",
+   "q": "农村 美食",
+   "lang": "zh"
+  },
+  {
+   "id": "t886d64a6",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Bắt hải sản",
+   "q": "赶海",
+   "lang": "zh"
+  },
+  {
+   "id": "teffc74c5",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Câu cá",
+   "q": "钓鱼",
+   "lang": "zh"
+  },
+  {
+   "id": "t7a1ebf49",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Cắm trại",
+   "q": "户外 露营",
+   "lang": "zh"
+  },
+  {
+   "id": "t5f602fc2",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Sinh tồn",
+   "q": "野外 生存",
+   "lang": "zh"
+  },
+  {
+   "id": "t3321f3e0",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Du lịch",
+   "q": "旅行 vlog",
+   "lang": "zh"
+  },
+  {
+   "id": "te62e1f68",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Phong cảnh",
+   "q": "风景",
+   "lang": "zh"
+  },
+  {
+   "id": "tc23bf06d",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Tâm sự/Tình cảm",
+   "q": "情感 语录",
+   "lang": "zh"
+  },
+  {
+   "id": "ta1b0a9f5",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Năng lượng tích cực",
+   "q": "正能量",
+   "lang": "zh"
+  },
+  {
+   "id": "ta4cb8102",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Chuyện cảm động",
+   "q": "感人 故事",
+   "lang": "zh"
+  },
+  {
+   "id": "t9bb19824",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Tình huống kịch",
+   "q": "剧情",
+   "lang": "zh"
+  },
+  {
+   "id": "t8c149849",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Chơi khăm",
+   "q": "恶搞",
+   "lang": "zh"
+  },
+  {
+   "id": "t767d8a77",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Troll",
+   "q": "整蛊",
+   "lang": "zh"
+  },
+  {
+   "id": "tbed15a8d",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Hài đời thường",
+   "q": "沙雕 日常",
+   "lang": "zh"
+  },
+  {
+   "id": "t4c5d2031",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Mèo",
+   "q": "猫咪",
+   "lang": "zh"
+  },
+  {
+   "id": "tf04e0afe",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Chó",
+   "q": "狗狗",
+   "lang": "zh"
+  },
+  {
+   "id": "t5d6cc324",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Em bé",
+   "q": "萌娃",
+   "lang": "zh"
+  },
+  {
+   "id": "t66395752",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Nuôi dạy con",
+   "q": "育儿",
+   "lang": "zh"
+  },
+  {
+   "id": "t63b70f1f",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Mẹo vặt",
+   "q": "生活 小妙招",
+   "lang": "zh"
+  },
+  {
+   "id": "t584c74e8",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Dọn dẹp/Sắp xếp",
+   "q": "收纳 整理",
+   "lang": "zh"
+  },
+  {
+   "id": "t32c9585d",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Nhà cửa/Nội thất",
+   "q": "家居 装修",
+   "lang": "zh"
+  },
+  {
+   "id": "t87927edd",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Nghề mộc",
+   "q": "木工",
+   "lang": "zh"
+  },
+  {
+   "id": "t1d1e5207",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Giải trí/ASMR",
+   "q": "解压",
+   "lang": "zh"
+  },
+  {
+   "id": "tabbaaeda",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Nghệ nhân",
+   "q": "手艺人",
+   "lang": "zh"
+  },
+  {
+   "id": "t3f40a951",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Nghề truyền thống",
+   "q": "非遗 传统",
+   "lang": "zh"
+  },
+  {
+   "id": "tfc153195",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Thư pháp/Vẽ",
+   "q": "书法 绘画",
+   "lang": "zh"
+  },
+  {
+   "id": "t8b19bb35",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Nhảy",
+   "q": "舞蹈",
+   "lang": "zh"
+  },
+  {
+   "id": "te6d5a461",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Cover nhạc",
+   "q": "翻唱",
+   "lang": "zh"
+  },
+  {
+   "id": "t5b260c06",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Chơi nhạc cụ",
+   "q": "乐器 演奏",
+   "lang": "zh"
+  },
+  {
+   "id": "t539cf380",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Tập gym",
+   "q": "健身",
+   "lang": "zh"
+  },
+  {
+   "id": "td5770538",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Võ thuật",
+   "q": "功夫 武术",
+   "lang": "zh"
+  },
+  {
+   "id": "tbb921fa3",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Bóng rổ",
+   "q": "篮球",
+   "lang": "zh"
+  },
+  {
+   "id": "tfeb83ca1",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Bóng đá",
+   "q": "足球",
+   "lang": "zh"
+  },
+  {
+   "id": "t5182c771",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Review xe",
+   "q": "汽车 评测",
+   "lang": "zh"
+  },
+  {
+   "id": "t69fa5bd1",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Công nghệ",
+   "q": "数码 科技",
+   "lang": "zh"
+  },
+  {
+   "id": "t79b62e6a",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Game",
+   "q": "游戏",
+   "lang": "zh"
+  },
+  {
+   "id": "t14873a2f",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Phối đồ",
+   "q": "穿搭",
+   "lang": "zh"
+  },
+  {
+   "id": "t7e721204",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Lịch sử",
+   "q": "历史 故事",
+   "lang": "zh"
+  },
+  {
+   "id": "t5d1e5f05",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Quân sự",
+   "q": "军事",
+   "lang": "zh"
+  },
+  {
+   "id": "tadf9db25",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Review phim",
+   "q": "电影 解说",
+   "lang": "zh"
+  },
+  {
+   "id": "t40ad3d03",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Anime",
+   "q": "动漫",
+   "lang": "zh"
+  },
+  {
+   "id": "t27d1e8c8",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Ảo thuật",
+   "q": "魔术",
+   "lang": "zh"
+  },
+  {
+   "id": "t5a536ce0",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Thí nghiệm",
+   "q": "实验",
+   "lang": "zh"
+  },
+  {
+   "id": "t7d6d4e8a",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Công trường",
+   "q": "工地 施工",
+   "lang": "zh"
+  },
+  {
+   "id": "t3db2450a",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Trồng trọt",
+   "q": "种植 农业",
+   "lang": "zh"
+  }
+ ]
+}

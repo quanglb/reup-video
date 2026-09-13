@@ -5,26 +5,10 @@
   <input type="hidden" name="run" value="1">
   <input name="q" id="scanQueryInput" value="{{ q }}" placeholder="{{ 'file .json đã nạp, sec_uid hoặc URL kênh' if platform == 'douyin' else 'hashtag, @tên, từ khóa hot hoặc URL' }}" list="suggest-list" autocomplete="off">
   <datalist id="suggest-list">
-    {% if platform == 'youtube' %}
-      <option value="抖音">Douyin / TikTok Trung Quốc</option>
-      <option value="中国短视频">Shorts Trung Quốc hot</option>
-      <option value="搞笑 抖音">Douyin hài hước</option>
-      <option value="短剧">Drama / Phim ngắn Trung Quốc</option>
-      <option value="美食 制作">Ẩm thực / Nấu ăn Trung Quốc</option>
-      <option value="乡村 生活">Cuộc sống thôn quê Trung Quốc</option>
-      <option value="手工 制作">Thủ công / DIY sáng tạo</option>
-      <option value="修车">Sửa xe / Mẹo vặt</option>
-      <option value="街头 采访">Phỏng vấn đường phố</option>
-      <option value="#douyin">Hashtag #douyin</option>
-      <option value="#chineseshorts">Hashtag #chineseshorts</option>
-      <option value="#tiktokchina">Hashtag #tiktokchina</option>
-      <option value="#shorts">Hashtag #shorts</option>
-    {% elif platform == 'tiktok' %}
-      <option value="#douyin">#douyin</option>
-      <option value="#chinesedrama">#chinesedrama</option>
-      <option value="#chinesefood">#chinesefood</option>
-      <option value="#douyinviral">#douyinviral</option>
-      <option value="#funny">#funny</option>
+    {% if platform in ('youtube', 'tiktok') %}
+      {% for t in tags_all %}
+      <option value="{{ t.q }}">{{ t.vi }}</option>
+      {% endfor %}
     {% elif platform == 'douyin' %}
       {% for f in douyin_exports %}
         <option value="{{ f.path }}">{{ f.author }} · {{ f.count }} video · {{ f.date }}</option>
@@ -45,58 +29,46 @@
 </form>
 
 <div class="suggest-box">
-  {% if platform == 'youtube' %}
+  {% if platform in ('youtube', 'tiktok') %}
+    {% if tags_topic %}
     <div class="suggest-section">
-      <div class="suggest-title">🔥 <b>Gợi ý chủ đề Shorts Trung Quốc (Bấm để quét ngay):</b></div>
+      <div class="suggest-title">🔥 <b>Gợi ý chủ đề (bấm để quét ngay):</b> <a class="suggest-edit" href="/tags?platform={{ platform }}">✎ sửa tag</a></div>
       <div class="suggest-chips">
-        <button type="button" class="chip" data-q="抖音" title="Video Douyin tổng hợp"><span>抖音</span> <small>Douyin hot</small></button>
-        <button type="button" class="chip" data-q="中国短视频" title="Video ngắn Trung Quốc thịnh hành"><span>中国短视频</span> <small>Shorts TQ</small></button>
-        <button type="button" class="chip" data-q="搞笑 抖音" title="Video hài hước Douyin"><span>搞笑 抖音</span> <small>Hài Douyin</small></button>
-        <button type="button" class="chip" data-q="短剧" title="Drama, phim ngắn tình huống"><span>短剧</span> <small>Phim ngắn/Drama</small></button>
-        <button type="button" class="chip" data-q="美食 制作" title="Ẩm thực, nấu ăn thôn quê"><span>美食 制作</span> <small>Nấu ăn/Ẩm thực</small></button>
-        <button type="button" class="chip" data-q="乡村 生活" title="Cuộc sống nông thôn"><span>乡村 生活</span> <small>Thôn quê</small></button>
-        <button type="button" class="chip" data-q="手工 制作" title="Thủ công, chế tạo sáng tạo"><span>手工 制作</span> <small>Thủ công/DIY</small></button>
-        <button type="button" class="chip" data-q="修车" title="Sửa xe, phục chế, mẹo vặt"><span>修车</span> <small>Sửa xe/Phục chế</small></button>
-        <button type="button" class="chip" data-q="街头 采访" title="Phỏng vấn đường phố"><span>街头 采访</span> <small>Phỏng vấn</small></button>
-        <button type="button" class="chip" data-q="萌宠 搞笑" title="Thú cưng hài hước"><span>萌宠 搞笑</span> <small>Thú cưng</small></button>
+        {% for t in tags_topic %}
+        <button type="button" class="chip" data-q="{{ t.q }}" title="{{ t.vi }}"><span>{{ t.q }}</span> <small>{{ t.vi }}</small></button>
+        {% endfor %}
       </div>
     </div>
+    {% endif %}
     <div class="suggest-section">
-      <div class="suggest-title">🏷️ <b>Hashtags phổ biến:</b></div>
+      <div class="suggest-title">🏷️ <b>Hashtag:</b> <a class="suggest-edit" href="/tags?platform={{ platform }}">✎ sửa tag</a></div>
+      {% if tags_hashtag %}
       <div class="suggest-chips">
-        <button type="button" class="chip hash" data-q="#douyin">#douyin</button>
-        <button type="button" class="chip hash" data-q="#chineseshorts">#chineseshorts</button>
-        <button type="button" class="chip hash" data-q="#tiktokchina">#tiktokchina</button>
-        <button type="button" class="chip hash" data-q="#douyinviral">#douyinviral</button>
-        <button type="button" class="chip hash" data-q="#chinesefood">#chinesefood</button>
-        <button type="button" class="chip hash" data-q="#shorts">#shorts</button>
+        {% for t in tags_hashtag %}
+        <button type="button" class="chip hash" data-q="{{ t.q }}" title="{{ t.vi }}">{{ t.q }}</button>
+        {% endfor %}
       </div>
-    </div>
-  {% elif platform == 'tiktok' %}
-    <div class="suggest-section">
-      <div class="suggest-title">🏷️ <b>Hashtag TikTok thịnh hành:</b></div>
-      <div class="suggest-chips">
-        <button type="button" class="chip hash" data-q="#douyin">#douyin</button>
-        <button type="button" class="chip hash" data-q="#chinesedrama">#chinesedrama</button>
-        <button type="button" class="chip hash" data-q="#chinesefood">#chinesefood</button>
-        <button type="button" class="chip hash" data-q="#douyinviral">#douyinviral</button>
-        <button type="button" class="chip hash" data-q="#tiktokchina">#tiktokchina</button>
-        <button type="button" class="chip hash" data-q="#funny">#funny</button>
-      </div>
+      {% else %}
+      <div class="suggest-tips">Chưa có hashtag. <a href="/tags?platform={{ platform }}">Thêm ở tab Tag</a>.</div>
+      {% endif %}
     </div>
   {% else %}
     <div class="suggest-section">
-      <div class="suggest-title">⭐ <b>Kênh đã lưu</b> <small>— bấm Quét để dùng lại, không cần nạp file</small></div>
+      <div class="suggest-title">⭐ <b>Kênh đã lưu</b> <small>— Quét: dùng file đang có · Quét lại: mở Chrome lấy file mới</small></div>
       {% if douyin_channels %}
       <div class="dy-channels">
         {% for ch in douyin_channels %}
         <div class="dy-channel">
           <div class="dy-ch-info">
             <b title="{{ ch.path }}">{{ ch.name }}</b>
-            <small>{% if ch.author != ch.name %}{{ ch.author }} · {% endif %}{{ ch.count }} video · nạp {{ ch.date }}</small>
+            <small>{% if ch.author != ch.name %}{{ ch.author }} · {% endif %}{{ ch.count }} video · xuất {{ ch.age }}</small>
+            {% if ch.stale %}<small class="dy-stale" title="Link tải trong file chỉ sống vài giờ; reup sẽ thử yt-dlp nếu hỏng">⚠ link tải có thể đã hết hạn — nên quét lại</small>{% endif %}
+            <small class="dy-rescan-msg" hidden></small>
           </div>
           <div class="dy-ch-actions">
             <a class="btn primary" href="/discover?platform=douyin&run=1&q={{ ch.path|urlencode }}">Quét</a>
+            <button type="button" class="btn {{ 'primary' if ch.stale }}" data-rescan="{{ ch.uid }}" title="Mở kênh trong Chrome (profile quangxa14@gmail.com), xuất file JSON mới">Quét lại</button>
+            <a class="icon-btn" href="{{ ch.url }}" target="_blank" rel="noopener" title="Mở kênh trên Douyin">↗</a>
             <details class="dy-ch-edit">
               <summary title="Đổi tên">✎</summary>
               <form method="post" action="/discover/douyin/channels">
@@ -124,7 +96,8 @@
         {% for f in douyin_recent %}
           <span class="dy-recent">
             <button type="button" class="chip" data-q="{{ f.path }}" title="{{ f.path }}">
-              <span>{{ f.author }}</span> <small>{{ f.count }} video · {{ f.date }}</small>
+              <span>{{ f.author }}</span> <small>{{ f.count }} video · xuất {{ f.age }}</small>
+              {% if f.stale %}<small class="dy-stale" title="Link tải có thể đã hết hạn — nên quét lại">⚠</small>{% endif %}
             </button>
             <form method="post" action="/discover/douyin/channels">
               <input type="hidden" name="uid" value="{{ f.uid }}">
@@ -136,7 +109,7 @@
     </div>
     {% endif %}
     <div class="suggest-section">
-      <div class="suggest-title">🔥 <b>Tìm kênh Douyin theo chủ đề (mở tab mới, vào kênh rồi chạy script):</b></div>
+      <div class="suggest-title">🔥 <b>Tìm kênh Douyin theo chủ đề (mở tab mới, vào kênh rồi chép link kênh):</b> <a class="suggest-edit" href="/tags?platform=douyin">✎ sửa tag</a></div>
       <div class="suggest-chips">
         {% for t in douyin_topics %}
           <a class="chip" href="{{ t.url }}" target="_blank" rel="noopener"><span>{{ t.q }}</span> <small>{{ t.label }}</small></a>
@@ -144,25 +117,38 @@
       </div>
     </div>
     <div class="suggest-section dy-import">
-      <div class="suggest-title">💡 <b>Lấy video Douyin qua trình duyệt đã đăng nhập:</b></div>
+      <div class="suggest-title">💡 <b>Lấy file JSON kênh mới (link tải trong file chỉ sống vài giờ):</b></div>
       <ol class="suggest-tips">
-        <li>Mở trang kênh <code>douyin.com/user/…</code>, F12 → Console.</li>
         <li>
-          <button type="button" class="chip" id="copyDouyinScript">Chép script</button>
-          rồi dán vào Console, Enter. Trình duyệt tải về <code>douyin_….json</code>.
+          Kênh đã lưu: bấm <b>Quét lại</b> ở trên. reup mở kênh trong Chrome (profile quangxa14@gmail.com),
+          quét xong tự lưu file mới và tải lại trang. Lần đầu cần bật trong Chrome:
+          <i>View → Developer → Allow JavaScript from Apple Events</i>.
         </li>
-        <li>Nạp file đó ở đây, sau đó sắp theo lượt thích và chọn vị trí bắt đầu ở ô phía trên.</li>
+        <li>
+          Kênh mới: trong Claude Code gõ
+          <button type="button" class="chip" data-copy="/douyin-export">/douyin-export</button>
+          rồi dán link kênh <code>douyin.com/user/…</code>, file lưu vào <code>douyin-exports/</code>.
+        </li>
+        <li>Sắp theo lượt thích và chọn vị trí bắt đầu ở ô phía trên.</li>
       </ol>
       <details>
-        <summary>Xem script</summary>
+        <summary>Cách thủ công: chạy script trong Console rồi nạp file</summary>
+        <ol class="suggest-tips">
+          <li>Mở trang kênh <code>douyin.com/user/…</code>, F12 → Console.</li>
+          <li>
+            <button type="button" class="chip" id="copyDouyinScript">Chép script</button>
+            rồi dán vào Console, Enter. Trình duyệt tải về <code>douyin_….json</code>.
+          </li>
+          <li>Nạp file đó ở ô dưới.</li>
+        </ol>
         <textarea id="douyinScript" readonly rows="10">{{ douyin_script }}</textarea>
-      </details>
       <form method="post" action="/discover/douyin/import" enctype="multipart/form-data" class="dy-upload">
         <input type="file" name="file" accept=".json,application/json" required>
         <label class="check"><input type="checkbox" name="save" value="1" checked> Lưu kênh</label>
         <input name="name" placeholder="Tên kênh (tuỳ chọn)">
         <button class="primary">Nạp file</button>
       </form>
+      </details>
     </div>
   {% endif %}
 </div>

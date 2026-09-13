@@ -7,12 +7,16 @@ MỚI NHẤT của kênh đó, nên nạp lại một kênh đã lưu là tự c
 from __future__ import annotations
 
 import json
-from datetime import datetime
+import re
+from datetime import datetime, timezone
 from pathlib import Path
 
 from reup.adapters.douyin_export import parse_export
 
 INDEX = "_channels.json"
+# File cũ chỉ còn để nhớ kênh: play_url trong đó hết hạn sau vài giờ. Quá mốc
+# này thì UI nhắc quét lại bằng skill /douyin-export thay vì dùng dữ liệu cũ.
+STALE_HOURS = 6
 
 
 def _index_path(folder: Path) -> Path:
@@ -47,6 +51,7 @@ def exports(folder: Path) -> list[dict]:
         key=lambda p: p.stat().st_mtime,
         reverse=True,
     )
+    now = datetime.now(timezone.utc)
     out: dict[str, dict] = {}
     for path in files:
         try:
@@ -58,14 +63,41 @@ def exports(folder: Path) -> list[dict]:
         if uid in out:
             continue
         author = str(raw.get("author") or "").strip() or uid[-10:]
-        date = str(raw.get("exported_at") or "")[:10] or datetime.fromtimestamp(
-            path.stat().st_mtime
-        ).strftime("%Y-%m-%d")
+        exported = _exported_at(raw, path)
+        hours = max(0.0, (now - exported).total_seconds() / 3600)
         out[uid] = {
             "uid": uid, "path": str(path.resolve()), "author": author,
-            "count": count, "date": date,
+            "count": count, "date": exported.astimezone().strftime("%Y-%m-%d"),
+            "age": _age_label(hours), "stale": hours >= STALE_HOURS,
+            "url": f"https://www.douyin.com/user/{uid}",
         }
     return list(out.values())
+
+
+def store_export(folder: Path, body: bytes, raw: dict) -> Path:
+    """Ghi một bản xuất: douyin_<uid24>_<giờ>.json. Không ghi đè bản cũ."""
+    uid = re.sub(r"[^A-Za-z0-9_-]", "", str(raw.get("sec_user_id") or ""))[:24]
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    out = Path(folder) / f"douyin_{uid or 'kenh'}_{stamp}.json"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_bytes(body)
+    return out
+
+
+def _exported_at(raw: dict, path: Path) -> datetime:
+    try:
+        ts = datetime.fromisoformat(str(raw.get("exported_at") or "").replace("Z", "+00:00"))
+        return ts if ts.tzinfo else ts.astimezone()
+    except ValueError:
+        return datetime.fromtimestamp(Path(path).stat().st_mtime, timezone.utc)
+
+
+def _age_label(hours: float) -> str:
+    if hours < 1:
+        return "vừa xong"
+    if hours < 24:
+        return f"{int(hours)} giờ trước"
+    return f"{int(hours // 24)} ngày trước"
 
 
 def saved_channels(folder: Path) -> list[dict]:
