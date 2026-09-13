@@ -130,24 +130,51 @@
         </form>
       {% endif %}
     {% else %}
-    <table class="segments">
-      <thead><tr><th>Giờ</th><th>Gốc</th><th>Bản Việt</th><th>Âm tiết</th><th></th></tr></thead>
-      <tbody>
+    {% set pct = (tts_ready * 100 // rows|length) if rows else 0 %}
+    <div class="tts-summary" id="ttsSummary" data-total="{{ rows|length }}">
+      <div class="tts-sum-top">
+        <div class="tts-sum-text">🎙 Giọng đọc: <b id="ttsReady">{{ tts_ready }}</b>/{{ rows|length }} câu đã tổng hợp</div>
+        <span class="spacer"></span>
+        <button type="button" class="ghost" id="playAll" title="Phát lần lượt các câu đã có giọng">▶ Phát lần lượt</button>
+      </div>
+      <div class="tts-bar"><div class="tts-bar-fill" id="ttsBarFill" style="width: {{ pct }}%"></div></div>
+      <div class="seg-filter" id="segFilter">
+        <button type="button" class="on" data-filter="all">Tất cả <b>{{ rows|length }}</b></button>
+        <button type="button" data-filter="ready">Đã có giọng <b id="fReady">{{ tts_ready }}</b></button>
+        <button type="button" data-filter="missing">Chưa có <b id="fMissing">{{ rows|length - tts_ready }}</b></button>
+        <button type="button" data-filter="warn">Cần xem <b>{{ rows|selectattr('over')|list|length + rows|rejectattr('over')|selectattr('flags')|list|length }}</b></button>
+      </div>
+    </div>
+
+    <div class="seg-list" id="segList">
       {% for s in rows %}
-        <tr class="{{ 'warn' if s.over or s.flags }}">
-          <td class="time">{{ '%d:%02d'|format(s.start_ms // 60000, (s.start_ms // 1000) % 60) }}</td>
-          <td class="src">{{ s.source_text }}
-            {% for f in s.flags %}<span class="flag">{{ f }}</span>{% endfor %}
-          </td>
-          <td><textarea data-seg="{{ s.id }}" rows="2">{{ s.text }}</textarea></td>
-          <td class="count {{ 'over' if s.over }}">
-            <span data-count="{{ s.id }}">{{ s.syllables }}</span>/{{ s.budget }}
-          </td>
-          <td><button class="play" data-seg="{{ s.id }}" title="Nghe thử">🔊</button></td>
-        </tr>
+        {% set st = s.tts.state if s.tts else 'none' %}
+        <article class="seg-card tts-{{ st }} {{ 'warn' if s.over or s.flags }}" data-seg-id="{{ s.id }}" data-tts="{{ st }}" data-v="{{ s.tts.v if s.tts else '' }}">
+          <button type="button" class="play" data-seg="{{ s.id }}" title="Nghe câu này">
+            <span class="play-icon">▶</span>
+          </button>
+          <div class="seg-main">
+            <div class="seg-meta">
+              <span class="seg-no">#{{ s.id }}</span>
+              <span class="time">{{ '%d:%02d'|format(s.start_ms // 60000, (s.start_ms // 1000) % 60) }} → {{ '%d:%02d'|format(s.end_ms // 60000, (s.end_ms // 1000) % 60) }}</span>
+              <span class="count {{ 'over' if s.over }}" data-budget="{{ s.budget }}" title="Âm tiết / ngân sách">
+                <span data-count="{{ s.id }}">{{ s.syllables }}</span>/{{ s.budget }} âm tiết
+              </span>
+              {% for f in s.flags %}<span class="flag">{{ f }}</span>{% endfor %}
+              <span class="spacer"></span>
+              <span class="tts-chip" data-chip="{{ s.id }}">
+                {% if st == 'tts' %}✓ Đã có giọng{% if s.tts.ms %} · {{ '%.1f'|format(s.tts.ms / 1000) }}s{% endif %}
+                {% elif st == 'preview' %}◐ Bản nghe thử
+                {% else %}○ Chưa có giọng{% endif %}
+              </span>
+            </div>
+            {% if s.source_text %}<div class="src">{{ s.source_text }}</div>{% endif %}
+            <textarea data-seg="{{ s.id }}" rows="2">{{ s.text }}</textarea>
+            <div class="play-progress"><div></div></div>
+          </div>
+        </article>
       {% endfor %}
-      </tbody>
-    </table>
+    </div>
 
     <div class="actions">
       {% if voices %}

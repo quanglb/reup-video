@@ -13,6 +13,9 @@
     <form method="post" action="/run-all" class="run-all">
       <button class="primary">▶ Chạy tất cả</button>
     </form>
+    {% elif rows %}
+    <button type="button" id="bulkStart">☑ Chọn nhiều</button>
+    <button type="button" id="emptyArchive" class="danger-text">🗑 Dọn sạch lưu trữ</button>
     {% endif %}
   </div>
 </div>
@@ -32,6 +35,16 @@
     <a href="{{ qs(status, key) }}" class="pf pf-{{ key }} {{ 'on' if platform == key }}">{{ label }} <b>{{ platform_counts.get(key, 0) }}</b></a>
   {% endfor %}
 </nav>
+
+{% if view == 'archived' and rows %}
+<div class="bulk-bar" id="bulkBar" hidden>
+  <label><input type="checkbox" id="bulkAll"> Chọn tất cả</label>
+  <span>Đã chọn <b id="bulkCount">0</b></span>
+  <span class="spacer"></span>
+  <button type="button" id="bulkCancel">Huỷ</button>
+  <button type="button" id="bulkDelete" class="danger-btn" disabled>🗑 Xoá đã chọn</button>
+</div>
+{% endif %}
 
 {% if not rows %}
   <div class="empty-state">
@@ -55,6 +68,9 @@
   <article class="job-card s-{{ r.status }}" data-job-id="{{ r.id }}" data-status="{{ r.status }}"
            data-title="{{ r.title }}" data-name="{{ r.name }}"
            data-search="{{ (r.title ~ ' ' ~ r.source_title ~ ' ' ~ r.url ~ ' ' ~ r.id ~ ' ' ~ r.uploader)|lower }}">
+    {% if view == 'archived' %}
+    <label class="pick" title="Chọn"><input type="checkbox" value="{{ r.id }}" {% if is_running %}disabled{% endif %}></label>
+    {% endif %}
     <a class="thumb" href="/jobs/{{ r.id }}"
        {% if r.has_final %}data-preview="/jobs/{{ r.id }}/final"{% elif r.has_source %}data-preview="/jobs/{{ r.id }}/source"{% endif %}>
       {% if r.has_source or r.has_final %}
@@ -144,6 +160,17 @@
       <span class="spacer"></span>
       <button value="cancel">Huỷ</button>
       <button value="ok" class="danger-btn">🗑 Xoá</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="confirmBulk" class="modal">
+  <form method="dialog">
+    <h2 id="bulkTitle">Xoá nhiều dự án?</h2>
+    <p>Xoá vĩnh viễn <b id="bulkWhat"></b> — gồm video gốc, bản dịch, giọng đọc, thành phẩm trong <code>output/</code>. Không hoàn tác được.</p>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button value="cancel">Huỷ</button>
+      <button value="ok" class="danger-btn">🗑 Xoá vĩnh viễn</button>
     </div>
   </form>
 </dialog>

@@ -112,6 +112,19 @@ def test_review_page_shows_segments(client):
     assert "Hôm nay dạy mọi người" in body
 
 
+def test_progress_reports_which_segments_have_tts(client):
+    c, jobs, db = client
+    job = create_job(jobs, "https://a/1", "zh", job_id="j1")
+    seed_translation(job, [(1, 0, 3000, "Câu một", []), (2, 3000, 6000, "Câu hai", [])])
+    job.tts_segment(2).write_bytes(b"RIFFxxxx")
+    s = Store(db); s.upsert_job("j1", "https://a/1", "running", stage="tts"); s.close()
+
+    tts = c.get("/jobs/j1/progress").json()["tts"]
+    assert tts["total"] == 2 and tts["ready"] == 1
+    assert list(tts["segments"]) == ["2"] and tts["segments"]["2"]["state"] == "tts"
+    assert "1</b>/2 câu đã tổng hợp" in c.get("/jobs/j1").text
+
+
 def test_review_page_marks_over_budget_rows(client):
     c, jobs, db = client
     job = create_job(jobs, "https://a/1", "zh", job_id="j1")
@@ -482,6 +495,37 @@ def test_deleting_a_job_removes_folder_output_and_row(client, tmp_path, monkeypa
     assert not job.root.exists()
     assert not (out / "j1.mp4").exists()
     s = Store(db); assert s.get_job("j1") is None; s.close()
+
+
+def test_deleting_many_jobs_skips_running_and_missing(client):
+    c, jobs, db = client
+    s = Store(db)
+    for jid in ("a", "b", "busy"):
+        create_job(jobs, f"https://a/{jid}", "zh", job_id=jid)
+        s.upsert_job(jid, f"https://a/{jid}", "done")
+    s.close()
+    c.app.state.runner.is_running = lambda job_id: job_id == "busy"
+
+    r = c.post("/jobs/delete-many", data={"job_ids": ["a", "b", "busy", "nope"]}).json()
+    assert r["deleted"] == ["a", "b"]
+    assert [x["id"] for x in r["skipped"]] == ["busy", "nope"]
+    assert not (jobs / "a").exists() and (jobs / "busy").exists()
+
+
+def test_emptying_the_archive_deletes_only_archived_jobs(client):
+    c, jobs, db = client
+    s = Store(db)
+    for jid in ("keep", "old1", "old2"):
+        create_job(jobs, f"https://a/{jid}", "zh", job_id=jid)
+        s.upsert_job(jid, f"https://a/{jid}", "done")
+    s.close()
+    c.post("/jobs/old1/archive", data={"archived": 1})
+    c.post("/jobs/old2/archive", data={"archived": 1})
+    assert "bulkStart" in c.get("/?view=archived").text
+
+    assert sorted(c.post("/archive/empty").json()["deleted"]) == ["old1", "old2"]
+    assert (jobs / "keep").exists()
+    assert not (jobs / "old1").exists() and not (jobs / "old2").exists()
 
 
 def test_deleting_a_running_job_is_refused(client):

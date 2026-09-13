@@ -152,6 +152,9 @@
             }
           }
 
+          // Câu nào vừa tổng hợp xong giọng thì cập nhật ngay, nghe được luôn
+          if (data.tts && window.reupApplyTts) window.reupApplyTts(data.tts);
+
           // Nếu trạng thái thay đổi từ running sang trạng thái dừng (chờ duyệt hoặc xong)
           if (data.status !== 'running') {
             clearInterval(reviewTimer);
@@ -302,31 +305,155 @@
       if (!out) return;
       out.textContent = countSyllables(area.value);
       const cell = out.parentElement;
-      const budget = parseInt(cell.textContent.split('/')[1], 10);
+      const budget = parseInt(cell.dataset.budget, 10);
       cell.classList.toggle('over', countSyllables(area.value) > budget);
     });
   });
 
-  // Câu chưa có file wav thì server tổng hợp ngay lúc bấm — mất vài giây, nên
-  // phải báo là đang chờ chứ không để nút im lặng.
-  editor.querySelectorAll('button.play').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const msg = document.getElementById('msg');
-      btn.disabled = true;
-      msg.textContent = 'Đang tổng hợp câu này…';
-      try {
-        const res = await fetch(`/jobs/${jobId}/audio/${btn.dataset.seg}`);
-        if (!res.ok) throw new Error((await res.json()).detail || res.status);
-        const url = URL.createObjectURL(await res.blob());
-        await new Audio(url).play();
-        msg.textContent = '';
-      } catch (e) {
-        msg.textContent = 'Nghe thử hỏng: ' + e.message;
-      } finally {
-        btn.disabled = false;
+  // --- Trạng thái TTS từng câu ---------------------------------------------
+  const cardOf = (id) => editor.querySelector(`.seg-card[data-seg-id="${id}"]`);
+
+  function applyTts(tts) {
+    if (!tts) return;
+    editor.querySelectorAll('.seg-card').forEach((card) => {
+      const info = tts.segments[card.dataset.segId];
+      const state = info ? info.state : 'none';
+      card.dataset.tts = state;
+      card.dataset.v = info ? info.v : '';
+      card.classList.remove('tts-tts', 'tts-preview', 'tts-none');
+      card.classList.add('tts-' + state);
+      const chip = card.querySelector('.tts-chip');
+      if (chip) {
+        chip.textContent = state === 'tts'
+          ? '✓ Đã có giọng' + (info.ms ? ` · ${(info.ms / 1000).toFixed(1)}s` : '')
+          : state === 'preview' ? '◐ Bản nghe thử' : '○ Chưa có giọng';
       }
     });
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    set('ttsReady', tts.ready);
+    set('fReady', tts.ready);
+    set('fMissing', tts.total - tts.ready);
+    const fill = document.getElementById('ttsBarFill');
+    if (fill) fill.style.width = (tts.total ? Math.floor(tts.ready * 100 / tts.total) : 0) + '%';
+    applyFilter();
+  }
+  window.reupApplyTts = applyTts;
+
+  async function refreshTts() {
+    try {
+      const res = await fetch(`/jobs/${jobId}/progress`);
+      if (res.ok) applyTts((await res.json()).tts);
+    } catch (e) { /* bỏ qua */ }
+  }
+
+  // --- Lọc câu -----------------------------------------------------------------
+  let filter = 'all';
+  function applyFilter() {
+    editor.querySelectorAll('.seg-card').forEach((card) => {
+      const t = card.dataset.tts;
+      card.hidden = filter === 'ready' ? t !== 'tts'
+        : filter === 'missing' ? t === 'tts'
+        : filter === 'warn' ? !card.classList.contains('warn')
+        : false;
+    });
+  }
+  document.querySelectorAll('#segFilter [data-filter]').forEach((b) => {
+    b.addEventListener('click', () => {
+      filter = b.dataset.filter;
+      document.querySelectorAll('#segFilter [data-filter]').forEach((x) => x.classList.toggle('on', x === b));
+      applyFilter();
+    });
   });
+
+  // --- Phát âm thanh: một Audio dùng chung, bấm lại để dừng -----------------
+  const player = new Audio();
+  let playing = null; // thẻ đang phát
+  let queue = [];     // hàng đợi khi "Phát lần lượt"
+  const playAllBtn = document.getElementById('playAll');
+
+  function setPlaying(card) {
+    if (playing) {
+      playing.classList.remove('is-playing', 'is-loading');
+      playing.querySelector('.play-icon').textContent = '▶';
+      playing.querySelector('.play-progress > div').style.width = '0';
+    }
+    playing = card;
+    if (card) {
+      card.classList.add('is-playing');
+      card.querySelector('.play-icon').textContent = '■';
+    }
+  }
+
+  function stopAll() {
+    queue = [];
+    player.pause();
+    setPlaying(null);
+    if (playAllBtn) playAllBtn.textContent = '▶ Phát lần lượt';
+  }
+
+  player.addEventListener('timeupdate', () => {
+    if (!playing || !player.duration) return;
+    playing.querySelector('.play-progress > div').style.width = (player.currentTime / player.duration * 100) + '%';
+  });
+  player.addEventListener('ended', () => {
+    if (queue.length) playCard(queue.shift());
+    else stopAll();
+  });
+
+  async function playCard(card) {
+    const msg = document.getElementById('msg');
+    const id = card.dataset.segId;
+    setPlaying(card);
+    if (queue.length || playAllBtn?.dataset.active) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    try {
+      if (card.dataset.tts !== 'none') {
+        // Đã có file: phát thẳng, ?v= đổi khi file được tổng hợp lại.
+        player.src = `/jobs/${jobId}/audio/${id}?v=${card.dataset.v}`;
+      } else {
+        // Chưa có file thì server tổng hợp đúng câu này — mất vài giây.
+        card.classList.add('is-loading');
+        card.querySelector('.play-icon').textContent = '…';
+        msg.textContent = `Đang tổng hợp câu #${id}…`;
+        const res = await fetch(`/jobs/${jobId}/audio/${id}`);
+        if (!res.ok) throw new Error((await res.json()).detail || res.status);
+        const blob = await res.blob();
+        if (playing !== card) return; // người dùng đã bấm câu khác
+        card.classList.remove('is-loading');
+        card.querySelector('.play-icon').textContent = '■';
+        player.src = URL.createObjectURL(blob);
+        msg.textContent = '';
+        refreshTts();
+      }
+      await player.play();
+    } catch (e) {
+      msg.textContent = 'Nghe thử hỏng: ' + e.message;
+      stopAll();
+    }
+  }
+
+  editor.querySelectorAll('button.play').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const card = btn.closest('.seg-card');
+      if (playing === card) { stopAll(); return; }
+      queue = [];
+      if (playAllBtn) playAllBtn.textContent = '▶ Phát lần lượt';
+      playCard(card);
+    });
+  });
+
+  if (playAllBtn) {
+    playAllBtn.addEventListener('click', () => {
+      if (queue.length || playing) { stopAll(); return; }
+      const cards = [...editor.querySelectorAll('.seg-card')].filter((c) => !c.hidden && c.dataset.tts !== 'none');
+      if (!cards.length) {
+        document.getElementById('msg').textContent = 'Chưa có câu nào có giọng đọc để phát.';
+        return;
+      }
+      queue = cards.slice(1);
+      playAllBtn.textContent = '■ Dừng';
+      playCard(cards[0]);
+    });
+  }
 
   const voice = document.getElementById('voice');
   if (voice) {
@@ -367,6 +494,7 @@
         msg.textContent = data.changed
           ? `Đã lưu ${data.changed} câu. Giọng đọc của chúng sẽ được tổng hợp lại.`
           : 'Không có gì thay đổi.';
+        if (data.changed) refreshTts();
       } catch (e) {
         msg.textContent = 'Lưu hỏng: ' + e;
       }
@@ -582,6 +710,91 @@
   document.querySelectorAll('.job-card .job-title, .job-head .job-title').forEach((h) => {
     h.addEventListener('dblclick', () => startRename(h.closest('.job-card, .job-head')));
   });
+
+  // Lưu trữ: chọn nhiều dự án để xoá, hoặc dọn sạch cả kho.
+  const bulkBar = document.getElementById('bulkBar');
+  const bulkDialog = document.getElementById('confirmBulk');
+  if (bulkBar && bulkDialog) {
+    const boxes = () => [...document.querySelectorAll('.job-card .pick input:not(:disabled)')];
+    const picked = () => boxes().filter((b) => b.checked);
+    const allBox = document.getElementById('bulkAll');
+    const delBtn = document.getElementById('bulkDelete');
+
+    function refresh() {
+      const n = picked().length;
+      document.getElementById('bulkCount').textContent = n;
+      delBtn.disabled = !n;
+      allBox.checked = n > 0 && n === boxes().length;
+      document.querySelectorAll('.job-card').forEach((card) => {
+        const b = card.querySelector('.pick input');
+        card.classList.toggle('picked', !!(b && b.checked));
+      });
+    }
+    function setSelecting(on) {
+      document.body.classList.toggle('selecting', on);
+      bulkBar.hidden = !on;
+      if (!on) boxes().forEach((b) => { b.checked = false; });
+      refresh();
+    }
+
+    function confirmBulk(what, run) {
+      document.getElementById('bulkWhat').textContent = what;
+      bulkDialog.returnValue = '';
+      bulkDialog.onclose = () => { if (bulkDialog.returnValue === 'ok') run(); };
+      bulkDialog.showModal();
+    }
+    async function report(req) {
+      try {
+        const data = await req;
+        if (data.skipped.length) {
+          toast(`Đã xoá ${data.deleted.length}, bỏ qua ${data.skipped.length} (đang chạy?)`, true);
+          setTimeout(() => location.reload(), 1500);
+        } else {
+          location.reload();
+        }
+      } catch (err) {
+        toast('Xoá hỏng: ' + err.message, true);
+      }
+    }
+
+    document.getElementById('bulkStart').addEventListener('click', () => setSelecting(true));
+    document.getElementById('bulkCancel').addEventListener('click', () => setSelecting(false));
+    allBox.addEventListener('change', () => {
+      boxes().forEach((b) => { b.checked = allBox.checked; });
+      refresh();
+    });
+    document.addEventListener('change', (e) => { if (e.target.closest('.pick')) refresh(); });
+
+    // Đang chọn thì bấm vào đâu trên thẻ cũng là tick, không mở dự án.
+    document.addEventListener('click', (e) => {
+      if (!document.body.classList.contains('selecting')) return;
+      const card = e.target.closest('.job-card');
+      if (!card || e.target.closest('.pick')) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const b = card.querySelector('.pick input');
+      if (b && !b.disabled) { b.checked = !b.checked; refresh(); }
+    }, true);
+
+    delBtn.addEventListener('click', () => {
+      const ids = picked().map((b) => b.value);
+      if (!ids.length) return;
+      confirmBulk(`${ids.length} dự án đã chọn`, () => {
+        const body = new FormData();
+        ids.forEach((id) => body.append('job_ids', id));
+        report(fetch('/jobs/delete-many', { method: 'POST', body }).then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.detail || res.status);
+          return data;
+        }));
+      });
+    });
+    document.getElementById('emptyArchive').addEventListener('click', () => {
+      const total = document.querySelector('.view-switch a.on b');
+      confirmBulk(`toàn bộ ${total ? total.textContent : ''} dự án trong Lưu trữ`,
+        () => report(post('/archive/empty')));
+    });
+  }
 })();
 
 // Tab quét: dịch tiêu đề sang tiếng Việt sau khi trang đã hiện. Tiêu đề gốc

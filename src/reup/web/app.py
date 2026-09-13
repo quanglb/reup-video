@@ -122,24 +122,57 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         service.set_archived(job, bool(archived))
         return {"archived": bool(archived)}
 
-    @app.post("/jobs/{job_id}/delete")
-    def delete(job_id: str):
-        """Xoá hẳn. Đang chạy thì từ chối: stage vẫn đang ghi vào thư mục đó."""
+    def delete_one(s: Store, c, job_id: str) -> None:
+        """Xoá hẳn một job. Đang chạy thì từ chối: stage vẫn đang ghi vào thư mục đó."""
         if app.state.runner.is_running(job_id):
             raise HTTPException(status_code=409, detail="job đang chạy, chưa xoá được")
+        try:
+            job = load_job(app.state.jobs_dir, job_id)
+        except FileNotFoundError:
+            if s.get_job(job_id) is None:
+                raise HTTPException(status_code=404, detail=f"không có job {job_id}")
+            s.delete_job(job_id)  # chỉ còn dòng mồ côi trong sổ cái
+            return
+        service.delete_job(job, s, c)
+
+    def delete_many(job_ids: list[str]) -> dict:
+        """Xoá lần lượt; job nào đang chạy hoặc không còn thì bỏ qua, không dừng cả loạt."""
+        s = store()
+        c = cfg()
+        deleted, skipped = [], []
+        try:
+            for job_id in dict.fromkeys(job_ids):
+                try:
+                    delete_one(s, c, job_id)
+                    deleted.append(job_id)
+                except HTTPException as exc:
+                    skipped.append({"id": job_id, "reason": exc.detail})
+        finally:
+            s.close()
+        return {"deleted": deleted, "skipped": skipped}
+
+    @app.post("/jobs/{job_id}/delete")
+    def delete(job_id: str):
         s = store()
         try:
-            try:
-                job = load_job(app.state.jobs_dir, job_id)
-            except FileNotFoundError:
-                if s.get_job(job_id) is None:
-                    raise HTTPException(status_code=404, detail=f"không có job {job_id}")
-                s.delete_job(job_id)  # chỉ còn dòng mồ côi trong sổ cái
-                return {"deleted": job_id}
-            service.delete_job(job, s, cfg())
+            delete_one(s, cfg(), job_id)
         finally:
             s.close()
         return {"deleted": job_id}
+
+    @app.post("/jobs/delete-many")
+    def delete_selected(job_ids: list[str] = Form([])):
+        return delete_many(job_ids)
+
+    @app.post("/archive/empty")
+    def empty_archive():
+        """Dọn sạch Lưu trữ: xoá vĩnh viễn mọi job đã cất."""
+        s = store()
+        try:
+            ids = [r.id for r in service.list_jobs(s, None, cfg(), app.state.jobs_dir, archived=True)]
+        finally:
+            s.close()
+        return delete_many(ids)
 
     @app.get("/api/progress")
     def all_progress():
@@ -713,6 +746,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         finally:
             s.close()
         progress = service.get_job_progress(job, row, c)
+        rows = service.review_rows(job)
         return templates.TemplateResponse(
             request,
             "review.html",
@@ -720,7 +754,10 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "job": job,
                 "details": service.job_details(app.state.jobs_dir, job_id),
                 "row": row,
-                "rows": service.review_rows(job),
+                "rows": rows,
+                "tts_ready": sum(
+                    1 for r in rows if r["tts"] and r["tts"]["state"] == "tts"
+                ),
                 "voices": service.voices_for(c),
                 "voice": service.pick_voice(job, c),
                 "has_video": job.final_mp4.exists(),
@@ -744,6 +781,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             s.close()
         prog = service.get_job_progress(job, row, c)
         prog["is_running"] = is_running
+        prog["tts"] = service.tts_status(
+            job, [r["id"] for r in service.review_rows(job)]
+        )
         return prog
 
     @app.post("/jobs/{job_id}/segments")

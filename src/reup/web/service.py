@@ -213,7 +213,7 @@ def delete_job(job: Job, store: Store, cfg: Config) -> None:
     import shutil
 
     out = Path(cfg.review.output_dir)
-    for path in (out / f"{job.id}.mp4", out / f"{job.id}.json"):
+    for path in (out / f"{job.id}.mp4", out / f"{job.id}.tmp.mp4", out / f"{job.id}.json"):
         path.unlink(missing_ok=True)
     if job.root.exists():
         shutil.rmtree(job.root)
@@ -331,8 +331,37 @@ def get_job_progress(job: Job, row: dict | None, cfg: Config) -> dict:
     }
 
 
+def _wav_ms(path: Path) -> int | None:
+    """Độ dài wav đọc từ header — nhanh, không gọi ffprobe cho từng câu."""
+    import wave
+
+    try:
+        with wave.open(str(path), "rb") as w:
+            return int(w.getnframes() * 1000 / (w.getframerate() or 1))
+    except Exception:
+        return None
+
+
+def tts_status(job: Job, seg_ids: list[int]) -> dict:
+    """Câu nào đã có giọng đọc: `tts` là file thật của stage tts/fit, `preview`
+    là file tổng hợp lẻ lúc bấm nghe thử. `v` là mtime để trình duyệt không
+    phát lại bản cache cũ khi file được tổng hợp lại."""
+    segments = {}
+    for sid in seg_ids:
+        for state, path in (("tts", job.tts_segment(sid)), ("preview", job.preview_segment(sid))):
+            if path.exists():
+                segments[sid] = {
+                    "state": state,
+                    "ms": _wav_ms(path),
+                    "v": int(path.stat().st_mtime),
+                }
+                break
+    ready = sum(1 for s in segments.values() if s["state"] == "tts")
+    return {"total": len(seg_ids), "ready": ready, "segments": segments}
+
+
 def review_rows(job: Job) -> list[dict]:
-    """Bảng từng câu cho chốt A: giờ, chữ gốc, bản dịch, ngân sách, cờ."""
+    """Bảng từng câu cho chốt A: giờ, chữ gốc, bản dịch, ngân sách, cờ, TTS."""
     if not job.translation_json.exists():
         return []
     raw = json.loads(job.translation_json.read_text(encoding="utf-8"))
@@ -361,6 +390,9 @@ def review_rows(job: Job) -> list[dict]:
                 "revision": s.get("revision", 0),
             }
         )
+    tts = tts_status(job, [r["id"] for r in rows])["segments"]
+    for r in rows:
+        r["tts"] = tts.get(r["id"])
     return rows
 
 
