@@ -621,3 +621,22 @@ def test_thumbnail_without_video_is_404(client):
     c, jobs, _ = client
     create_job(jobs, "https://a/1", "zh", job_id="j1")
     assert c.get("/jobs/j1/thumb").status_code == 404
+
+
+def test_autouse_fixture_clears_web_auth_env_vars(tmp_path: Path, config_file: Path, monkeypatch):
+    """Kiểm chứng: autouse fixture no_web_auth chạy trước create_app.
+
+    Fixture xoá REUP_WEB_PASSWORD/REUP_WEB_SECRET; test có thể setenv lại để override.
+    """
+    # Mặc định (sau autouse delenv): app không bật auth
+    jobs = tmp_path / "jobs"
+    jobs.mkdir()
+    db = tmp_path / "reup.db"
+    Store(db).init_schema()
+    app1 = create_app(config_file, jobs, db)
+    assert app1.state.password == ""  # autouse fixture đã xoá var
+
+    # Test có thể setenv lại (chạy sau autouse fixture, trong test body)
+    monkeypatch.setenv("REUP_WEB_PASSWORD", "test_password")
+    app2 = create_app(config_file, jobs, db)
+    assert app2.state.password == "test_password"  # test override thành công

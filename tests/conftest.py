@@ -28,6 +28,18 @@ def no_real_telegram(monkeypatch):
     monkeypatch.setenv("TELEGRAM_CHAT_ID", "")
 
 
+@pytest.fixture(autouse=True)
+def no_web_auth(monkeypatch):
+    """Test không bao giờ dùng mật khẩu web thật.
+
+    Nếu REUP_WEB_PASSWORD được đặt trong shell chạy pytest, nó sẽ lọt vào
+    create_app() và bật auth bất đắc dĩ. Xoá biến này trong test session
+    để mọi test chạy với auth tắt (chế độ mặc định).
+    """
+    monkeypatch.delenv("REUP_WEB_PASSWORD", raising=False)
+    monkeypatch.delenv("REUP_WEB_SECRET", raising=False)
+
+
 def _run(args: list[str]) -> None:
     subprocess.run(args, check=True, capture_output=True)
 
