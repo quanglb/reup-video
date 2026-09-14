@@ -1,7 +1,11 @@
 # tests/test_stage_tts.py
 import json
+import time
 from pathlib import Path
+from threading import Lock
+
 import pytest
+from reup.adapters.tts import TTSResult
 from reup.core.job import create_job
 from reup.models import Segment, Transcript
 from reup.stages import tts as tts_stage
@@ -97,3 +101,82 @@ def test_job_voice_beats_config(tmp_path: Path, cfg_fixture):
 
     manifest = json.loads((job.tts_dir / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["voice"] == "stub-vi-2" != cfg_fixture.tts.voice
+
+
+class _ScrambledAdapter:
+    """Adapter giả: câu có id càng nhỏ ngủ càng lâu, nên nếu chạy song song mà
+    không giữ thứ tự, câu id lớn (ngủ ít) sẽ hoàn thành trước — lộ ra ngay nếu
+    `synthesize_all` map theo thứ tự hoàn thành thay vì theo `segments` gốc."""
+
+    def __init__(self) -> None:
+        self.call_order: list[int] = []
+        self._lock = Lock()
+
+    def synthesize(self, text: str, lang: str, voice: str, out: Path) -> TTSResult:
+        seg_id = int(out.stem.split("_")[1])
+        with self._lock:
+            self.call_order.append(seg_id)
+        # Đảo ngược: id nhỏ ngủ lâu, id lớn xong sớm.
+        time.sleep(0.03 * (6 - seg_id))
+        out.write_bytes(b"\x00")
+        return TTSResult(path=out, actual_ms=seg_id * 100)
+
+
+def test_synthesize_all_preserves_segment_order_under_concurrency(
+    tmp_path: Path,
+):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    segments = [
+        Segment(id=i, start_ms=(i - 1) * 3000, end_ms=i * 3000, text=f"câu {i}")
+        for i in range(1, 6)
+    ]
+    transcript = Transcript(source_lang="vi", segments=segments)
+    adapter = _ScrambledAdapter()
+
+    entries = tts_stage.synthesize_all(job, transcript, adapter, "voice-x", concurrency=5)
+
+    assert [e["id"] for e in entries] == [1, 2, 3, 4, 5]
+    # Cùng lúc thả cả 5 câu: câu ngủ ít nhất (id=5) phải hoàn thành trước câu
+    # ngủ lâu nhất (id=1), chứng tỏ chúng thật sự chạy song song.
+    assert set(adapter.call_order) == {1, 2, 3, 4, 5}
+
+
+def test_synthesize_all_concurrency_one_matches_sequential(tmp_path: Path):
+    """concurrency=1 phải cho kết quả giống hệt vòng lặp tuần tự cũ."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    segments = [
+        Segment(id=i, start_ms=(i - 1) * 3000, end_ms=i * 3000, text=f"câu {i}")
+        for i in range(1, 4)
+    ]
+    transcript = Transcript(source_lang="vi", segments=segments)
+
+    from reup.adapters.stub_tts import StubTTS
+
+    adapter = StubTTS()
+
+    sequential = []
+    for seg in transcript.segments:
+        out = job.tts_segment(seg.id)
+        result = adapter.synthesize(seg.text, tts_stage.LANG, "voice-x", out)
+        sequential.append({"id": seg.id, "path": out.name, "actual_ms": result.actual_ms})
+
+    # Chạy lại từ đầu với job khác để synthesize_all không ghi đè file vừa đo.
+    job2 = create_job(tmp_path / "jobs", "https://a/2", "zh", job_id="j2")
+    concurrent_result = tts_stage.synthesize_all(
+        job2, transcript, adapter, "voice-x", concurrency=1
+    )
+
+    assert concurrent_result == sequential
+
+
+def test_synthesize_all_default_concurrency_is_sequential_when_unset(tmp_path: Path):
+    """Không truyền concurrency thì phải giữ hành vi cũ (mặc định tham số = 1)."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    segments = [Segment(id=1, start_ms=0, end_ms=3000, text="câu 1")]
+    transcript = Transcript(source_lang="vi", segments=segments)
+
+    from reup.adapters.stub_tts import StubTTS
+
+    entries = tts_stage.synthesize_all(job, transcript, StubTTS(), "voice-x")
+
+    assert entries[0]["id"] == 1

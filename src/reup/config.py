@@ -69,9 +69,15 @@ class SubtitleConfig:
 
 @dataclass(frozen=True)
 class TTSConfig:
+    """`concurrency` là số câu sinh giọng song song trong một job — khác trục
+    với `profile.concurrency` (số job chạy cùng lúc). Mặc định 3: đủ ẩn độ trễ
+    round-trip của CapCut mà không dồn dập tới ngưỡng server đó gãy (~15
+    request liên tiếp)."""
+
     engine: str = "stub"
     voice: str = "BV074_streaming"
     capcut_dir: str = ""
+    concurrency: int = 3
 
 
 @dataclass(frozen=True)

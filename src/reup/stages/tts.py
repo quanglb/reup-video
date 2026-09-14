@@ -17,14 +17,36 @@ LANG = "vi"
 from reup.media.audio import duration_ms
 
 
-def synthesize_all(job: Job, transcript: Transcript, adapter, voice: str) -> list[dict]:
-    """Sinh wav cho mọi đoạn, trả về bản kê. Dùng lại được từ stage fit."""
-    entries = []
-    for seg in transcript.segments:
+def synthesize_all(
+    job: Job,
+    transcript: Transcript,
+    adapter,
+    voice: str,
+    concurrency: int = 1,
+) -> list[dict]:
+    """Sinh wav cho mọi đoạn, trả về bản kê. Dùng lại được từ stage fit.
+
+    Mỗi câu là một subprocess độc lập với server CapCut, không phụ thuộc câu
+    trước, nên chạy song song tối đa `concurrency` câu cùng lúc (cùng cách
+    `run_jobs` ở core/runner.py chạy nhiều job song song). `entries` vẫn trả
+    về đúng thứ tự `transcript.segments` gốc — không phải thứ tự hoàn thành —
+    vì `fit`/`compose` dựa vào thứ tự này.
+    """
+
+    def one(seg) -> dict:
         out = job.tts_segment(seg.id)
         result = adapter.synthesize(seg.text, LANG, voice, out)
-        entries.append({"id": seg.id, "path": out.name, "actual_ms": result.actual_ms})
-    return entries
+        return {"id": seg.id, "path": out.name, "actual_ms": result.actual_ms}
+
+    concurrency = max(1, int(concurrency))
+    segments = transcript.segments
+    if concurrency == 1 or len(segments) <= 1:
+        return [one(seg) for seg in segments]
+
+    from concurrent.futures import ThreadPoolExecutor
+
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        return list(pool.map(one, segments))
 
 
 def write_manifest(job: Job, voice: str, entries: list[dict]) -> None:
@@ -47,7 +69,8 @@ def run_with(job: Job, cfg: Config, adapter) -> None:
     # Giọng chọn ở chốt A thắng config: config.toml là của cả máy, còn lựa chọn
     # ở chốt A là của riêng job này (spec §8.2).
     voice = job.overrides.get("voice") or cfg.tts.voice
-    write_manifest(job, voice, synthesize_all(job, transcript, adapter, voice))
+    entries = synthesize_all(job, transcript, adapter, voice, cfg.tts.concurrency)
+    write_manifest(job, voice, entries)
 
 
 def run(job: Job, cfg: Config) -> None:
