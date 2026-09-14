@@ -237,6 +237,117 @@ def test_overlay_inputs_are_numbered_after_the_audio_inputs(cfg_fixture):
     assert "[3:v]overlay=" in chain
 
 
+# --- Task 2.3 — vẽ PNG phụ đề song song bằng ProcessPoolExecutor ------------
+
+def _sequential_build_overlays(job, cfg):
+    """Bản tuần tự độc lập, y hệt `build_overlays` TRƯỚC khi có Task 2.3 —
+    gọi thẳng `render_fitted`/`render_line` trong một vòng `for`, không qua
+    `_render_one`/`_RenderJob`. Dùng làm chuẩn đối chiếu cho test song song."""
+    from reup.media.ffmpeg import probe as _probe
+    from reup.models import Transcript
+    from reup.subtitle import (
+        SIDE_MARGIN_RATIO, Overlay, find_font, place_in_box, render_fitted,
+        render_line, vertical_position,
+    )
+    from reup.textcolor import BLACK, from_hex
+
+    info = _probe(job.source_video)
+    windows = compose_stage.load_cover_windows(job)
+    cover = compose_stage.subtitle_cover(job)
+    font = find_font(cfg.subtitle.font)
+    outline_ratio = cfg.subtitle.outline / max(1, cfg.subtitle.size)
+    out_dir = job.root / "subs_sequential_reference"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    overlays = []
+    for seg in Transcript.load(job.translation_json).segments:
+        if not (seg.text or "").strip():
+            continue
+        png = out_dir / f"sub_{seg.id:04d}.png"
+        box = compose_stage.window_for(seg.start_ms, seg.end_ms, windows) if windows else cover
+        if box:
+            fit_w = min(box["w"], int(info.width * (1 - SIDE_MARGIN_RATIO * 2)))
+            w, h, _ = render_fitted(
+                seg.text, png, font, fit_w, box["h"], outline_ratio,
+                max_size=compose_stage._max_size(box, cfg),
+                fill=from_hex(box["color"]) if box.get("color") else None,
+                stroke=from_hex(box["outline"], BLACK) if box.get("outline") else None,
+            )
+            x, y = place_in_box(w, h, box, info.width, info.height)
+        else:
+            _, h = render_line(
+                seg.text, png, info.width, font, cfg.subtitle.size, cfg.subtitle.outline
+            )
+            x, y = 0, vertical_position(info.height, h, cfg.subtitle.position, None)
+        overlays.append(Overlay(path=png, start_ms=seg.start_ms, end_ms=seg.end_ms, x=x, y=y))
+    return overlays
+
+
+def _make_multi_segment_job(tmp_path: Path, sample_video: Path, n: int = 6):
+    from reup.models import Segment, Transcript
+
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    job.source_video.write_bytes(sample_video.read_bytes())
+    Transcript(
+        source_lang="vi",
+        segments=[
+            Segment(
+                id=i,
+                start_ms=i * 1000,
+                end_ms=(i + 1) * 1000,
+                text=f"Câu số {i} có dấu tiếng Việt để đo phụ đề",
+            )
+            for i in range(1, n + 1)
+        ],
+    ).save(job.translation_json)
+    return job
+
+
+def test_render_workers_bounded_by_cores_and_job_count(monkeypatch):
+    monkeypatch.setattr(compose_stage.os, "cpu_count", lambda: 4)
+    assert compose_stage._render_workers(10) == 4
+    assert compose_stage._render_workers(2) == 2
+    assert compose_stage._render_workers(1) == 1
+
+
+def test_build_overlays_parallel_matches_sequential_reimplementation(
+    tmp_path: Path, sample_video: Path, cfg_fixture, monkeypatch,
+):
+    """Vẽ PNG song song (ProcessPoolExecutor) phải cho ra đúng danh sách
+    overlay (thứ tự, toạ độ, mốc thời gian) như đường tuần tự cũ — đây là kiểm
+    khác biệt (differential test), không chỉ "chạy không lỗi": nếu việc song
+    song làm lệch thứ tự hay sai toạ độ, test này đỏ dù không có exception
+    nào được ném ra.
+    """
+    job = _make_multi_segment_job(tmp_path, sample_video, n=6)
+
+    # Ép chạy đa tiến trình thật (không rơi về nhánh workers==1): máy CI có
+    # thể chỉ có 1 lõi hiển thị, nên giả lập 4 lõi để chắc chắn pool có > 1
+    # worker và code thật sự đi qua ProcessPoolExecutor.
+    monkeypatch.setattr(compose_stage.os, "cpu_count", lambda: 4)
+    assert compose_stage._render_workers(6) > 1, "test này cần pool > 1 worker"
+
+    parallel = compose_stage.build_overlays(job, cfg_fixture)
+    sequential = _sequential_build_overlays(job, cfg_fixture)
+
+    assert len(parallel) == 6
+    assert [(o.path.name, o.start_ms, o.end_ms, o.x, o.y) for o in parallel] == [
+        (o.path.name, o.start_ms, o.end_ms, o.x, o.y) for o in sequential
+    ]
+    # Cùng nội dung, cùng font, cùng kích thước khung -> PNG phải giống hệt.
+    for p_ov, s_ov in zip(parallel, sequential):
+        assert p_ov.path.read_bytes() == s_ov.path.read_bytes()
+
+
+def test_build_overlays_single_segment_skips_the_pool(
+    tmp_path: Path, sample_video: Path, cfg_fixture,
+):
+    """Chỉ một câu thì không đáng khởi ProcessPoolExecutor — lùi về tuần tự."""
+    job = _make_multi_segment_job(tmp_path, sample_video, n=1)
+    overlays = compose_stage.build_overlays(job, cfg_fixture)
+    assert len(overlays) == 1
+
+
 def test_ass_path_wins_over_overlays_when_libass_exists(cfg_fixture):
     from reup.subtitle import Overlay
 
