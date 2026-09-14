@@ -121,6 +121,23 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail=f"không có job {job_id}")
 
+    def is_direct_server_request(request: Request) -> bool:
+        """True khi request tới thẳng từ chính máy server (không qua proxy).
+
+        `request.client.host` vẫn là 127.0.0.1 khi request đi qua
+        `tailscale serve` (hoặc proxy khác) rồi mới tới app — nên phải xét
+        thêm header do proxy gắn vào (Tailscale-User-Login, X-Forwarded-For).
+        Thiếu bước này thì admin ở xa cũng bị tưởng nhầm là ngồi tại server.
+        """
+        host = request.client.host if request.client else None
+        if host not in ("127.0.0.1", "::1"):
+            return False
+        if request.headers.get("Tailscale-User-Login"):
+            return False
+        if request.headers.get("X-Forwarded-For"):
+            return False
+        return True
+
     @app.get("/", response_class=HTMLResponse)
     def queue(
         request: Request, status: str | None = None, view: str = "", platform: str = ""
@@ -837,6 +854,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "running": app.state.runner.is_running(job_id),
                 "progress": progress,
                 "title": f"Duyệt {job_id}",
+                "show_reveal": is_direct_server_request(request),
             },
         )
 
@@ -912,6 +930,20 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             s.close()
         app.state.runner.start(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.get("/jobs/{job_id}/download")
+    def download_video(job_id: str):
+        job = job_or_404(job_id)
+        c = cfg()
+        out_mp4 = Path(c.review.output_dir) / f"{job.id}.mp4"
+        target = None
+        if out_mp4.exists():
+            target = out_mp4
+        elif job.final_mp4.exists():
+            target = job.final_mp4
+        if not target:
+            raise HTTPException(status_code=404, detail="Chưa có file thành phẩm để tải")
+        return FileResponse(target, filename=f"{job.id}.mp4", media_type="video/mp4")
 
     @app.post("/jobs/{job_id}/reveal")
     def reveal(job_id: str):

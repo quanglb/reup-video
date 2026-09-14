@@ -112,7 +112,12 @@
       <div class="player-block final-block">
         <div class="final-header">
           <h3>Thành phẩm</h3>
-          <button type="button" class="btn-finder" id="btnRevealFinder" title="Mở file thành phẩm trong Finder (Mac)">📁 Mở trong Finder</button>
+          <div class="final-actions">
+            <a class="btn-finder" href="/jobs/{{ job.id }}/download" title="Tải file thành phẩm về máy">⬇️ Tải về</a>
+            {% if show_reveal %}
+              <button type="button" class="btn-finder" id="btnRevealFinder" title="Mở file thành phẩm trong Finder (Mac)">📁 Mở trong Finder</button>
+            {% endif %}
+          </div>
         </div>
         <video controls src="/jobs/{{ job.id }}/final"></video>
       </div>

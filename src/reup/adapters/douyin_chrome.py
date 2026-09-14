@@ -26,11 +26,13 @@ CLOSE = "__close__"
 
 HINT_JS = (
     "Chrome đang tắt chạy JavaScript từ AppleScript. Bật một lần: trong Chrome, "
-    "menu View → Developer → Allow JavaScript from Apple Events, rồi bấm Quét lại."
+    "menu View → Developer → Allow JavaScript from Apple Events, rồi bấm Quét lại. "
+    "Việc này phải làm trực tiếp trên máy server, không làm từ xa được."
 )
 HINT_AUTH = (
     "macOS chưa cho reup điều khiển Google Chrome. Mở System Settings → Privacy & "
-    "Security → Automation, bật Google Chrome cho ứng dụng đang chạy reup."
+    "Security → Automation, bật Google Chrome cho ứng dụng đang chạy reup. "
+    "Việc này phải làm trực tiếp trên máy server, không làm từ xa được."
 )
 
 # Tìm tab theo một đoạn URL rồi chạy JS trong đó (hoặc đóng tab). Duyệt mọi cửa
