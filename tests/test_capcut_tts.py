@@ -1,5 +1,7 @@
 import json
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -232,6 +234,79 @@ def test_timeout_scales_with_poll_interval(
     tts.synthesize("test", "vi", "BV074_streaming", tmp_path / "b.wav")
     assert len(timeouts_captured) == 1
     assert timeouts_captured[0] == 25.0
+
+
+def test_pauses_every_pause_every_successful_calls(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """20 lần gọi liên tiếp, pause_every=12 → chỉ nghỉ đúng 1 lần, ở lần thứ 12."""
+    _fake_driver(monkeypatch, sample_mp3)
+    sleeps: list[float] = []
+    tts = CapCutTTS(capcut_dir, sleep=sleeps.append, pause_every=12, pause_seconds=2.0)
+
+    for i in range(20):
+        tts.synthesize("x", "vi", "BV074_streaming", tmp_path / f"seg_{i}.wav")
+        if i + 1 == 12:
+            assert sleeps == [2.0]
+        else:
+            assert len(sleeps) == (1 if i + 1 >= 12 else 0)
+
+    assert sleeps == [2.0]
+
+
+def test_no_pause_before_reaching_pause_every(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    _fake_driver(monkeypatch, sample_mp3)
+    sleeps: list[float] = []
+    tts = CapCutTTS(capcut_dir, sleep=sleeps.append, pause_every=12, pause_seconds=2.0)
+
+    for i in range(11):
+        tts.synthesize("x", "vi", "BV074_streaming", tmp_path / f"seg_{i}.wav")
+
+    assert sleeps == []
+
+
+def test_empty_text_early_return_does_not_count_toward_pause(
+    capcut_dir: Path, tmp_path: Path, monkeypatch
+):
+    """Đường im lặng cho text rỗng không gọi driver, không nên tính vào bộ đếm."""
+    sleeps: list[float] = []
+    tts = CapCutTTS(capcut_dir, sleep=sleeps.append, pause_every=1, pause_seconds=2.0)
+
+    tts.synthesize("   ", "vi", "BV074_streaming", tmp_path / "a.wav")
+
+    assert sleeps == []
+
+
+def test_pause_counter_is_thread_safe_under_concurrent_calls(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """Task 1.1 gọi synthesize song song từ nhiều thread — bộ đếm không được
+    đếm trùng hay đếm thiếu, và số lần nghỉ phải khớp count // pause_every."""
+    _fake_driver(monkeypatch, sample_mp3)
+    lock = threading.Lock()
+    sleeps: list[float] = []
+
+    def recording_sleep(seconds: float) -> None:
+        with lock:
+            sleeps.append(seconds)
+
+    pause_every = 5
+    n_calls = 47
+    tts = CapCutTTS(
+        capcut_dir, sleep=recording_sleep, pause_every=pause_every, pause_seconds=1.0
+    )
+
+    def call(i: int) -> None:
+        tts.synthesize("x", "vi", "BV074_streaming", tmp_path / f"c_{i}.wav")
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(call, range(n_calls)))
+
+    assert tts._request_count == n_calls
+    assert len(sleeps) == n_calls // pause_every
+    assert all(s == 1.0 for s in sleeps)
 
 
 def test_max_polls_passed_to_driver(

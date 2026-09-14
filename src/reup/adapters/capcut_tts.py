@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Callable
@@ -40,12 +41,18 @@ class CapCutTTS:
         retries: int = 3,
         poll_interval: float = 1.0,
         max_polls: int = 10,
+        pause_every: int = 12,
+        pause_seconds: float = 2.0,
     ) -> None:
         self.capcut_dir = Path(capcut_dir)
         self.sleep = sleep
         self.retries = retries
         self.poll_interval = poll_interval
         self.max_polls = max_polls
+        self.pause_every = pause_every
+        self.pause_seconds = pause_seconds
+        self._request_count = 0
+        self._lock = threading.Lock()
 
     @property
     def _python(self) -> Path:
@@ -76,6 +83,15 @@ class CapCutTTS:
             for v in self._voice_table()
             if v["lan"] == lang
         ]
+
+    def _count_success_and_maybe_pause(self) -> None:
+        """Đếm request thành công liên tục (thread-safe); nghỉ nhịp chủ động
+        mỗi `pause_every` lần để không chạm ngưỡng gãy ~15 của server CapCut."""
+        with self._lock:
+            self._request_count += 1
+            should_pause = self._request_count % self.pause_every == 0
+        if should_pause:
+            self.sleep(self.pause_seconds)
 
     def synthesize(self, text: str, lang: str, voice: str, out: Path) -> TTSResult:
         table = {v["voice_type"]: v for v in self._voice_table()}
@@ -124,6 +140,7 @@ class CapCutTTS:
                 if proc.returncode == 0:
                     to_wav(mp3, out)
                     mp3.unlink(missing_ok=True)
+                    self._count_success_and_maybe_pause()
                     return TTSResult(path=out, actual_ms=duration_ms(out))
                 last = (proc.stderr or proc.stdout).strip()
             if attempt < self.retries - 1:
