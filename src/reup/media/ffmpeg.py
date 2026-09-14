@@ -35,7 +35,7 @@ def run_ffmpeg(args: list[str], timeout_s: float | None = None) -> str:
     except subprocess.TimeoutExpired as exc:
         raise FFmpegError(
             f"ffmpeg treo quá {timeout_s}s, khả năng filtergraph quá nhiều "
-            f"overlay/vùng che — xem phần 2.2, 2.3\n"
+            f"overlay/vùng che trong lệnh render\n"
             f"lệnh: {' '.join(cmd)}"
         ) from exc
     if proc.returncode != 0:

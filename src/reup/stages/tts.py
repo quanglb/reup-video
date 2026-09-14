@@ -125,12 +125,27 @@ def synthesize_all(
             results[i] = synthesize(seg)
         return results
 
-    from concurrent.futures import ThreadPoolExecutor
+    from concurrent.futures import ThreadPoolExecutor, as_completed
 
+    # KHÔNG dùng `pool.map`: nó nộp hết việc lên ngay từ đầu, nên một câu lỗi
+    # (vd. CapCutError khi allow_edge_fallback=false) không chặn được các câu
+    # ĐÃ nộp khác — chúng vẫn chạy hết 3 lần retry với backoff của riêng mình
+    # trước khi exception từ iterator của `map` mới lộ ra. Trên job 50 câu đó
+    # là ~50×3 request CapCut vô ích thay vì dừng sau ~3, ngược hẳn mục đích
+    # nghỉ nhịp ở `_count_success_and_maybe_pause` (né ngưỡng gãy ~15 request
+    # liên tiếp của CapCut). Dùng `submit` + `as_completed` để vừa nghe lỗi
+    # sớm, vừa huỷ được các future CHƯA kịp chạy khi lỗi xảy ra.
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
-        computed = list(pool.map(lambda item: synthesize(item[1]), todo))
-    for (i, _seg), entry in zip(todo, computed):
-        results[i] = entry
+        futures = {pool.submit(synthesize, seg): i for i, seg in todo}
+        try:
+            for future in as_completed(futures):
+                i = futures[future]
+                results[i] = future.result()
+        except BaseException:
+            for other in futures:
+                other.cancel()
+            pool.shutdown(cancel_futures=True)
+            raise
     return results
 
 

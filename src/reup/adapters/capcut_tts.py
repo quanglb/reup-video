@@ -53,7 +53,10 @@ class CapCutTTS:
         self.retries = retries
         self.poll_interval = poll_interval
         self.max_polls = max_polls
-        self.pause_every = pause_every
+        # <= 0 nghĩa là "không bao giờ nghỉ nhịp" — clamp về 0 để
+        # `_count_success_and_maybe_pause` tắt hẳn nhánh `%` thay vì
+        # ZeroDivisionError khi ai đó lỡ đặt pause_every = 0 trong config.
+        self.pause_every = max(0, pause_every)
         self.pause_seconds = pause_seconds
         # tts.allow_edge_fallback trong config.toml. False thì driver không
         # được âm thầm đổi sang edge-tts nữa — lỗi phải nổi lên thành
@@ -97,7 +100,9 @@ class CapCutTTS:
         mỗi `pause_every` lần để không chạm ngưỡng gãy ~15 của server CapCut."""
         with self._lock:
             self._request_count += 1
-            should_pause = self._request_count % self.pause_every == 0
+            should_pause = (
+                self.pause_every > 0 and self._request_count % self.pause_every == 0
+            )
         if should_pause:
             self.sleep(self.pause_seconds)
 

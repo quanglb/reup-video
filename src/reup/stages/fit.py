@@ -24,14 +24,16 @@ from reup.fit import decide_fit
 from reup.media.audio import apply_tempo, build_timeline, duration_ms
 from reup.models import Transcript
 from reup.stages.translate import load_style_hint, rewrite_shorter_batch
-from reup.stages.tts import LANG, write_manifest
+from reup.stages.tts import LANG, _load_prev_engines, write_manifest
 from reup.text import count_syllables
 from reup.translate import syllable_budget
 
 MAX_REVISIONS = 2
 
 
-def _rewrite_rounds(job: Job, segments, tts, llm, voice: str) -> tuple[dict, dict]:
+def _rewrite_rounds(
+    job: Job, segments, tts, llm, voice: str
+) -> tuple[dict, dict, dict]:
     """Viết lại theo VÒNG, mỗi vòng một lượt gọi LLM cho mọi câu còn dài.
 
     Trước đây mỗi câu một lượt gọi riêng, nên giá một job phụ thuộc số câu vượt
@@ -42,10 +44,13 @@ def _rewrite_rounds(job: Job, segments, tts, llm, voice: str) -> tuple[dict, dic
     Vẫn phải chia vòng chứ không gộp hết vào một lượt: có viết lại rồi tổng hợp
     và đo lại mới biết câu đã vừa khe chưa.
 
-    Trả (actual_ms theo id, số lần viết lại theo id).
+    Trả (actual_ms theo id, số lần viết lại theo id, engine theo id — chỉ có
+    mặt cho câu THẬT SỰ được tổng hợp lại ở đây, dùng để `run_with` biết
+    engine mới nhất thay vì bản ghi cũ của stage `tts`).
     """
     actual = {seg.id: duration_ms(job.tts_segment(seg.id)) for seg in segments}
     revision = {seg.id: 0 for seg in segments}
+    engine: dict[int, str] = {}
 
     for _ in range(MAX_REVISIONS):
         pending = [
@@ -72,11 +77,14 @@ def _rewrite_rounds(job: Job, segments, tts, llm, voice: str) -> tuple[dict, dic
             # Tính lượt kể cả khi LLM bỏ sót câu này: không thì vòng lặp quay
             # mãi với cùng một câu và cùng một kết quả.
             revision[seg.id] += 1
-            actual[seg.id] = tts.synthesize(
-                seg.text, LANG, voice, job.tts_segment(seg.id)
-            ).actual_ms
+            result = tts.synthesize(seg.text, LANG, voice, job.tts_segment(seg.id))
+            actual[seg.id] = result.actual_ms
+            # Câu vừa tổng hợp lại có thể đổi engine (vd. CapCut lỗi ngay lúc
+            # này, rơi xuống edge-tts) — ghi đè bản ghi cũ, không phải chỉ
+            # tempo/actual_ms mới đổi.
+            engine[seg.id] = getattr(result, "engine", "capcut")
 
-    return actual, revision
+    return actual, revision, engine
 
 
 def _fit_one(job: Job, seg, actual: int, revision: int) -> dict:
@@ -118,7 +126,15 @@ def run_with(job: Job, cfg: Config, tts, llm) -> None:
     report: list[dict] = []
     manifest: list[dict] = []
 
-    actual, revision = _rewrite_rounds(job, translation.segments, tts, llm, voice)
+    # Đọc `engine` mà stage `tts` vừa ghi TRƯỚC KHI vòng lặp dưới đây gọi
+    # `write_manifest` ghi đè cùng file — nếu không, câu nào không bị viết lại
+    # ở `fit` cũng mất luôn nhãn capcut/edge_tts_fallback/silence (bug đã sửa:
+    # trước đây `fit` ghi manifest thiếu hẳn field `engine`).
+    prev_engines = _load_prev_engines(job)
+
+    actual, revision, resynth_engine = _rewrite_rounds(
+        job, translation.segments, tts, llm, voice
+    )
 
     for seg in translation.segments:
         row = _fit_one(job, seg, actual[seg.id], revision[seg.id])
@@ -129,6 +145,11 @@ def run_with(job: Job, cfg: Config, tts, llm) -> None:
                 "id": seg.id,
                 "path": job.tts_segment(seg.id).name,
                 "actual_ms": row["actual_ms"],
+                # Câu được `fit` tổng hợp lại: lấy engine tươi từ lần tổng hợp
+                # đó. Câu không đổi: giữ nguyên engine mà `tts` đã gán.
+                "engine": resynth_engine.get(
+                    seg.id, prev_engines.get(seg.id, "capcut")
+                ),
             }
         )
 

@@ -169,6 +169,10 @@ Sửa `config.toml`. Vài knob đáng biết:
 - `profile.active` — `air-16` hoặc `studio-24`.
 - `profile.concurrency` — số job chạy song song trong `reup run --all`. Một job
   vẫn chạy tuần tự từng stage; knob này chỉ nói chạy mấy job cùng lúc.
+  Lưu ý: knob này nhân với `tts.concurrency` (số câu song song trong một job)
+  và số worker vẽ PNG phụ đề ở `compose.py` — `profile.concurrency=2` ×
+  `tts.concurrency=3` đã là tối đa 6 request CapCut cùng lúc trên toàn máy,
+  đáng nhớ khi chỉnh hai knob này cùng lúc.
 - `discover.<youtube|tiktok|douyin>.query` — nguồn mặc định của tab quét (xem
   bảng ở trên). `cookies_from_browser = "chrome"` khi nền tảng chặn khách vãng
   lai — TikTok gần như luôn cần, Douyin cần thêm IP ra được Trung Quốc.

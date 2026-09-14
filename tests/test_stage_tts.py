@@ -141,6 +141,60 @@ def test_synthesize_all_preserves_segment_order_under_concurrency(
     assert set(adapter.call_order) == {1, 2, 3, 4, 5}
 
 
+class _FailFastAdapter:
+    """Câu 3 lỗi; câu 1 ngủ LÂU để giữ một worker bận suốt test, các câu khác
+    ngủ NGẮN mô phỏng thời gian gọi CapCut thật.
+
+    Đo thực nghiệm (10 lần liền, xem race_test3.py lúc viết task): không có
+    sleep thật ở các câu, một worker vừa rảnh có thể chạy hết veo cả hàng đợi
+    còn lại trước khi main thread kịp thấy lỗi và huỷ — vì raise xong, worker
+    lập tức lấy tiếp việc kế trong CÙNG một luồng, không nhường CPU. Có sleep
+    thật (giống subprocess CapCut thật) thì main thread luôn kịp huỷ các câu
+    CÒN NẰM TRONG HÀNG ĐỢI (ở đây là câu 5, 6) — chỉ có đúng MỘT câu (4) là
+    worker vừa rảnh kịp chụp trước khi lệnh huỷ tới nơi, không xoá bỏ được
+    hoàn toàn hiện tượng "worker đang chạy dở thì không huỷ được", nhưng vẫn
+    dừng SỚM hơn hẳn so với bug cũ (chạy hết mọi câu, mỗi câu 3 lần retry)."""
+
+    def __init__(self) -> None:
+        self.calls: list[int] = []
+        self._lock = Lock()
+
+    def synthesize(self, text: str, lang: str, voice: str, out: Path) -> TTSResult:
+        seg_id = int(out.stem.split("_")[1])
+        with self._lock:
+            self.calls.append(seg_id)
+        if seg_id == 1:
+            time.sleep(1.0)
+        elif seg_id == 3:
+            time.sleep(0.05)
+            raise RuntimeError(f"lỗi giả ở câu {seg_id}")
+        else:
+            time.sleep(0.05)
+        out.write_bytes(b"\x00")
+        return TTSResult(path=out, actual_ms=100)
+
+
+def test_synthesize_all_fails_fast_on_first_error(tmp_path: Path):
+    """Task 1.2/1.5: một câu lỗi (vd. CapCutError khi allow_edge_fallback=false)
+    phải dừng SỚM, không để mọi câu khác chạy hết vòng retry riêng của chúng —
+    bug cũ dùng `pool.map` nộp hết việc lên ngay từ đầu nên `with` block đợi
+    (`shutdown(wait=True)`) toàn bộ chạy xong mới thấy lỗi."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    segments = [
+        Segment(id=i, start_ms=(i - 1) * 3000, end_ms=i * 3000, text=f"câu {i}")
+        for i in range(1, 7)
+    ]
+    transcript = Transcript(source_lang="vi", segments=segments)
+    adapter = _FailFastAdapter()
+
+    with pytest.raises(RuntimeError, match="lỗi giả ở câu 3"):
+        tts_stage.synthesize_all(job, transcript, adapter, "voice-x", concurrency=2)
+
+    # Câu 5, 6 còn nằm trong hàng đợi lúc lỗi xảy ra — chưa từng được gọi tới.
+    assert 5 not in adapter.calls
+    assert 6 not in adapter.calls
+
+
 def test_synthesize_all_concurrency_one_matches_sequential(tmp_path: Path):
     """concurrency=1 phải cho kết quả giống hệt vòng lặp tuần tự cũ."""
     job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
@@ -253,11 +307,18 @@ def test_redo_resynthesizes_when_wav_missing_despite_cache_match(
 
 class _MixedEngineAdapter:
     """Adapter giả: câu 1 CapCut thật, câu 2 bị fallback edge-tts — mô phỏng
-    một job thật khi CapCut lỗi giữa chừng."""
+    một job thật khi CapCut lỗi giữa chừng.
+
+    Ghi wav im lặng THẬT (không phải byte rác): đường cache-hit của
+    `synthesize_all` gọi `duration_ms(out)` — tức ffprobe thật — nên `out`
+    phải là audio hợp lệ, khác với vài adapter giả khác trong file này chỉ
+    cần qua được đường tổng hợp mới (không đọc lại file)."""
 
     def synthesize(self, text: str, lang: str, voice: str, out: Path) -> TTSResult:
+        from reup.media.audio import silence
+
         seg_id = int(out.stem.split("_")[1])
-        out.write_bytes(b"\x00\x00")
+        silence(out, 300)
         engine = "capcut" if seg_id == 1 else "edge_tts_fallback"
         return TTSResult(path=out, actual_ms=300, engine=engine)
 
@@ -273,6 +334,39 @@ def test_manifest_records_engine_per_segment(tmp_path: Path, cfg_fixture):
     manifest = json.loads((job.tts_dir / "manifest.json").read_text(encoding="utf-8"))
     entries = {e["id"]: e["engine"] for e in manifest["segments"]}
     assert entries == {1: "capcut", 2: "edge_tts_fallback"}
+
+
+def test_redo_from_tts_loses_engine_label_on_cache_hit(tmp_path: Path, cfg_fixture):
+    """Khoảng trống CÒN LẠI sau khi sửa bug `fit` xoá `engine` (task final-review
+    finding 1): `redo --from tts` xoá hẳn `tts/manifest.json` (nó nằm trong
+    `SPEC.produces`), nên `_load_prev_engines` — nguồn dữ liệu DUY NHẤT để câu
+    dùng lại từ cache giữ đúng nhãn — không còn gì để đọc. Test này CHỦ Ý xác
+    nhận hành vi (sai) hiện tại thay vì giả vờ đã sửa: câu 2 vốn là
+    edge_tts_fallback bị dùng lại từ cache (text không đổi) sau `redo` sẽ bị
+    dán nhãn mặc định "capcut" — sai. Đây là lỗ hổng CẤU TRÚC riêng, việc sửa
+    `fit.py` không đụng tới nó; muốn đóng hẳn phải có một nguồn `engine` sống
+    sót qua `redo` (vd. ghi kèm vào `text_cache.json`, vốn không nằm trong
+    `SPEC.produces` nên không bị xoá) — nằm ngoài phạm vi đợt sửa này."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed(job, ["Hôm nay dạy làm", "Trước hết thái thịt"])
+    tts_stage.run_with(job, cfg_fixture, _MixedEngineAdapter())
+
+    before = json.loads((job.tts_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert {e["id"]: e["engine"] for e in before["segments"]} == {
+        1: "capcut", 2: "edge_tts_fallback",
+    }
+
+    # Mô phỏng `redo --from tts`: chỉ manifest.json bị xoá, wav + text_cache
+    # còn nguyên nên cả hai câu đều cache-hit (text không đổi).
+    (job.tts_dir / "manifest.json").unlink()
+    tts_stage.run_with(job, cfg_fixture, _MixedEngineAdapter())
+
+    after = json.loads((job.tts_dir / "manifest.json").read_text(encoding="utf-8"))
+    entries = {e["id"]: e["engine"] for e in after["segments"]}
+    # Đúng ra câu 2 vẫn phải là "edge_tts_fallback" — nhưng vì manifest cũ đã
+    # bị xoá, `_load_prev_engines` trả rỗng, và `reuse_cached` mặc định
+    # "capcut". Assertion dưới đây ghi nhận đúng hiện trạng (lỗ hổng còn mở).
+    assert entries == {1: "capcut", 2: "capcut"}
 
 
 def test_write_manifest_writes_text_cache(tmp_path: Path, cfg_fixture):
