@@ -19,6 +19,19 @@ from reup.media.audio import duration_ms
 
 
 def _hash_text(text: str) -> str:
+    """Hash chỉ theo `text`, KHÔNG gồm `voice`.
+
+    Cố ý bỏ `voice` ra khỏi key: an toàn không phải vì cache tự biết giọng
+    có đổi hay không, mà vì đổi giọng ở chốt A luôn đi qua
+    `set_voice` (`src/reup/web/service.py`), và hàm đó xoá sạch mọi
+    `tts/seg_*.wav` cùng lúc đổi `job.overrides["voice"]`. Cache-skip ở
+    `synthesize_all` chỉ dùng lại khi file `.wav` CÒN TỒN TẠI, nên đổi giọng
+    luôn làm điều kiện đó trượt và ép tổng hợp lại — dù hash không chứa
+    giọng. Nếu sau này có đường nào khác đổi `job.overrides["voice"]` mà
+    không xoá wav như `set_voice` đang làm, cache này sẽ (sai) trả về audio
+    giọng cũ — lúc đó phải sửa ở đây, trộn `voice` vào hash, không chỉ dựa
+    vào việc dọn file bên ngoài.
+    """
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
