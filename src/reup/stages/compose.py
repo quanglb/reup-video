@@ -326,9 +326,12 @@ def build_overlays(job: Job, cfg: Config) -> list[Overlay]:
 
 def run(job: Job, cfg: Config) -> None:
     job.final_mp4.parent.mkdir(parents=True, exist_ok=True)
+    source_info = probe(job.source_video)
     bitrate = pick_bitrate(
-        probe(job.source_video).video_bps, parse_bitrate(cfg.profile.video_bitrate)
+        source_info.video_bps, parse_bitrate(cfg.profile.video_bitrate)
     )
+    # Sàn 60s cho clip ngắn/máy chậm; clip dài thì cho gấp 4 lần độ dài nguồn.
+    timeout_s = max(60.0, source_info.duration_ms / 1000 * 4)
     has_bgm = job.bgm.exists() and cfg.audio.mode != "drop_original"
     inputs = ["-i", str(job.source_video), "-i", str(job.dub_wav)]
     if has_bgm:
@@ -361,7 +364,7 @@ def run(job: Job, cfg: Config) -> None:
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
         str(tmp_mp4),
-    ])
+    ], timeout_s=timeout_s)
 
     import os
     os.replace(tmp_mp4, job.final_mp4)

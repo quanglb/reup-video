@@ -2,8 +2,10 @@
 import pytest
 from dataclasses import replace
 from pathlib import Path
+from unittest.mock import patch
+
 from reup.core.job import create_job
-from reup.media.ffmpeg import probe
+from reup.media.ffmpeg import MediaInfo, probe
 from reup.stages import compose as compose_stage
 
 
@@ -121,6 +123,43 @@ def test_ceiling_below_floor_still_wins():
 def test_ceiling_must_be_positive():
     with pytest.raises(ValueError, match="ceiling_bps"):
         compose_stage.pick_bitrate(1_600_000, 0)
+
+
+# --- timeout cho lệnh render cuối: max(60, duration_s * 4) -------------------
+
+@pytest.mark.parametrize(
+    "duration_ms, expected_timeout_s",
+    [
+        (10_000, 60.0),    # 10s * 4 = 40 < sàn -> 60s
+        (30_000, 120.0),   # 30 * 4 = 120
+        (5_000, 60.0),     # rất ngắn -> vẫn sàn 60s
+        (100_000, 400.0),  # 100 * 4 = 400
+    ],
+)
+def test_run_passes_timeout_computed_from_source_duration(
+    tmp_path: Path, sample_video: Path, sample_wav: Path, cfg_fixture,
+    duration_ms, expected_timeout_s,
+):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    job.source_video.write_bytes(sample_video.read_bytes())
+    job.dub_wav.write_bytes(sample_wav.read_bytes())
+
+    fake_info = MediaInfo(
+        duration_ms=duration_ms, width=540, height=960,
+        has_video=True, has_audio=True, video_bps=1_600_000,
+    )
+
+    def fake_run_ffmpeg(args, timeout_s=None):
+        # thoả os.replace(tmp_mp4, ...) ngay sau lệnh render
+        tmp_mp4 = job.final_mp4.with_suffix(".tmp.mp4")
+        tmp_mp4.write_bytes(sample_video.read_bytes())
+        return ""
+
+    with patch("reup.stages.compose.probe", return_value=fake_info) as mock_probe, \
+         patch("reup.stages.compose.run_ffmpeg", side_effect=fake_run_ffmpeg) as mock_run_ffmpeg:
+        compose_stage.run(job, cfg_fixture)
+
+    assert mock_run_ffmpeg.call_args.kwargs["timeout_s"] == expected_timeout_s
 
 
 def test_render_respects_bitrate_ceiling_from_profile(

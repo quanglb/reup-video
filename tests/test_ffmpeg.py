@@ -1,5 +1,8 @@
 # tests/test_ffmpeg.py
+import subprocess
 from pathlib import Path
+from unittest.mock import patch
+
 import pytest
 from reup.media.ffmpeg import FFmpegError, probe, run_ffmpeg
 
@@ -54,3 +57,30 @@ def test_video_bps_excludes_audio_when_derived_from_container(sample_video: Path
     info = probe(sample_video)
     total_bps = sample_video.stat().st_size * 8 / (info.duration_ms / 1000)
     assert info.video_bps < total_bps
+
+
+def test_run_ffmpeg_timeout_raises_ffmpeg_error_not_raw_exception():
+    """ffmpeg treo (TimeoutExpired) phải lộ ra FFmpegError, không phải exception gốc."""
+    with patch(
+        "reup.media.ffmpeg.subprocess.run",
+        side_effect=subprocess.TimeoutExpired(cmd="ffmpeg", timeout=60),
+    ):
+        with pytest.raises(FFmpegError) as err:
+            run_ffmpeg(["-i", "in.mp4", "out.mp4"], timeout_s=60)
+    assert "60" in str(err.value)
+
+
+def test_run_ffmpeg_passes_timeout_to_subprocess_run():
+    with patch("reup.media.ffmpeg.subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stderr = ""
+        run_ffmpeg(["-i", "in.mp4", "out.mp4"], timeout_s=42.0)
+    assert mock_run.call_args.kwargs["timeout"] == 42.0
+
+
+def test_run_ffmpeg_default_timeout_is_none():
+    with patch("reup.media.ffmpeg.subprocess.run") as mock_run:
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stderr = ""
+        run_ffmpeg(["-i", "in.mp4", "out.mp4"])
+    assert mock_run.call_args.kwargs["timeout"] is None
