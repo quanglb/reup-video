@@ -26,6 +26,11 @@
     </select>
     <button>Thêm</button>
   </form>
+  {% if request.app.state.password %}
+  <form class="logout-form" method="post" action="/logout">
+    <button title="Đăng xuất">Đăng xuất</button>
+  </form>
+  {% endif %}
 </header>
 <main>{% block content %}{% endblock %}</main>
 <script src="/static/app.js"></script>

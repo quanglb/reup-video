@@ -778,3 +778,34 @@ body.selecting .job-card.picked { border-color: var(--bad); box-shadow: 0 0 0 2p
   position: sticky; bottom: 0; background: var(--bg); padding: 10px 0;
   border-top: 1px solid var(--line); flex-wrap: wrap;
 }
+
+/* --- lỗi form (báo mật khẩu sai, v.v.) --------------------------------------- */
+.error {
+  color: var(--bad); background: #2a1614; border: 1px solid #5a2b27;
+  border-radius: 6px; padding: 8px 12px; font-size: 13px; margin: 10px 0 0;
+}
+
+/* --- đăng nhập / đăng xuất --------------------------------------------------- */
+body.login-page main {
+  display: flex; align-items: center; justify-content: center;
+  min-height: calc(100vh - 20px);
+}
+.login-box {
+  width: 100%; max-width: 320px; padding: 28px 24px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+}
+.login-box h1 { margin: 0 0 18px; font-size: 20px; text-align: center; }
+.login-box form { display: flex; flex-direction: column; gap: 12px; }
+.login-box label { display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--dim); }
+.login-box input[type="password"] { width: 100%; padding: 10px 12px; font-size: 16px; }
+.login-box button { padding: 10px 12px; font-size: 15px; }
+.logout-form { margin: 0; }
+.logout-form button {
+  background: transparent; color: var(--dim); border-color: var(--line);
+  font-size: 13px; padding: 6px 10px;
+}
+.logout-form button:hover { color: var(--fg); border-color: var(--accent); }
+
+@media (max-width: 480px) {
+  .login-box { max-width: none; margin: 0 16px; }
+}
