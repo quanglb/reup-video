@@ -133,7 +133,8 @@ def run_with(job: Job, cfg: Config, tts, llm) -> None:
         )
 
     _save_translation(job, translation, report)
-    write_manifest(job, voice, manifest)
+    texts = {seg.id: seg.text for seg in translation.segments}
+    write_manifest(job, voice, manifest, texts)
     # Sinh phụ đề Ở ĐÂY chứ không ở stage translate: chữ chỉ chốt sau vòng viết
     # lại, sinh sớm thì sub hiện câu cũ còn giọng đọc câu mới.
     atomic_write(

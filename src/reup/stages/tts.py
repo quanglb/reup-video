@@ -1,6 +1,7 @@
 """Stage 10 — sinh giọng đọc tiếng Việt cho từng câu đã dịch."""
 from __future__ import annotations
 
+import hashlib
 import json
 
 from reup.config import Config
@@ -17,6 +18,20 @@ LANG = "vi"
 from reup.media.audio import duration_ms
 
 
+def _hash_text(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _load_text_cache(job: Job) -> dict:
+    path = job.tts_dir / "text_cache.json"
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
 def synthesize_all(
     job: Job,
     transcript: Transcript,
@@ -26,30 +41,65 @@ def synthesize_all(
 ) -> list[dict]:
     """Sinh wav cho mọi đoạn, trả về bản kê. Dùng lại được từ stage fit.
 
-    Mỗi câu là một subprocess độc lập với server CapCut, không phụ thuộc câu
-    trước, nên chạy song song tối đa `concurrency` câu cùng lúc (cùng cách
-    `run_jobs` ở core/runner.py chạy nhiều job song song). `entries` vẫn trả
-    về đúng thứ tự `transcript.segments` gốc — không phải thứ tự hoàn thành —
-    vì `fit`/`compose` dựa vào thứ tự này.
+    Trước khi gọi `adapter.synthesize`, kiểm tra cache `tts/text_cache.json`
+    (ghi bởi `write_manifest` lần chạy trước): nếu file wav của câu đã tồn tại
+    VÀ hash của `text` hiện tại khớp hash lúc sinh, bỏ qua — không tốn một
+    subprocess Python nào cho câu đó. Việc này diễn ra TRƯỚC khi đưa câu vào
+    `ThreadPoolExecutor`, để các câu đã cache không hề chạm tới pool: chỉ
+    những câu thật sự cần tổng hợp mới được chạy song song.
+
+    Mỗi câu cần tổng hợp là một subprocess độc lập với server CapCut, không
+    phụ thuộc câu trước, nên chạy song song tối đa `concurrency` câu cùng lúc
+    (cùng cách `run_jobs` ở core/runner.py chạy nhiều job song song). Kết quả
+    vẫn trả về đúng thứ tự `transcript.segments` gốc — không phải thứ tự hoàn
+    thành — vì `fit`/`compose` dựa vào thứ tự này.
     """
 
-    def one(seg) -> dict:
+    def synthesize(seg) -> dict:
         out = job.tts_segment(seg.id)
         result = adapter.synthesize(seg.text, LANG, voice, out)
         return {"id": seg.id, "path": out.name, "actual_ms": result.actual_ms}
 
-    concurrency = max(1, int(concurrency))
+    def reuse_cached(seg, out) -> dict:
+        return {"id": seg.id, "path": out.name, "actual_ms": duration_ms(out)}
+
+    cache = _load_text_cache(job)
     segments = transcript.segments
-    if concurrency == 1 or len(segments) <= 1:
-        return [one(seg) for seg in segments]
+    results: list[dict | None] = [None] * len(segments)
+    todo: list[tuple[int, object]] = []
+    for i, seg in enumerate(segments):
+        out = job.tts_segment(seg.id)
+        if out.exists() and cache.get(str(seg.id)) == _hash_text(seg.text):
+            results[i] = reuse_cached(seg, out)
+        else:
+            todo.append((i, seg))
+
+    if not todo:
+        return results
+
+    concurrency = max(1, int(concurrency))
+    if concurrency == 1 or len(todo) <= 1:
+        for i, seg in todo:
+            results[i] = synthesize(seg)
+        return results
 
     from concurrent.futures import ThreadPoolExecutor
 
     with ThreadPoolExecutor(max_workers=concurrency) as pool:
-        return list(pool.map(one, segments))
+        computed = list(pool.map(lambda item: synthesize(item[1]), todo))
+    for (i, _seg), entry in zip(todo, computed):
+        results[i] = entry
+    return results
 
 
-def write_manifest(job: Job, voice: str, entries: list[dict]) -> None:
+def write_manifest(
+    job: Job, voice: str, entries: list[dict], texts: dict[int, str]
+) -> None:
+    """Ghi `tts/manifest.json` và `tts/text_cache.json` cùng lúc.
+
+    `texts` map `seg.id` → text đã dùng để tổng hợp (đọc lại được ở lần
+    `redo` sau để biết câu nào đổi chữ, xem `synthesize_all`).
+    """
     atomic_write(
         job.tts_dir / "manifest.json",
         json.dumps(
@@ -57,6 +107,15 @@ def write_manifest(job: Job, voice: str, entries: list[dict]) -> None:
             ensure_ascii=False,
             indent=2,
         ),
+    )
+    cache = {
+        str(entry["id"]): _hash_text(texts[entry["id"]])
+        for entry in entries
+        if entry["id"] in texts
+    }
+    atomic_write(
+        job.tts_dir / "text_cache.json",
+        json.dumps(cache, ensure_ascii=False, indent=2),
     )
 
 
@@ -70,7 +129,8 @@ def run_with(job: Job, cfg: Config, adapter) -> None:
     # ở chốt A là của riêng job này (spec §8.2).
     voice = job.overrides.get("voice") or cfg.tts.voice
     entries = synthesize_all(job, transcript, adapter, voice, cfg.tts.concurrency)
-    write_manifest(job, voice, entries)
+    texts = {seg.id: seg.text for seg in transcript.segments}
+    write_manifest(job, voice, entries, texts)
 
 
 def run(job: Job, cfg: Config) -> None:

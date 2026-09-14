@@ -180,3 +180,79 @@ def test_synthesize_all_default_concurrency_is_sequential_when_unset(tmp_path: P
     entries = tts_stage.synthesize_all(job, transcript, StubTTS(), "voice-x")
 
     assert entries[0]["id"] == 1
+
+
+class _CountingAdapter:
+    """Adapter giả đếm số lần `synthesize` thật sự được gọi, để test cache."""
+
+    def __init__(self) -> None:
+        self.calls: list[int] = []
+
+    def synthesize(self, text: str, lang: str, voice: str, out: Path) -> TTSResult:
+        seg_id = int(out.stem.split("_")[1])
+        self.calls.append(seg_id)
+        out.write_bytes(b"\x00\x00")
+        return TTSResult(path=out, actual_ms=500)
+
+
+def test_redo_skips_unchanged_segment_via_text_cache(tmp_path: Path, cfg_fixture):
+    """`redo --from tts` không nên gọi lại adapter cho câu chưa đổi chữ."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed(job, ["Hôm nay dạy làm", "Trước hết thái thịt"])
+    _run(job, cfg_fixture)
+
+    # Mô phỏng `redo --from tts`: chỉ manifest.json bị xoá (đúng như
+    # `_cmd_redo` chỉ xoá các artifact khai báo ở `SPEC.produces`), các file
+    # wav và text_cache.json vẫn còn nguyên.
+    (job.tts_dir / "manifest.json").unlink()
+
+    transcript = Transcript.load(job.translation_json)
+    adapter = _CountingAdapter()
+    entries = tts_stage.synthesize_all(job, transcript, adapter, "voice-x", concurrency=2)
+
+    assert adapter.calls == []
+    assert [e["id"] for e in entries] == [1, 2]
+    assert all(e["actual_ms"] > 0 for e in entries)
+
+
+def test_redo_resynthesizes_changed_segment(tmp_path: Path, cfg_fixture):
+    """Câu bị viết lại (đổi text) vẫn phải gọi lại adapter bình thường."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed(job, ["Hôm nay dạy làm", "Trước hết thái thịt"])
+    _run(job, cfg_fixture)
+
+    _seed(job, ["Hôm nay dạy làm món mới", "Trước hết thái thịt"])
+    transcript = Transcript.load(job.translation_json)
+    adapter = _CountingAdapter()
+    entries = tts_stage.synthesize_all(job, transcript, adapter, "voice-x", concurrency=2)
+
+    assert adapter.calls == [1]
+    assert [e["id"] for e in entries] == [1, 2]
+
+
+def test_redo_resynthesizes_when_wav_missing_despite_cache_match(
+    tmp_path: Path, cfg_fixture
+):
+    """Cache khớp nhưng file .wav bị xoá tay thì vẫn phải tổng hợp lại."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed(job, ["Hôm nay dạy làm", "Trước hết thái thịt"])
+    _run(job, cfg_fixture)
+
+    job.tts_segment(1).unlink()
+
+    transcript = Transcript.load(job.translation_json)
+    adapter = _CountingAdapter()
+    entries = tts_stage.synthesize_all(job, transcript, adapter, "voice-x", concurrency=2)
+
+    assert adapter.calls == [1]
+    assert [e["id"] for e in entries] == [1, 2]
+
+
+def test_write_manifest_writes_text_cache(tmp_path: Path, cfg_fixture):
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed(job, ["Hôm nay dạy làm"])
+
+    _run(job, cfg_fixture)
+
+    cache = json.loads((job.tts_dir / "text_cache.json").read_text(encoding="utf-8"))
+    assert cache == {"1": tts_stage._hash_text("Hôm nay dạy làm")}
