@@ -4,13 +4,16 @@ Chỉ đọc ghi trạng thái job; mọi logic xử lý nằm ở `core` và `s
 """
 from __future__ import annotations
 
+import hmac
 import json
+import os
 import re
+import time
 from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -18,7 +21,7 @@ from reup.adapters.crawl import DiscoverError
 from reup.config import PLATFORMS, load_config
 from reup.core.job import create_job, load_job
 from reup.core.store import Store
-from reup.web import service
+from reup.web import auth, service
 from reup.web.runner import BackgroundRunner
 
 HERE = Path(__file__).parent
@@ -35,6 +38,68 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     app.state.jobs_dir = Path(jobs_dir)
     app.state.db_path = Path(db_path)
     app.state.runner = BackgroundRunner(app.state.config_path, app.state.jobs_dir, app.state.db_path)
+
+    app.state.password = os.environ.get("REUP_WEB_PASSWORD", "")
+    if app.state.password:
+        app.state.session_secret = auth.secret_for(
+            app.state.password, explicit=os.environ.get("REUP_WEB_SECRET", "")
+        )
+
+        @app.middleware("http")
+        async def require_login(request: Request, call_next):
+            path = request.url.path
+            if path == "/login" or path.startswith("/static/"):
+                return await call_next(request)
+            token = request.cookies.get(auth.COOKIE, "")
+            if auth.verify_token(app.state.session_secret, token, time.time()):
+                return await call_next(request)
+            wants_page = (
+                request.method == "GET"
+                and "text/html" in request.headers.get("accept", "")
+            )
+            if wants_page:
+                url = f"/login?{urlencode({'next': path})}"
+                return RedirectResponse(url, status_code=303)
+            return JSONResponse({"detail": "cần đăng nhập"}, status_code=401)
+
+        def is_https(request: Request) -> bool:
+            return (
+                request.url.scheme == "https"
+                or request.headers.get("x-forwarded-proto", "") == "https"
+            )
+
+        def render_login(request: Request, next_: str, error: str = "", status_code: int = 200):
+            return templates.TemplateResponse(
+                request,
+                "login.html",
+                {"next": auth.safe_next(next_), "error": error},
+                status_code=status_code,
+            )
+
+        @app.get("/login", response_class=HTMLResponse)
+        def login_form(request: Request, next: str = "/"):
+            return render_login(request, next)
+
+        @app.post("/login", response_class=HTMLResponse)
+        def login_submit(
+            request: Request, password: str = Form(...), next: str = Form("/")
+        ):
+            if not hmac.compare_digest(password.encode(), app.state.password.encode()):
+                time.sleep(1)  # làm chậm dò mật khẩu
+                return render_login(request, next, "Sai mật khẩu")
+            token = auth.make_token(app.state.session_secret, time.time())
+            resp = RedirectResponse(auth.safe_next(next), status_code=303)
+            resp.set_cookie(
+                auth.COOKIE, token, max_age=auth.MAX_AGE, httponly=True,
+                samesite="lax", secure=is_https(request),
+            )
+            return resp
+
+        @app.post("/logout")
+        def logout(request: Request):
+            resp = RedirectResponse("/login", status_code=303)
+            resp.delete_cookie(auth.COOKIE)
+            return resp
 
     def store() -> Store:
         s = Store(app.state.db_path)
