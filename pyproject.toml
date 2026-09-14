@@ -28,3 +28,6 @@ packages = ["src/reup"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src", "."]
+markers = [
+    "slow: chạy ffmpeg thật với khối lượng lớn (đo timing) — bỏ qua bằng `-m \"not slow\"` khi cần chạy nhanh",
+]

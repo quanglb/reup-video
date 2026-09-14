@@ -289,6 +289,59 @@ def test_renders_video_with_blur_and_subtitles(
     assert abs(info.duration_ms - 6000) <= 200
 
 
+@pytest.mark.slow
+def test_many_subtitle_overlays_do_not_blow_up_render_time(
+    tmp_path: Path, sample_video: Path, sample_wav: Path, cfg_fixture
+):
+    """Task 2.2 — `build_subtitle_overlays` nối N filter `overlay` liên tiếp,
+    hình dạng từng gây treo ở `build_blur_chain` (667cef7) khi là `split` lồng
+    nhau. Đo thật cho thấy `overlay` KHÔNG có vấn đề tương tự: 10→50 overlay
+    trên clip 6s chỉ chênh ~1.1x (xem task-2.2-report.md), không tăng theo cấp
+    số nhân — nên quyết định KHÔNG đổi cách dựng overlay (không cần sheet ảnh
+    hay split-batch). Test này chốt lại quan sát đó: nếu ai đó vô tình làm
+    chuỗi overlay tăng nặng trở lại (hoặc ffmpeg treo, bị Task 2.1's timeout
+    chặn), test sẽ đỏ.
+
+    Ngưỡng 3x là cao hơn hẳn số đo thật (~1.1x) để chừa dư địa cho máy chậm/CI
+    ồn, nhưng vẫn đủ chặt để bắt lại một hồi quy về tăng siêu tuyến tính.
+    """
+    import time
+    from unittest.mock import patch as _patch
+
+    from PIL import Image
+
+    from reup.subtitle import Overlay
+
+    png_dir = tmp_path / "subs"
+    png_dir.mkdir()
+    png = png_dir / "sub.png"
+    Image.new("RGBA", (300, 80), (255, 255, 255, 200)).save(png)
+
+    def make_overlays(n: int) -> list[Overlay]:
+        seg_ms = 6000 // n
+        return [
+            Overlay(path=png, start_ms=i * seg_ms, end_ms=(i + 1) * seg_ms, x=50, y=800)
+            for i in range(n)
+        ]
+
+    def run_with(n: int) -> float:
+        job = create_job(tmp_path / f"jobs{n}", "https://a/1", "zh", job_id="j1")
+        job.source_video.write_bytes(sample_video.read_bytes())
+        job.dub_wav.write_bytes(sample_wav.read_bytes())
+        with _patch.object(compose_stage, "build_overlays", return_value=make_overlays(n)):
+            t0 = time.monotonic()
+            compose_stage.run(job, cfg_fixture)
+            return time.monotonic() - t0
+
+    elapsed_10 = run_with(10)
+    elapsed_50 = run_with(50)
+
+    assert elapsed_50 <= elapsed_10 * 3 + 1.0, (
+        f"50 overlay ({elapsed_50:.2f}s) chậm hơn quá nhiều so với 10 overlay "
+        f"({elapsed_10:.2f}s) — có thể chuỗi overlay đã tăng siêu tuyến tính"
+    )
+
+
 def test_blur_radius_shrinks_for_short_regions():
     """yuv420p chia đôi chroma; boxblur đòi bán kính < 1/4 cạnh ngắn của vùng.
 
