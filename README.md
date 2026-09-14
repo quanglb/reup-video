@@ -50,6 +50,9 @@ uv run reup doctor                        # kiểm môi trường trước khi c
 uv run reup benchmark                     # đo từng stage trên máy này
 ```
 
+Để truy cập giao diện web từ máy khác trên mạng, xem hướng dẫn bảo vệ với mật khẩu và truy cập từ xa tại
+[`docs/superpowers/plans/2026-09-13-truy-cap-tu-xa.md`](docs/superpowers/plans/2026-09-13-truy-cap-tu-xa.md).
+
 Web UI có bốn tab: **Hàng đợi**, **YouTube**, **TikTok**, **Douyin**. Ba tab sau
 hiện từng video thành thẻ 9:16 kèm ảnh đại diện, độ dài, kênh và lượt xem; bấm
 **▶ Xem** để nạp player nhúng ngay trong trang (iframe chỉ nạp khi bấm, không

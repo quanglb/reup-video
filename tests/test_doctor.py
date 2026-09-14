@@ -179,3 +179,20 @@ def test_the_cli_exit_code_reflects_blockers(tmp_path, config_file, monkeypatch,
             "--db", str(tmp_path / "reup.db"), "doctor"]
     assert main(args) == 1
     assert "phải sửa" in capsys.readouterr().out
+
+
+def test_web_password_set_passes(monkeypatch):
+    """Khi REUP_WEB_PASSWORD được đặt thì trả OK."""
+    monkeypatch.setenv("REUP_WEB_PASSWORD", "secret123")
+    c = doctor.check_web_password()
+    assert c.status == doctor.OK
+    assert not c.blocking
+
+
+def test_web_password_unset_warns(monkeypatch):
+    """Khi không có REUP_WEB_PASSWORD thì cảnh báo (không blocking)."""
+    monkeypatch.delenv("REUP_WEB_PASSWORD", raising=False)
+    c = doctor.check_web_password()
+    assert c.status == doctor.WARN
+    assert not c.blocking
+    assert "chưa đặt" in c.detail
