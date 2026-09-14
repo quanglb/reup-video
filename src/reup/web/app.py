@@ -12,6 +12,7 @@ import time
 from pathlib import Path
 from urllib.parse import urlencode
 
+import anyio
 from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -40,6 +41,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     app.state.runner = BackgroundRunner(app.state.config_path, app.state.jobs_dir, app.state.db_path)
 
     app.state.password = os.environ.get("REUP_WEB_PASSWORD", "")
+    app.state.session_secret = b""
     if app.state.password:
         app.state.session_secret = auth.secret_for(
             app.state.password, explicit=os.environ.get("REUP_WEB_SECRET", "")
@@ -81,11 +83,15 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             return render_login(request, next)
 
         @app.post("/login", response_class=HTMLResponse)
-        def login_submit(
+        async def login_submit(
             request: Request, password: str = Form(...), next: str = Form("/")
         ):
             if not hmac.compare_digest(password.encode(), app.state.password.encode()):
-                time.sleep(1)  # làm chậm dò mật khẩu
+                # async + anyio.sleep (không phải time.sleep) để không chiếm
+                # một worker trong threadpool dùng chung của AnyIO — nếu không,
+                # ~40 request sai mật khẩu đồng thời (chưa cần đăng nhập) đủ
+                # nghẽn toàn bộ app cho mọi người dùng khác.
+                await anyio.sleep(1)  # làm chậm dò mật khẩu
                 return render_login(request, next, "Sai mật khẩu")
             token = auth.make_token(app.state.session_secret, time.time())
             resp = RedirectResponse(auth.safe_next(next), status_code=303)

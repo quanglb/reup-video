@@ -88,7 +88,14 @@ def test_static_files_are_exempt(protected_client):
 
 def test_wrong_password_rerenders_login_with_error_and_no_cookie(protected_client, monkeypatch):
     c, _, _, _ = protected_client
-    monkeypatch.setattr("reup.web.app.time.sleep", lambda *_a, **_k: None)
+    # login_submit là async và chờ bằng anyio.sleep(1) (không phải time.sleep)
+    # để không chiếm một worker trong threadpool dùng chung khi bị dò mật
+    # khẩu hàng loạt — patch đúng anyio.sleep (đã import trong reup.web.app)
+    # thành no-op để test không phải chờ 1 giây thật.
+    async def no_delay(*_a, **_k):
+        return None
+
+    monkeypatch.setattr("reup.web.app.anyio.sleep", no_delay)
     r = c.post("/login", data={"password": "nope"})
     assert r.status_code == 200
     assert "Sai mật khẩu" in r.text
