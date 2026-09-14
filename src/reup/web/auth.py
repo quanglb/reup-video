@@ -111,10 +111,11 @@ def safe_next(value: Optional[str]) -> str:
 
     Accepts only relative paths starting with / but not starting with //
     (which would be protocol-relative URLs). Rejects absolute URLs,
-    None, and empty strings.
+    None, empty strings, and paths containing backslashes or control
+    characters that could be normalized by browsers into open redirects.
 
     Valid: "/jobs/x", "/", "/path?query=1"
-    Invalid: "//evil.com", "https://evil.com", None, "", "relative/path"
+    Invalid: "//evil.com", "https://evil.com", "/\\evil.com", None, "", "relative/path"
 
     Args:
         value: The redirect path to validate (can be None or empty string).
@@ -128,6 +129,15 @@ def safe_next(value: Optional[str]) -> str:
 
     # Must start with single / (not //)
     if not value.startswith("/") or value.startswith("//"):
+        return "/"
+
+    # Reject backslash-based open-redirect tricks
+    # Browsers normalize \ to / for special schemes, turning /\evil.com into //evil.com
+    if value.startswith("/\\"):
+        return "/"
+
+    # Reject any backslashes or control characters that could be smuggled
+    if "\\" in value or "\r" in value or "\n" in value or "\t" in value:
         return "/"
 
     # Additional check: reject anything that looks like an absolute URL

@@ -213,6 +213,60 @@ class TestVerifyToken:
             result = verify_token(secret, garbage, now)
             assert result is False, f"Should reject {garbage!r}"
 
+    def test_verify_token_exception_handling_none(self):
+        """None token type should trigger outer exception handler, return False."""
+        secret = b"test-secret"
+        now = 1000.0
+
+        # Passing None will raise AttributeError (None has no .split())
+        result = verify_token(secret, None, now)
+        assert result is False
+
+    def test_verify_token_exception_handling_bytes(self):
+        """Bytes token should trigger exception handler, return False."""
+        secret = b"test-secret"
+        now = 1000.0
+
+        # Passing bytes will cause issues in string operations
+        result = verify_token(secret, b"1.abc", now)
+        assert result is False
+
+    def test_verify_token_exception_handling_non_ascii_signature(self):
+        """Non-ASCII HMAC value triggers exception in compare_digest, returns False."""
+        secret = b"test-secret"
+        now = 1000.0
+
+        # Token with non-ASCII characters in signature part
+        # This can cause TypeError in hmac.compare_digest on some Python versions
+        result = verify_token(secret, "1000.ééé", now)
+        assert result is False
+
+    def test_verify_token_exact_expiry_boundary_valid(self):
+        """Token is valid exactly at expiry time (now == expiry)."""
+        secret = b"test-secret"
+        now = 1000.0
+        token = make_token(secret, now)
+
+        # Parse expiry from token
+        expiry_str, _ = token.split(".")
+        expiry = int(expiry_str)
+
+        # Token should be valid exactly at expiry time
+        assert verify_token(secret, token, now=float(expiry)) is True
+
+    def test_verify_token_exact_expiry_boundary_invalid(self):
+        """Token is invalid one second after expiry (now == expiry + 1)."""
+        secret = b"test-secret"
+        now = 1000.0
+        token = make_token(secret, now)
+
+        # Parse expiry from token
+        expiry_str, _ = token.split(".")
+        expiry = int(expiry_str)
+
+        # Token should be invalid immediately after expiry
+        assert verify_token(secret, token, now=float(expiry + 1)) is False
+
 
 class TestSafeNext:
     """Test safe redirect path validation."""
@@ -263,6 +317,45 @@ class TestSafeNext:
         """Paths with encoded special characters are kept if relative."""
         assert safe_next("/path%20with%20spaces") == "/path%20with%20spaces"
         assert safe_next("/path?q=a&b=c") == "/path?q=a&b=c"
+
+    def test_safe_next_backslash_open_redirect(self):
+        """Backslash-based open-redirect attacks are rejected.
+
+        Browsers normalize \\ to / for special schemes, so /\\evil.com
+        becomes //evil.com -> open redirect. Must reject.
+        """
+        assert safe_next("/\\evil.com") == "/"
+
+    def test_safe_next_backslash_variant(self):
+        """Another backslash variant should also be rejected."""
+        assert safe_next("/\\/evil.com") == "/"
+
+    def test_safe_next_tab_control_character(self):
+        """Tab character smuggling should be rejected."""
+        assert safe_next("/\t/evil.com") == "/"
+
+    def test_safe_next_carriage_return_newline(self):
+        """Carriage return and newline should be rejected.
+
+        Can be used to smuggle header injection like Set-Cookie.
+        """
+        assert safe_next("/\r\nSet-Cookie: a=b") == "/"
+
+    def test_safe_next_newline_only(self):
+        """Newline character should be rejected."""
+        assert safe_next("/path\ninjected") == "/"
+
+    def test_safe_next_carriage_return_only(self):
+        """Carriage return should be rejected."""
+        assert safe_next("/path\rinjected") == "/"
+
+    def test_safe_next_backslash_middle(self):
+        """Backslash in the middle of path should be rejected."""
+        assert safe_next("/path\\to\\resource") == "/"
+
+    def test_safe_next_multiple_control_chars(self):
+        """Multiple control characters should be rejected."""
+        assert safe_next("/path\t\ninjected") == "/"
 
 
 class TestModuleConstants:
