@@ -330,11 +330,15 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         hide_seen: int = 0,
         run: int = 0,
         start: int = 1,
+        show_trend: int = 0,
     ):
         """Tab quét nguồn. Mặc định KHÔNG quét — mở tab là mở ngay, không chờ.
 
         `run=1` (nút "Quét") mới thật sự gọi yt-dlp: mỗi lần quét mất vài giây
         tới vài chục giây, nên để nó nổ mỗi lần đổi tab thì tab nào cũng treo.
+        `show_trend=1` (nút "Quét trend") cùng triết lý: tính z-score trên mọi
+        kênh Douyin đã lưu không đắt, nhưng che mặc định để tab đỡ rối — chỉ
+        hiện khi bấm.
         """
         if platform not in PLATFORMS:
             raise HTTPException(
@@ -357,6 +361,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         return render_discover(
             request, platform, q or opts.query, limit or opts.limit, sort,
             bool(hide_seen), bool(run), start, result, error,
+            show_trend=bool(show_trend),
         )
 
     def exports_dir() -> Path:
@@ -438,14 +443,25 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     def douyin_rescan_status(uid: str):
         return app.state.douyin_rescanner.status(uid)
 
-    def douyin_suggestions() -> dict:
+    def douyin_suggestions(show_trend: bool) -> dict:
         from reup.adapters import douyin_export as dx
-        from reup.web import douyin_channels
+        from reup.web import douyin_channels, douyin_trend
 
+        channels = douyin_channels.saved_channels(exports_dir())
         return {
-            "douyin_channels": douyin_channels.saved_channels(exports_dir()),
+            "douyin_channels": channels,
             "douyin_recent": douyin_channels.recent_unsaved(exports_dir()),
             "douyin_exports": douyin_channels.exports(exports_dir()),
+            # Chỉ tính khi bấm "Quét trend" — mặc định che để tab đỡ rối, dù
+            # phép tính này rẻ (thuần Python trên file JSON đã có sẵn).
+            "douyin_trend": (
+                douyin_trend.analyze(
+                    [ch["path"] for ch in channels],
+                    {ch["path"]: ch["name"] for ch in channels},
+                )
+                if show_trend
+                else None
+            ),
             "douyin_topics": [
                 {"q": t["q"], "label": t["vi"], "url": dx.search_url(t["q"])}
                 for t in discover_tags("douyin")["tags_all"]
@@ -454,7 +470,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
 
     def render_discover(
         request, platform, q, limit, sort, hide_seen, ran, start, result, error,
-        status_code: int = 200,
+        status_code: int = 200, show_trend: bool = False,
     ):
         return templates.TemplateResponse(
             request,
@@ -489,7 +505,8 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 ],
                 "hide_seen": hide_seen,
                 "error": error,
-                **(douyin_suggestions() if platform == "douyin" else {}),
+                "show_trend": show_trend,
+                **(douyin_suggestions(show_trend) if platform == "douyin" else {}),
                 "douyin_script": (
                     (HERE / "static" / "douyin_export.js").read_text(encoding="utf-8")
                     if platform == "douyin"

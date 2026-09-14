@@ -89,6 +89,86 @@
         <div class="suggest-tips">Chưa lưu kênh nào. Tick “Lưu kênh” khi nạp file, hoặc bấm 💾 ở file nạp gần đây.</div>
       {% endif %}
     </div>
+    {% if not show_trend %}
+    <div class="suggest-section">
+      <a class="btn primary" href="/discover?platform=douyin&show_trend=1">📈 Quét trend / evergreen từ các kênh đã lưu</a>
+    </div>
+    {% else %}
+    <div class="suggest-section">
+      <div class="suggest-title">
+        📈 <b>Đang trend</b> <small>— video mới ≤21 ngày, tăng bất thường so với chính kênh đó (đo bằng like+share, Douyin không lộ view công khai)</small>
+        <a class="icon-btn" href="/discover?platform=douyin" title="Ẩn trend">✕</a>
+      </div>
+      {% if douyin_trend.trending %}
+      <div class="dy-channels">
+        {% for v in douyin_trend.trending %}
+        <div class="dy-channel dy-trend-hot">
+          <div class="dy-ch-info">
+            <b title="{{ v.title }}">{{ v.title }}</b>
+            <small>{{ v.uploader }} · {{ v.age_days }} ngày trước</small>
+            <small class="dy-trend-badges">
+              <span class="badge z-hot" title="Độ lệch so với velocity thường ngày của chính kênh này">z {{ '%+.1f' | format(v.z) }}</span>
+              ♥ {{ v.like_count | views }} · ↗ {{ v.share_count | views }}
+              <span title="share ÷ like — càng cao càng dễ viral vì người xem chủ động chia sẻ">sr {{ v.share_ratio }}</span>
+            </small>
+          </div>
+          <div class="dy-ch-actions">
+            <form method="post" action="/discover/pick">
+              <input type="hidden" name="url" value="{{ v.url }}">
+              <input type="hidden" name="platform" value="{{ v.platform }}">
+              <input type="hidden" name="video_id" value="{{ v.video_id }}">
+              <input type="hidden" name="lang" value="zh">
+              {% if v.media_url %}
+                <input type="hidden" name="media_url" value="{{ v.media_url }}">
+                <input type="hidden" name="title" value="{{ v.title }}">
+              {% endif %}
+              <button class="btn primary">Chọn và chạy</button>
+            </form>
+            <a class="icon-btn" href="{{ v.url }}" target="_blank" rel="noopener" title="Mở trên Douyin">↗</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="suggest-tips">Chưa có video nào tăng bất thường trong các kênh đã lưu.</div>
+      {% endif %}
+    </div>
+    <div class="suggest-section">
+      <div class="suggest-title">🌲 <b>Evergreen</b> <small>— video &gt;1 năm nhưng vẫn mạnh, công thức nội dung ổn định, làm lúc nào cũng được</small></div>
+      {% if douyin_trend.evergreen %}
+      <div class="dy-channels">
+        {% for v in douyin_trend.evergreen %}
+        <div class="dy-channel dy-trend-ever">
+          <div class="dy-ch-info">
+            <b title="{{ v.title }}">{{ v.title }}</b>
+            <small>{{ v.uploader }} · {{ (v.age_days / 365) | round(1) }} năm trước</small>
+            <small class="dy-trend-badges">
+              ♥ {{ v.like_count | views }} · ↗ {{ v.share_count | views }}
+              <span title="share ÷ like">sr {{ v.share_ratio }}</span>
+            </small>
+          </div>
+          <div class="dy-ch-actions">
+            <form method="post" action="/discover/pick">
+              <input type="hidden" name="url" value="{{ v.url }}">
+              <input type="hidden" name="platform" value="{{ v.platform }}">
+              <input type="hidden" name="video_id" value="{{ v.video_id }}">
+              <input type="hidden" name="lang" value="zh">
+              {% if v.media_url %}
+                <input type="hidden" name="media_url" value="{{ v.media_url }}">
+                <input type="hidden" name="title" value="{{ v.title }}">
+              {% endif %}
+              <button class="btn primary">Chọn và chạy</button>
+            </form>
+            <a class="icon-btn" href="{{ v.url }}" target="_blank" rel="noopener" title="Mở trên Douyin">↗</a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="suggest-tips">Chưa có video evergreen rõ rệt trong các kênh đã lưu.</div>
+      {% endif %}
+    </div>
+    {% endif %}
     {% if douyin_recent %}
     <div class="suggest-section">
       <div class="suggest-title">📂 <b>File nạp gần đây, chưa lưu</b> <small>— bấm tên để quét, 💾 để lưu kênh</small></div>

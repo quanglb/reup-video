@@ -597,6 +597,15 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   list-style: none; cursor: pointer; color: var(--dim); padding: 1px 6px; border-radius: 6px;
 }
 .dy-ch-edit summary::-webkit-details-marker { display: none; }
+
+/* --- trend / evergreen -------------------------------------------------- */
+.dy-trend-hot { border-left-color: #f97316; }
+.dy-trend-ever { border-left-color: #22c55e; }
+.dy-trend-badges { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; margin-top: 2px; }
+.dy-trend-badges .badge.z-hot {
+  background: #f97316; color: #1a1005; font-weight: 700; font-size: 11px;
+  padding: 1px 6px; border-radius: 999px;
+}
 .dy-ch-edit summary:hover { color: var(--fg); background: #2a303b; }
 .dy-ch-edit form {
   position: absolute; right: 0; top: calc(100% + 4px); z-index: 10; display: flex; gap: 6px;
