@@ -83,29 +83,28 @@ def fallback_edge_tts(text, out_path, voice):
         voices.append("vi-VN-HoaiMyNeural")
 
     for v_try in voices:
-        for _ in range(3):
-            async def _run(vt=v_try):
-                comm = edge_tts.Communicate(text, vt)
-                await asyncio.wait_for(comm.save(tmp), timeout=8.0)
-            try:
-                asyncio.run(_run())
-                if os.path.exists(tmp) and os.path.getsize(tmp) > 100:
-                    os.rename(tmp, out_path)
-                    print(
-                        json.dumps(
-                            {
-                                "path": out_path,
-                                "bytes": os.path.getsize(out_path),
-                                "duration_ms": 0,
-                                "hit_cache": False,
-                                "engine": "edge_tts_fallback",
-                            },
-                            ensure_ascii=False,
-                        )
+        async def _run(vt=v_try):
+            comm = edge_tts.Communicate(text, vt)
+            await asyncio.wait_for(comm.save(tmp), timeout=5.0)
+        try:
+            asyncio.run(_run())
+            if os.path.exists(tmp) and os.path.getsize(tmp) > 100:
+                os.rename(tmp, out_path)
+                print(
+                    json.dumps(
+                        {
+                            "path": out_path,
+                            "bytes": os.path.getsize(out_path),
+                            "duration_ms": 0,
+                            "hit_cache": False,
+                            "engine": "edge_tts_fallback",
+                        },
+                        ensure_ascii=False,
                     )
-                    return True
-            except Exception:
-                time.sleep(0.5)
+                )
+                return True
+        except Exception:
+            pass
     return False
 
 
@@ -137,7 +136,7 @@ def main():
     )
     url, headers, body = capcut.build_request(new_args)
     try:
-        resp = requests.post(url, headers=headers, data=body.encode("utf-8"), timeout=30)
+        resp = requests.post(url, headers=headers, data=body.encode("utf-8"), timeout=6)
     except Exception:
         if allow_fallback and fallback_edge_tts(args.text, args.out, args.voice):
             return
@@ -159,52 +158,55 @@ def main():
 
     for _ in range(args.max_polls):
         time.sleep(args.poll_interval)
-        q_args = CLIArgs(mode="tts-query", task_id=task_id, token=token)
-        q_url, q_headers, q_body = capcut.build_request(q_args)
-        q_resp = requests.post(
-            q_url, headers=q_headers, data=q_body.encode("utf-8"), timeout=30
-        )
-        if q_resp.status_code != 200:
-            continue
-        q_json = q_resp.json()
-        q_tasks = (q_json.get("data") or {}).get("tasks") or []
-        if not q_tasks:
-            # API thỉnh thoảng trả thân rỗng khi bị giới hạn tốc độ — chờ lượt sau
-            continue
-        task = q_tasks[0]
-        status = task.get("status")
-        if status == "succeed":
-            sub = json.loads(task["payload"])["audio_subtitles"][0]
-            audio = requests.get(sub["speech_url"], timeout=60)
-            if audio.status_code != 200:
-                raise SystemExit("tải mp3 lỗi HTTP %s" % audio.status_code)
-            out_dir = os.path.dirname(os.path.abspath(args.out))
-            if out_dir:
-                try:
-                    os.makedirs(out_dir)
-                except OSError:
-                    pass
-            tmp = args.out + ".tmp"
-            with open(tmp, "wb") as fh:
-                fh.write(audio.content)
-            os.rename(tmp, args.out)
-            print(
-                json.dumps(
-                    {
-                        "path": args.out,
-                        "bytes": len(audio.content),
-                        "duration_ms": int(sub.get("duration") or 0),
-                        "hit_cache": bool(sub.get("hit_cache")),
-                        "engine": "capcut",
-                    },
-                    ensure_ascii=False,
-                )
+        try:
+            q_args = CLIArgs(mode="tts-query", task_id=task_id, token=token)
+            q_url, q_headers, q_body = capcut.build_request(q_args)
+            q_resp = requests.post(
+                q_url, headers=q_headers, data=q_body.encode("utf-8"), timeout=4
             )
-            return
-        if status == "failed":
-            if allow_fallback and fallback_edge_tts(args.text, args.out, args.voice):
+            if q_resp.status_code != 200:
+                continue
+            q_json = q_resp.json()
+            q_tasks = (q_json.get("data") or {}).get("tasks") or []
+            if not q_tasks:
+                # API thỉnh thoảng trả thân rỗng khi bị giới hạn tốc độ — chờ lượt sau
+                continue
+            task = q_tasks[0]
+            status = task.get("status")
+            if status == "succeed":
+                sub = json.loads(task["payload"])["audio_subtitles"][0]
+                audio = requests.get(sub["speech_url"], timeout=30)
+                if audio.status_code != 200:
+                    raise SystemExit("tải mp3 lỗi HTTP %s" % audio.status_code)
+                out_dir = os.path.dirname(os.path.abspath(args.out))
+                if out_dir:
+                    try:
+                        os.makedirs(out_dir)
+                    except OSError:
+                        pass
+                tmp = args.out + ".tmp"
+                with open(tmp, "wb") as fh:
+                    fh.write(audio.content)
+                os.rename(tmp, args.out)
+                print(
+                    json.dumps(
+                        {
+                            "path": args.out,
+                            "bytes": len(audio.content),
+                            "duration_ms": int(sub.get("duration") or 0),
+                            "hit_cache": bool(sub.get("hit_cache")),
+                            "engine": "capcut",
+                        },
+                        ensure_ascii=False,
+                    )
+                )
                 return
-            raise SystemExit("CapCut báo lỗi: %s" % task.get("err_msg"))
+            if status == "failed":
+                if allow_fallback and fallback_edge_tts(args.text, args.out, args.voice):
+                    return
+                raise SystemExit("CapCut báo lỗi: %s" % task.get("err_msg"))
+        except Exception:
+            continue
 
     if allow_fallback and fallback_edge_tts(args.text, args.out, args.voice):
         return
