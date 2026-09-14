@@ -221,6 +221,14 @@ def check_telegram(cfg: Config) -> Check | None:
     return Check("Telegram", OK, "bật — kiểm thử bằng `uv run reup telegram test`")
 
 
+def check_web_password() -> Check:
+    """Mật khẩu web không bắt buộc khi chạy local, nhưng nên có để bảo vệ từ xa."""
+    if os.environ.get("REUP_WEB_PASSWORD"):
+        return Check("REUP_WEB_PASSWORD", OK, "đặt")
+    return Check("REUP_WEB_PASSWORD", WARN, "chưa đặt",
+                 "thiết lập để bảo vệ giao diện web khi chạy từ xa")
+
+
 def run_checks(cfg: Config, jobs_dir: Path) -> list[Check]:
     checks = [*check_ffmpeg(), check_ytdlp(), check_js_runtime()]
     for maybe in (check_gemini_key(cfg), check_capcut(cfg), check_telegram(cfg)):
@@ -229,6 +237,7 @@ def run_checks(cfg: Config, jobs_dir: Path) -> list[Check]:
     checks.extend(check_ollama(cfg))
     checks.extend(check_openai(cfg))
     checks.append(check_disk(jobs_dir))
+    checks.append(check_web_password())
     return checks
 
 

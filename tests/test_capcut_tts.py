@@ -1,5 +1,7 @@
 import json
 import subprocess
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -170,3 +172,255 @@ def test_backoff_grows(capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3
 def test_missing_capcut_dir_fails_with_a_useful_message(tmp_path: Path):
     with pytest.raises(CapCutError, match="không thấy"):
         CapCutTTS(tmp_path / "khong-co").voices("vi")
+
+
+def test_timeout_computed_from_max_polls_and_poll_interval(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """Timeout ngoài phải tính từ (max_polls * poll_interval) + 5,
+    không còn là hằng số 15.0."""
+    timeouts_captured = []
+    real_run = subprocess.run
+
+    def capture_timeout(cmd, **kwargs):
+        if "capcut_driver.py" in " ".join(str(c) for c in cmd):
+            timeouts_captured.append(kwargs.get("timeout"))
+            # Giả lập driver thành công
+            out = Path(cmd[cmd.index("--out") + 1])
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(sample_mp3.read_bytes())
+            payload = json.dumps(
+                {"path": str(out), "bytes": out.stat().st_size,
+                 "duration_ms": 2000, "hit_cache": False}
+            )
+            return subprocess.CompletedProcess(cmd, 0, payload, "")
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", capture_timeout)
+
+    # Test với max_polls=10, poll_interval=1.0
+    # Timeout phải là 10*1.0 + 5 = 15.0
+    tts = CapCutTTS(capcut_dir, max_polls=10, poll_interval=1.0)
+    tts.synthesize("test", "vi", "BV074_streaming", tmp_path / "a.wav")
+    assert len(timeouts_captured) == 1
+    assert timeouts_captured[0] == 15.0
+
+
+def test_timeout_scales_with_poll_interval(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """Khi poll_interval thay đổi, timeout phải thay đổi theo."""
+    timeouts_captured = []
+    real_run = subprocess.run
+
+    def capture_timeout(cmd, **kwargs):
+        if "capcut_driver.py" in " ".join(str(c) for c in cmd):
+            timeouts_captured.append(kwargs.get("timeout"))
+            out = Path(cmd[cmd.index("--out") + 1])
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(sample_mp3.read_bytes())
+            payload = json.dumps(
+                {"path": str(out), "bytes": out.stat().st_size,
+                 "duration_ms": 2000, "hit_cache": False}
+            )
+            return subprocess.CompletedProcess(cmd, 0, payload, "")
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", capture_timeout)
+
+    # Test với max_polls=10, poll_interval=2.0
+    # Timeout phải là 10*2.0 + 5 = 25.0 (không phải 15.0)
+    tts = CapCutTTS(capcut_dir, max_polls=10, poll_interval=2.0)
+    tts.synthesize("test", "vi", "BV074_streaming", tmp_path / "b.wav")
+    assert len(timeouts_captured) == 1
+    assert timeouts_captured[0] == 25.0
+
+
+def test_pauses_every_pause_every_successful_calls(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """20 lần gọi liên tiếp, pause_every=12 → chỉ nghỉ đúng 1 lần, ở lần thứ 12."""
+    _fake_driver(monkeypatch, sample_mp3)
+    sleeps: list[float] = []
+    tts = CapCutTTS(capcut_dir, sleep=sleeps.append, pause_every=12, pause_seconds=2.0)
+
+    for i in range(20):
+        tts.synthesize("x", "vi", "BV074_streaming", tmp_path / f"seg_{i}.wav")
+        if i + 1 == 12:
+            assert sleeps == [2.0]
+        else:
+            assert len(sleeps) == (1 if i + 1 >= 12 else 0)
+
+    assert sleeps == [2.0]
+
+
+def test_no_pause_before_reaching_pause_every(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    _fake_driver(monkeypatch, sample_mp3)
+    sleeps: list[float] = []
+    tts = CapCutTTS(capcut_dir, sleep=sleeps.append, pause_every=12, pause_seconds=2.0)
+
+    for i in range(11):
+        tts.synthesize("x", "vi", "BV074_streaming", tmp_path / f"seg_{i}.wav")
+
+    assert sleeps == []
+
+
+def test_empty_text_early_return_does_not_count_toward_pause(
+    capcut_dir: Path, tmp_path: Path, monkeypatch
+):
+    """Đường im lặng cho text rỗng không gọi driver, không nên tính vào bộ đếm."""
+    sleeps: list[float] = []
+    tts = CapCutTTS(capcut_dir, sleep=sleeps.append, pause_every=1, pause_seconds=2.0)
+
+    tts.synthesize("   ", "vi", "BV074_streaming", tmp_path / "a.wav")
+
+    assert sleeps == []
+
+
+def test_empty_text_silence_is_labelled_neither_capcut_nor_fallback(
+    capcut_dir: Path, tmp_path: Path
+):
+    """Đường im lặng cho text rỗng không gọi driver — không phải CapCut thật,
+    không phải edge-tts fallback. Không được để rơi vào default "capcut" của
+    TTSResult, kẻo manifest ghi sai là audio CapCut thật (cùng tinh thần bug
+    mà task này sửa)."""
+    result = CapCutTTS(capcut_dir).synthesize(
+        "   ", "vi", "BV074_streaming", tmp_path / "a.wav"
+    )
+    assert result.engine == "silence"
+
+
+def test_pause_counter_is_thread_safe_under_concurrent_calls(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """Task 1.1 gọi synthesize song song từ nhiều thread — bộ đếm không được
+    đếm trùng hay đếm thiếu, và số lần nghỉ phải khớp count // pause_every."""
+    _fake_driver(monkeypatch, sample_mp3)
+    lock = threading.Lock()
+    sleeps: list[float] = []
+
+    def recording_sleep(seconds: float) -> None:
+        with lock:
+            sleeps.append(seconds)
+
+    pause_every = 5
+    n_calls = 47
+    tts = CapCutTTS(
+        capcut_dir, sleep=recording_sleep, pause_every=pause_every, pause_seconds=1.0
+    )
+
+    def call(i: int) -> None:
+        tts.synthesize("x", "vi", "BV074_streaming", tmp_path / f"c_{i}.wav")
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        list(pool.map(call, range(n_calls)))
+
+    assert tts._request_count == n_calls
+    assert len(sleeps) == n_calls // pause_every
+    assert all(s == 1.0 for s in sleeps)
+
+
+def test_engine_field_defaults_to_capcut_when_driver_omits_it(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """Driver cũ (trước Task 1.5) không có trường `engine` trong JSON —
+    tương thích ngược thì phải coi là "capcut", không được gãy."""
+    _fake_driver(monkeypatch, sample_mp3)
+    result = CapCutTTS(capcut_dir).synthesize(
+        "x", "vi", "BV074_streaming", tmp_path / "a.wav"
+    )
+    assert result.engine == "capcut"
+
+
+def test_edge_tts_fallback_engine_is_surfaced_not_hidden(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path, caplog
+):
+    """Bug thật: driver âm thầm rơi xuống edge-tts mà caller không hề biết.
+    `engine == "edge_tts_fallback"` từ JSON của driver phải nổi lên tới
+    TTSResult, và phải có cảnh báo qua logging — không được nuốt thầm lặng."""
+    state = {"calls": 0}
+    real_run = subprocess.run
+
+    def fake_run(cmd, **kwargs):
+        if "capcut_driver.py" not in " ".join(str(c) for c in cmd):
+            return real_run(cmd, **kwargs)
+        state["calls"] += 1
+        out = Path(cmd[cmd.index("--out") + 1])
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(sample_mp3.read_bytes())
+        payload = json.dumps({
+            "path": str(out), "bytes": out.stat().st_size,
+            "duration_ms": 0, "hit_cache": False,
+            "engine": "edge_tts_fallback",
+        })
+        return subprocess.CompletedProcess(cmd, 0, payload, "")
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    import logging
+    caplog.set_level(logging.WARNING, logger="reup.adapters.capcut_tts")
+
+    result = CapCutTTS(capcut_dir).synthesize(
+        "câu bị đổi giọng", "vi", "BV074_streaming", tmp_path / "a.wav"
+    )
+
+    assert result.engine == "edge_tts_fallback"
+    assert any("edge" in rec.message.lower() for rec in caplog.records)
+    assert any("câu bị đổi giọng" in rec.message for rec in caplog.records)
+
+
+def test_allow_edge_fallback_false_is_passed_to_driver(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    state = _fake_driver(monkeypatch, sample_mp3)
+    CapCutTTS(capcut_dir, allow_edge_fallback=False).synthesize(
+        "x", "vi", "BV074_streaming", tmp_path / "a.wav"
+    )
+    cmd = state["cmds"][0]
+    assert cmd[cmd.index("--allow-fallback") + 1] == "0"
+
+
+def test_allow_edge_fallback_true_by_default(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    state = _fake_driver(monkeypatch, sample_mp3)
+    CapCutTTS(capcut_dir).synthesize("x", "vi", "BV074_streaming", tmp_path / "a.wav")
+    cmd = state["cmds"][0]
+    assert cmd[cmd.index("--allow-fallback") + 1] == "1"
+
+
+def test_allow_edge_fallback_false_and_driver_error_raises_capcuterror(
+    capcut_dir: Path, tmp_path: Path, monkeypatch
+):
+    """tts.allow_edge_fallback = false + driver báo lỗi → CapCutError thật,
+    không rơi vào audio giả — spec mục 0.0.c / Task 1.5."""
+    real_run = subprocess.run
+
+    def fake_run(cmd, **kwargs):
+        if "capcut_driver.py" not in " ".join(str(c) for c in cmd):
+            return real_run(cmd, **kwargs)
+        assert cmd[cmd.index("--allow-fallback") + 1] == "0"
+        return subprocess.CompletedProcess(
+            cmd, 1, "", "CapCut báo lỗi: quá tải, và fallback bị tắt"
+        )
+
+    monkeypatch.setattr(subprocess, "run", fake_run)
+    tts = CapCutTTS(
+        capcut_dir, sleep=lambda s: None, retries=2, allow_edge_fallback=False
+    )
+    with pytest.raises(CapCutError, match="fallback bị tắt"):
+        tts.synthesize("x", "vi", "BV074_streaming", tmp_path / "a.wav")
+
+
+def test_max_polls_passed_to_driver(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """Argument --max-polls phải được truyền cho driver."""
+    state = _fake_driver(monkeypatch, sample_mp3)
+    tts = CapCutTTS(capcut_dir, max_polls=5)
+    tts.synthesize("test", "vi", "BV074_streaming", tmp_path / "c.wav")
+    cmd = state["cmds"][0]
+    assert "--max-polls" in cmd
+    assert cmd[cmd.index("--max-polls") + 1] == "5"

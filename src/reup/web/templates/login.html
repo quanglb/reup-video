@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Đăng nhập · reup</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body class="login-page">
+<main>
+  <div class="login-box">
+    <h1>reup</h1>
+    <form method="post" action="/login">
+      <input type="hidden" name="next" value="{{ next }}">
+      <label>
+        Mật khẩu
+        <input type="password" name="password" autocomplete="current-password" autofocus required>
+      </label>
+      <button class="primary">Đăng nhập</button>
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    </form>
+  </div>
+</main>
+</body>
+</html>

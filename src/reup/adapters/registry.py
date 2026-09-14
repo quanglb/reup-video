@@ -23,7 +23,12 @@ def make_tts(cfg: Config):
             raise CapCutError(
                 "tts.engine = \"capcut\" nhưng chưa đặt tts.capcut_dir trong config.toml"
             )
-        return CapCutTTS(Path(cfg.tts.capcut_dir))
+        return CapCutTTS(
+            Path(cfg.tts.capcut_dir),
+            pause_every=cfg.tts.pause_every,
+            pause_seconds=cfg.tts.pause_seconds,
+            allow_edge_fallback=cfg.tts.allow_edge_fallback,
+        )
     raise ValueError(f"không có TTS engine {engine!r}")
 
 

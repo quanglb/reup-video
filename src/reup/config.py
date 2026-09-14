@@ -69,9 +69,28 @@ class SubtitleConfig:
 
 @dataclass(frozen=True)
 class TTSConfig:
+    """`concurrency` là số câu sinh giọng song song trong một job — khác trục
+    với `profile.concurrency` (số job chạy cùng lúc). Mặc định 3: đủ ẩn độ trễ
+    round-trip của CapCut mà không dồn dập tới ngưỡng server đó gãy (~15
+    request liên tiếp).
+
+    `pause_every`/`pause_seconds`: nghỉ nhịp chủ động sau mỗi `pause_every`
+    request thành công liên tiếp (mặc định 12 — dưới ngưỡng biết là 15), thay
+    vì chỉ retry sau khi đã gãy.
+
+    `allow_edge_fallback`: mặc định `true` để không đổi hành vi hiện tại đột
+    ngột. Đặt `false` thì `capcut_driver.py` không được âm thầm đổi sang
+    edge-tts khi CapCut lỗi — lỗi phải nổi lên thành `CapCutError` thật để
+    lớp ngoài retry đúng nghĩa, thay vì trả một "thành công" giả bằng giọng
+    khác (spec §0.0.c)."""
+
     engine: str = "stub"
     voice: str = "BV074_streaming"
     capcut_dir: str = ""
+    concurrency: int = 3
+    pause_every: int = 12
+    pause_seconds: float = 2.0
+    allow_edge_fallback: bool = True
 
 
 @dataclass(frozen=True)

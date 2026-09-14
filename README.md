@@ -50,6 +50,9 @@ uv run reup doctor                        # kiểm môi trường trước khi c
 uv run reup benchmark                     # đo từng stage trên máy này
 ```
 
+Để truy cập giao diện web từ máy khác trên mạng, xem hướng dẫn bảo vệ với mật khẩu và truy cập từ xa tại
+[`docs/superpowers/plans/2026-09-13-truy-cap-tu-xa.md`](docs/superpowers/plans/2026-09-13-truy-cap-tu-xa.md).
+
 Web UI có bốn tab: **Hàng đợi**, **YouTube**, **TikTok**, **Douyin**. Ba tab sau
 hiện từng video thành thẻ 9:16 kèm ảnh đại diện, độ dài, kênh và lượt xem; bấm
 **▶ Xem** để nạp player nhúng ngay trong trang (iframe chỉ nạp khi bấm, không
@@ -95,6 +98,11 @@ nghe thử **một câu** — chưa chạy `tts` thì server tổng hợp ngay c
 | `asr` | 4.4s | | `compose` | 5.0s |
 | `subdetect` | 8.8s | | `export` | 19s |
 | `ocr` | 8.3s | | **tổng** | **~2 phút** |
+
+Số đo `tts` ở trên là chạy tuần tự (`tts.concurrency = 1`). Với
+`tts.concurrency > 1`, các câu sinh giọng song song nên `tts` có thể nhanh hơn
+đáng kể — mức nhanh hơn bao nhiêu phụ thuộc độ trễ mạng thật tới CapCut ở từng
+môi trường, chưa đo lại trên M4 nên chưa ghi số cụ thể vào bảng.
 
 ## Giá một job tính theo request LLM
 
@@ -164,6 +172,10 @@ Sửa `config.toml`. Vài knob đáng biết:
 - `profile.active` — `air-16` hoặc `studio-24`.
 - `profile.concurrency` — số job chạy song song trong `reup run --all`. Một job
   vẫn chạy tuần tự từng stage; knob này chỉ nói chạy mấy job cùng lúc.
+  Lưu ý: knob này nhân với `tts.concurrency` (số câu song song trong một job)
+  và số worker vẽ PNG phụ đề ở `compose.py` — `profile.concurrency=2` ×
+  `tts.concurrency=3` đã là tối đa 6 request CapCut cùng lúc trên toàn máy,
+  đáng nhớ khi chỉnh hai knob này cùng lúc.
 - `discover.<youtube|tiktok|douyin>.query` — nguồn mặc định của tab quét (xem
   bảng ở trên). `cookies_from_browser = "chrome"` khi nền tảng chặn khách vãng
   lai — TikTok gần như luôn cần, Douyin cần thêm IP ra được Trung Quốc.
@@ -180,6 +192,16 @@ Sửa `config.toml`. Vài knob đáng biết:
   không tốn Neural Engine; hữu ích khi máy quá ì). CapCut STT **không tự nhận
   ngôn ngữ**, nên job phải khai rõ: `reup add <url> --lang zh`.
 - `review.auto_approve_b = true` — bỏ qua chốt duyệt thành phẩm.
+- `tts.concurrency` (mặc định `3`) — số câu sinh giọng song song trong một
+  job; server CapCut gãy sau ~15 request liên tiếp nên đừng đẩy quá cao.
+- `tts.pause_every` / `tts.pause_seconds` (mặc định `12` / `2.0`) — nghỉ nhịp
+  chủ động sau mỗi 12 request thành công liên tiếp, mỗi lần nghỉ 2 giây —
+  tránh chạm ngưỡng gãy của CapCut ở trên.
+- `tts.allow_edge_fallback` (mặc định `true`) — khi CapCut lỗi, `true` cho
+  phép âm thầm đổi sang edge-tts để job chạy tiếp; `false` bắt lỗi CapCut phải
+  raise thật. Dù chọn gì, `tts/manifest.json` cũng ghi field `engine` cho từng
+  câu (`capcut` / `edge_tts_fallback` / `silence`) để biết câu nào không phải
+  giọng CapCut thật.
 
 ## Ba chỗ môi trường bắt đi chệch thiết kế
 

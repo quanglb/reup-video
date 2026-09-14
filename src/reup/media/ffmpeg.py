@@ -21,10 +21,23 @@ class MediaInfo:
     video_bps: int = 0  # 0 khi ffprobe không báo — người gọi phải tự lo
 
 
-def run_ffmpeg(args: list[str]) -> str:
-    """Chạy ffmpeg với -y và -loglevel error. Trả stderr, ném FFmpegError khi lỗi."""
+def run_ffmpeg(args: list[str], timeout_s: float | None = None) -> str:
+    """Chạy ffmpeg với -y và -loglevel error. Trả stderr, ném FFmpegError khi lỗi.
+
+    `timeout_s=None` (mặc định) là chạy không giới hạn thời gian — giữ nguyên
+    hành vi cũ cho các lệnh ffmpeg nhẹ (trích khung hình, ghép audio, ...).
+    Truyền `timeout_s` cho lệnh render nặng (filtergraph nhiều overlay) để
+    tránh treo vô thời hạn khi ffmpeg kẹt.
+    """
     cmd = ["ffmpeg", "-y", "-loglevel", "error", *args]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout_s)
+    except subprocess.TimeoutExpired as exc:
+        raise FFmpegError(
+            f"ffmpeg treo quá {timeout_s}s, khả năng filtergraph quá nhiều "
+            f"overlay/vùng che trong lệnh render\n"
+            f"lệnh: {' '.join(cmd)}"
+        ) from exc
     if proc.returncode != 0:
         raise FFmpegError(
             f"ffmpeg thoát với mã {proc.returncode}\n"

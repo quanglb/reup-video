@@ -28,6 +28,18 @@ def test_capcut_tts_gets_the_dir_from_config(cfg_fixture, tmp_path: Path):
     assert tts.capcut_dir == tmp_path
 
 
+def test_capcut_tts_gets_pause_knobs_from_config(cfg_fixture, tmp_path: Path):
+    cfg = replace(
+        cfg_fixture,
+        tts=TTSConfig(
+            "capcut", "BV074_streaming", str(tmp_path), pause_every=7, pause_seconds=3.5
+        ),
+    )
+    tts = make_tts(cfg)
+    assert tts.pause_every == 7
+    assert tts.pause_seconds == 3.5
+
+
 def test_capcut_tts_without_a_dir_says_which_knob_is_missing(cfg_fixture):
     cfg = replace(cfg_fixture, tts=TTSConfig("capcut", "BV074_streaming", ""))
     with pytest.raises(CapCutError, match="tts.capcut_dir"):

@@ -14,6 +14,9 @@ Homebrew build không có libass (xem `reup/subtitle.py`). Máy nào có libass 
 from __future__ import annotations
 
 import json
+import os
+from dataclasses import dataclass
+from pathlib import Path
 
 from reup.config import Config, TransformConfig, parse_bitrate
 from reup.core.job import Job
@@ -281,11 +284,76 @@ def _max_size(box: dict, cfg: Config) -> int:
     return round(cfg.subtitle.size * 1.5)
 
 
+@dataclass(frozen=True)
+class _RenderJob:
+    """Toàn bộ dữ liệu cần để vẽ một PNG phụ đề — chỉ kiểu dữ liệu thuần (str,
+    int, float, Path, dict), pickle được để gửi sang tiến trình worker.
+
+    Không truyền `Config` hay object font đã load: `Config` thì pickle được
+    (mọi dataclass đều bất biến, chỉ chứa kiểu thuần) nhưng vẫn cồng kềnh hơn
+    cần thiết; còn `find_font` chỉ trả về đường dẫn `Path` (không phải
+    `ImageFont` đã load — bản thân `render_fitted`/`render_line` mới là nơi
+    gọi `ImageFont.truetype`), nên mỗi worker tự load font từ đường dẫn này,
+    y hệt tiến trình cha trước đây.
+    """
+
+    png: Path
+    text: str
+    start_ms: int
+    end_ms: int
+    box: dict | None
+    font: Path
+    outline_ratio: float
+    max_size: int
+    video_w: int
+    video_h: int
+    fallback_size: int
+    fallback_outline: int
+    fallback_position: str
+
+
+def _render_one(rj: _RenderJob) -> Overlay:
+    """Vẽ một PNG phụ đề. Hàm mức module (không phải closure) để
+    `ProcessPoolExecutor` pickle được khi gửi sang worker."""
+    if rj.box:
+        # Không rộng quá khung hình trừ lề, kể cả khi khung chữ gốc sát mép.
+        fit_w = min(rj.box["w"], int(rj.video_w * (1 - SIDE_MARGIN_RATIO * 2)))
+        w, h, _ = render_fitted(
+            rj.text, rj.png, rj.font, fit_w, rj.box["h"], rj.outline_ratio,
+            max_size=rj.max_size,
+            fill=from_hex(rj.box["color"]) if rj.box.get("color") else None,
+            stroke=from_hex(rj.box["outline"], BLACK) if rj.box.get("outline") else None,
+        )
+        x, y = place_in_box(w, h, rj.box, rj.video_w, rj.video_h)
+    else:
+        _, h = render_line(
+            rj.text, rj.png, rj.video_w, rj.font, rj.fallback_size, rj.fallback_outline
+        )
+        x, y = 0, vertical_position(rj.video_h, h, rj.fallback_position, None)
+    return Overlay(path=rj.png, start_ms=rj.start_ms, end_ms=rj.end_ms, x=x, y=y)
+
+
+def _render_workers(n_jobs: int) -> int:
+    """Số worker cho pool vẽ PNG: bị chặn bởi số lõi CPU vì đây là việc thuần
+    CPU-bound (Pillow), không phải bởi `profile.concurrency` — cấu hình đó
+    đếm số JOB chạy song song (một trục khác hẳn), dùng nó ở đây dễ vượt quá
+    số lõi máy khi nhiều job cùng compose một lúc."""
+    cores = os.cpu_count() or 1
+    return max(1, min(cores, n_jobs))
+
+
 def build_overlays(job: Job, cfg: Config) -> list[Overlay]:
     """Vẽ mỗi câu tiếng Việt ra một PNG trong suốt, kèm mốc thời gian của nó.
 
     Có khung chữ gốc thì chữ Việt được co giãn cho vừa khít khung đó và đặt vào
     giữa khung. Không có thì lùi về cỡ chữ và vị trí trong config.
+
+    Từng câu độc lập hoàn toàn với nhau nên việc vẽ (CPU-bound, Pillow) được
+    dàn qua `ProcessPoolExecutor` — khác `tts.synthesize_all` dùng
+    `ThreadPoolExecutor` vì việc đó chờ mạng (I/O-bound), việc này thì không:
+    thread ở đây sẽ giẫm chân nhau qua GIL. Kết quả vẫn trả về đúng thứ tự câu
+    gốc (map theo index, không theo thứ tự hoàn thành) vì `run()` dùng thứ tự
+    này để khớp `-i` với `overlay=...:enable=between(...)` trong filtergraph.
     """
     if not job.translation_json.exists():
         return []
@@ -297,38 +365,51 @@ def build_overlays(job: Job, cfg: Config) -> list[Overlay]:
     out_dir = job.root / "subs"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    overlays = []
+    render_jobs: list[_RenderJob] = []
     for seg in Transcript.load(job.translation_json).segments:
         if not (seg.text or "").strip():
             continue
         png = out_dir / f"sub_{seg.id:04d}.png"
         box = window_for(seg.start_ms, seg.end_ms, windows) if windows else cover
-        if box:
-            # Không rộng quá khung hình trừ lề, kể cả khi khung chữ gốc sát mép.
-            fit_w = min(box["w"], int(info.width * (1 - SIDE_MARGIN_RATIO * 2)))
-            w, h, _ = render_fitted(
-                seg.text, png, font, fit_w, box["h"], outline_ratio,
-                max_size=_max_size(box, cfg),
-                fill=from_hex(box["color"]) if box.get("color") else None,
-                stroke=from_hex(box["outline"], BLACK) if box.get("outline") else None,
+        render_jobs.append(
+            _RenderJob(
+                png=png,
+                text=seg.text,
+                start_ms=seg.start_ms,
+                end_ms=seg.end_ms,
+                box=box,
+                font=font,
+                outline_ratio=outline_ratio,
+                max_size=_max_size(box, cfg) if box else 0,
+                video_w=info.width,
+                video_h=info.height,
+                fallback_size=cfg.subtitle.size,
+                fallback_outline=cfg.subtitle.outline,
+                fallback_position=cfg.subtitle.position,
             )
-            x, y = place_in_box(w, h, box, info.width, info.height)
-        else:
-            _, h = render_line(
-                seg.text, png, info.width, font, cfg.subtitle.size, cfg.subtitle.outline
-            )
-            x, y = 0, vertical_position(info.height, h, cfg.subtitle.position, None)
-        overlays.append(
-            Overlay(path=png, start_ms=seg.start_ms, end_ms=seg.end_ms, x=x, y=y)
         )
-    return overlays
+
+    if len(render_jobs) <= 1:
+        return [_render_one(rj) for rj in render_jobs]
+
+    from concurrent.futures import ProcessPoolExecutor
+
+    workers = _render_workers(len(render_jobs))
+    if workers == 1:
+        return [_render_one(rj) for rj in render_jobs]
+
+    with ProcessPoolExecutor(max_workers=workers) as pool:
+        return list(pool.map(_render_one, render_jobs))
 
 
 def run(job: Job, cfg: Config) -> None:
     job.final_mp4.parent.mkdir(parents=True, exist_ok=True)
+    source_info = probe(job.source_video)
     bitrate = pick_bitrate(
-        probe(job.source_video).video_bps, parse_bitrate(cfg.profile.video_bitrate)
+        source_info.video_bps, parse_bitrate(cfg.profile.video_bitrate)
     )
+    # Sàn 60s cho clip ngắn/máy chậm; clip dài thì cho gấp 4 lần độ dài nguồn.
+    timeout_s = max(60.0, source_info.duration_ms / 1000 * 4)
     has_bgm = job.bgm.exists() and cfg.audio.mode != "drop_original"
     inputs = ["-i", str(job.source_video), "-i", str(job.dub_wav)]
     if has_bgm:
@@ -361,7 +442,7 @@ def run(job: Job, cfg: Config) -> None:
         "-c:a", "aac", "-b:a", "192k",
         "-movflags", "+faststart",
         str(tmp_mp4),
-    ])
+    ], timeout_s=timeout_s)
 
     import os
     os.replace(tmp_mp4, job.final_mp4)

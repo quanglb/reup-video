@@ -1,6 +1,20 @@
 // JS thuần, không build. Sáu việc: đếm âm tiết khi gõ, nghe thử, chọn giọng,
 // lưu sửa, nạp iframe xem thử ở tab quét nguồn, và tự làm mới lúc có job chạy.
 
+// Phiên đăng nhập hết hạn giữa chừng thì server trả 401 cho mọi fetch() —
+// nếu không xử lý, thanh tiến độ / nút bấm cứ im lặng đứng yên mà không ai
+// biết vì sao. Gom kiểm tra vào một hàm dùng chung thay vì lặp lại ở từng
+// chỗ gọi fetch().
+const nativeFetch = window.fetch.bind(window);
+function reupFetch(url, options) {
+  return nativeFetch(url, options).then((res) => {
+    if (res.status === 401) {
+      location.href = '/login?next=' + encodeURIComponent(location.pathname);
+    }
+    return res;
+  });
+}
+
 // Cập nhật tiến trình thời gian thực (Live Progress Polling)
 (function () {
   // 1. Polling trang Hàng đợi (Queue)
@@ -13,7 +27,7 @@
     if (hasRunning) {
       const queueTimer = setInterval(async () => {
         try {
-          const res = await fetch('/api/progress');
+          const res = await reupFetch('/api/progress');
           if (!res.ok) return;
           const data = await res.json();
           let stateChanged = false;
@@ -67,7 +81,7 @@
     if (initialStatus === 'running' || document.querySelector('.spin')) {
       const reviewTimer = setInterval(async () => {
         try {
-          const res = await fetch(`/jobs/${jobId}/progress`);
+          const res = await reupFetch(`/jobs/${jobId}/progress`);
           if (!res.ok) return;
           const data = await res.json();
 
@@ -234,7 +248,7 @@
     const poll = async () => {
       let s;
       try {
-        s = await (await fetch(rescanUrl(uid))).json();
+        s = await (await reupFetch(rescanUrl(uid))).json();
       } catch (e) {
         setTimeout(poll, 3000);
         return;
@@ -255,7 +269,7 @@
       btn.disabled = true;
       btn.textContent = 'Đang mở Chrome…';
       show('');
-      const r = await fetch('/discover/douyin/channels/rescan', {
+      const r = await reupFetch('/discover/douyin/channels/rescan', {
         method: 'POST', body: new URLSearchParams({ uid }),
       });
       const s = await r.json().catch(() => ({}));
@@ -267,7 +281,7 @@
       poll();
     });
     // Tải lại trang giữa lúc đang quét thì theo dõi tiếp.
-    fetch(rescanUrl(uid)).then((r) => r.json()).then((s) => {
+    reupFetch(rescanUrl(uid)).then((r) => r.json()).then((s) => {
       if (s.status === 'running') poll();
     }).catch(() => {});
   });
@@ -341,7 +355,7 @@
 
   async function refreshTts() {
     try {
-      const res = await fetch(`/jobs/${jobId}/progress`);
+      const res = await reupFetch(`/jobs/${jobId}/progress`);
       if (res.ok) applyTts((await res.json()).tts);
     } catch (e) { /* bỏ qua */ }
   }
@@ -414,7 +428,7 @@
         card.classList.add('is-loading');
         card.querySelector('.play-icon').textContent = '…';
         msg.textContent = `Đang tổng hợp câu #${id}…`;
-        const res = await fetch(`/jobs/${jobId}/audio/${id}`);
+        const res = await reupFetch(`/jobs/${jobId}/audio/${id}`);
         if (!res.ok) throw new Error((await res.json()).detail || res.status);
         const blob = await res.blob();
         if (playing !== card) return; // người dùng đã bấm câu khác
@@ -463,7 +477,7 @@
       try {
         const body = new FormData();
         body.append('voice', voice.value);
-        const res = await fetch(`/jobs/${jobId}/voice`, { method: 'POST', body });
+        const res = await reupFetch(`/jobs/${jobId}/voice`, { method: 'POST', body });
         if (!res.ok) throw new Error((await res.json()).detail || res.status);
         const data = await res.json();
         msg.textContent = data.changed
@@ -485,7 +499,7 @@
       const msg = document.getElementById('msg');
       msg.textContent = 'Đang lưu…';
       try {
-        const res = await fetch(`/jobs/${jobId}/segments`, {
+        const res = await reupFetch(`/jobs/${jobId}/segments`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ segments }),
@@ -512,7 +526,7 @@
       btnReveal.disabled = true;
       btnReveal.textContent = '⏳ Đang mở Finder…';
       try {
-        const res = await fetch(`/jobs/${targetJobId}/reveal`, { method: 'POST' });
+        const res = await reupFetch(`/jobs/${targetJobId}/reveal`, { method: 'POST' });
         if (!res.ok) {
           const err = await res.json();
           throw new Error(err.detail || res.status);
@@ -548,7 +562,7 @@
   async function post(url, fields) {
     const body = new FormData();
     Object.entries(fields || {}).forEach(([k, v]) => body.append(k, v));
-    const res = await fetch(url, { method: 'POST', body });
+    const res = await reupFetch(url, { method: 'POST', body });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.detail || res.status);
     return data;
@@ -782,7 +796,7 @@
       confirmBulk(`${ids.length} dự án đã chọn`, () => {
         const body = new FormData();
         ids.forEach((id) => body.append('job_ids', id));
-        report(fetch('/jobs/delete-many', { method: 'POST', body }).then(async (res) => {
+        report(reupFetch('/jobs/delete-many', { method: 'POST', body }).then(async (res) => {
           const data = await res.json().catch(() => ({}));
           if (!res.ok) throw new Error(data.detail || res.status);
           return data;
@@ -805,7 +819,7 @@
   const titles = [...new Set([...cards].map((c) => c.dataset.title).filter(Boolean))];
   const status = document.getElementById('translateStatus');
   if (status) status.textContent = '· 🌐 đang dịch tiêu đề…';
-  fetch('/api/translate-titles', {
+  reupFetch('/api/translate-titles', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ titles }),
@@ -840,7 +854,7 @@
       const want = !btn.classList.contains('on');
       btn.disabled = true;
       try {
-        const res = await fetch('/saved', {
+        const res = await reupFetch('/saved', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ video: JSON.parse(card.dataset.video), saved: want }),
@@ -920,7 +934,7 @@
       btn.disabled = true;
       btn.textContent = '…';
       try {
-        const r = await fetch('/api/tags/translate', {
+        const r = await reupFetch('/api/tags/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ vi, lang: form.elements.lang.value, group: form.elements.group.value }),

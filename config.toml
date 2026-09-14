@@ -56,6 +56,10 @@ commands      = true        # bot nghe lệnh /status /lam... khi chạy `reup w
 engine     = "capcut"          # "capcut" | "stub"
 voice      = "BV074_streaming" # Cô Gái Hoạt Ngôn — xem Voice.json của CapCut
 capcut_dir = "/Applications/_QuangLB/Workspace/Agent/capcut-tts-api"
+concurrency = 3                # số câu sinh giọng song song; server CapCut gãy sau ~15 request liên tiếp
+pause_every = 12                # nghỉ nhịp chủ động sau mỗi 12 request thành công liên tiếp (dưới ngưỡng gãy)
+pause_seconds = 2.0             # số giây nghỉ mỗi lần nghỉ nhịp
+allow_edge_fallback = true      # false: lỗi CapCut phải raise thật, không âm thầm đổi sang edge-tts
 
 # Luật dịch theo thể loại (src/reup/translate_styles.py).
 # "auto" = LLM tự nhận thể loại. Hoặc ép: hai_tinh_huong, drama_tinh_cam,

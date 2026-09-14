@@ -294,6 +294,26 @@ def _cmd_web(args, store: Store) -> int:
             )
             return 1
 
+    import os
+
+    _SAFE_HOSTS = {"127.0.0.1", "localhost", "::1"}
+    if not os.environ.get("REUP_WEB_PASSWORD", ""):
+        canh_bao = (
+            "\033[33mcảnh báo: web KHÔNG có mật khẩu — chỉ an toàn khi chỉ mở trên "
+            "máy này.\033[0m"
+        )
+        print(canh_bao, file=sys.stderr)
+        if args.host not in _SAFE_HOSTS:
+            print(
+                f"từ chối chạy: --host {args.host!r} không phải máy cục bộ "
+                f"({', '.join(sorted(_SAFE_HOSTS))}) và chưa đặt mật khẩu.\n"
+                "  đặt mật khẩu trước khi mở ra mạng ngoài, ví dụ:\n"
+                "  REUP_WEB_PASSWORD=matkhaucuaban uv run reup web --host "
+                f"{args.host}",
+                file=sys.stderr,
+            )
+            return 1
+
     app = create_app(args.config, args.jobs_dir, args.db)
     print(f"giao diện ở http://{args.host}:{args.port}", flush=True)
     # Bot Telegram nghe lệnh chạy nền cùng web: bật web là có bot.

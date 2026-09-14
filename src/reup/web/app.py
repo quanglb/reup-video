@@ -4,13 +4,17 @@ Chỉ đọc ghi trạng thái job; mọi logic xử lý nằm ở `core` và `s
 """
 from __future__ import annotations
 
+import hmac
 import json
+import os
 import re
+import time
 from pathlib import Path
 from urllib.parse import urlencode
 
+import anyio
 from fastapi import Body, FastAPI, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -18,7 +22,7 @@ from reup.adapters.crawl import DiscoverError
 from reup.config import PLATFORMS, load_config
 from reup.core.job import create_job, load_job
 from reup.core.store import Store
-from reup.web import service
+from reup.web import auth, service
 from reup.web.runner import BackgroundRunner
 
 HERE = Path(__file__).parent
@@ -36,6 +40,73 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     app.state.db_path = Path(db_path)
     app.state.runner = BackgroundRunner(app.state.config_path, app.state.jobs_dir, app.state.db_path)
 
+    app.state.password = os.environ.get("REUP_WEB_PASSWORD", "")
+    app.state.session_secret = b""
+    if app.state.password:
+        app.state.session_secret = auth.secret_for(
+            app.state.password, explicit=os.environ.get("REUP_WEB_SECRET", "")
+        )
+
+        @app.middleware("http")
+        async def require_login(request: Request, call_next):
+            path = request.url.path
+            if path == "/login" or path.startswith("/static/"):
+                return await call_next(request)
+            token = request.cookies.get(auth.COOKIE, "")
+            if auth.verify_token(app.state.session_secret, token, time.time()):
+                return await call_next(request)
+            wants_page = (
+                request.method == "GET"
+                and "text/html" in request.headers.get("accept", "")
+            )
+            if wants_page:
+                url = f"/login?{urlencode({'next': path})}"
+                return RedirectResponse(url, status_code=303)
+            return JSONResponse({"detail": "cần đăng nhập"}, status_code=401)
+
+        def is_https(request: Request) -> bool:
+            return (
+                request.url.scheme == "https"
+                or request.headers.get("x-forwarded-proto", "") == "https"
+            )
+
+        def render_login(request: Request, next_: str, error: str = "", status_code: int = 200):
+            return templates.TemplateResponse(
+                request,
+                "login.html",
+                {"next": auth.safe_next(next_), "error": error},
+                status_code=status_code,
+            )
+
+        @app.get("/login", response_class=HTMLResponse)
+        def login_form(request: Request, next: str = "/"):
+            return render_login(request, next)
+
+        @app.post("/login", response_class=HTMLResponse)
+        async def login_submit(
+            request: Request, password: str = Form(...), next: str = Form("/")
+        ):
+            if not hmac.compare_digest(password.encode(), app.state.password.encode()):
+                # async + anyio.sleep (không phải time.sleep) để không chiếm
+                # một worker trong threadpool dùng chung của AnyIO — nếu không,
+                # ~40 request sai mật khẩu đồng thời (chưa cần đăng nhập) đủ
+                # nghẽn toàn bộ app cho mọi người dùng khác.
+                await anyio.sleep(1)  # làm chậm dò mật khẩu
+                return render_login(request, next, "Sai mật khẩu")
+            token = auth.make_token(app.state.session_secret, time.time())
+            resp = RedirectResponse(auth.safe_next(next), status_code=303)
+            resp.set_cookie(
+                auth.COOKIE, token, max_age=auth.MAX_AGE, httponly=True,
+                samesite="lax", secure=is_https(request),
+            )
+            return resp
+
+        @app.post("/logout")
+        def logout(request: Request):
+            resp = RedirectResponse("/login", status_code=303)
+            resp.delete_cookie(auth.COOKIE)
+            return resp
+
     def store() -> Store:
         s = Store(app.state.db_path)
         s.init_schema()
@@ -49,6 +120,23 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             return load_job(app.state.jobs_dir, job_id)
         except FileNotFoundError:
             raise HTTPException(status_code=404, detail=f"không có job {job_id}")
+
+    def is_direct_server_request(request: Request) -> bool:
+        """True khi request tới thẳng từ chính máy server (không qua proxy).
+
+        `request.client.host` vẫn là 127.0.0.1 khi request đi qua
+        `tailscale serve` (hoặc proxy khác) rồi mới tới app — nên phải xét
+        thêm header do proxy gắn vào (Tailscale-User-Login, X-Forwarded-For).
+        Thiếu bước này thì admin ở xa cũng bị tưởng nhầm là ngồi tại server.
+        """
+        host = request.client.host if request.client else None
+        if host not in ("127.0.0.1", "::1"):
+            return False
+        if request.headers.get("Tailscale-User-Login"):
+            return False
+        if request.headers.get("X-Forwarded-For"):
+            return False
+        return True
 
     @app.get("/", response_class=HTMLResponse)
     def queue(
@@ -766,6 +854,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "running": app.state.runner.is_running(job_id),
                 "progress": progress,
                 "title": f"Duyệt {job_id}",
+                "show_reveal": is_direct_server_request(request),
             },
         )
 
@@ -841,6 +930,20 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             s.close()
         app.state.runner.start(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.get("/jobs/{job_id}/download")
+    def download_video(job_id: str):
+        job = job_or_404(job_id)
+        c = cfg()
+        out_mp4 = Path(c.review.output_dir) / f"{job.id}.mp4"
+        target = None
+        if out_mp4.exists():
+            target = out_mp4
+        elif job.final_mp4.exists():
+            target = job.final_mp4
+        if not target:
+            raise HTTPException(status_code=404, detail="Chưa có file thành phẩm để tải")
+        return FileResponse(target, filename=f"{job.id}.mp4", media_type="video/mp4")
 
     @app.post("/jobs/{job_id}/reveal")
     def reveal(job_id: str):

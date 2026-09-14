@@ -13,7 +13,9 @@ Ba điều học được lúc khảo sát, đều nằm trong code dưới đâ
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Callable
@@ -22,6 +24,8 @@ from reup.adapters.tts import TTSResult, Voice
 from reup.media.audio import duration_ms, to_wav
 
 DRIVER = Path(__file__).with_name("capcut_driver.py")
+
+logger = logging.getLogger(__name__)
 
 # rate không có tác dụng — hằng số này tồn tại để nói rõ đó là lựa chọn, không
 # phải quên. Xem spec §7.7.
@@ -39,11 +43,27 @@ class CapCutTTS:
         sleep: Callable[[float], None] = time.sleep,
         retries: int = 3,
         poll_interval: float = 1.0,
+        max_polls: int = 10,
+        pause_every: int = 12,
+        pause_seconds: float = 2.0,
+        allow_edge_fallback: bool = True,
     ) -> None:
         self.capcut_dir = Path(capcut_dir)
         self.sleep = sleep
         self.retries = retries
         self.poll_interval = poll_interval
+        self.max_polls = max_polls
+        # <= 0 nghĩa là "không bao giờ nghỉ nhịp" — clamp về 0 để
+        # `_count_success_and_maybe_pause` tắt hẳn nhánh `%` thay vì
+        # ZeroDivisionError khi ai đó lỡ đặt pause_every = 0 trong config.
+        self.pause_every = max(0, pause_every)
+        self.pause_seconds = pause_seconds
+        # tts.allow_edge_fallback trong config.toml. False thì driver không
+        # được âm thầm đổi sang edge-tts nữa — lỗi phải nổi lên thành
+        # CapCutError thật để retry đúng nghĩa (xem capcut_driver.py).
+        self.allow_edge_fallback = allow_edge_fallback
+        self._request_count = 0
+        self._lock = threading.Lock()
 
     @property
     def _python(self) -> Path:
@@ -75,6 +95,30 @@ class CapCutTTS:
             if v["lan"] == lang
         ]
 
+    def _count_success_and_maybe_pause(self) -> None:
+        """Đếm request thành công liên tục (thread-safe); nghỉ nhịp chủ động
+        mỗi `pause_every` lần để không chạm ngưỡng gãy ~15 của server CapCut."""
+        with self._lock:
+            self._request_count += 1
+            should_pause = (
+                self.pause_every > 0 and self._request_count % self.pause_every == 0
+            )
+        if should_pause:
+            self.sleep(self.pause_seconds)
+
+    @staticmethod
+    def _parse_engine(stdout: str) -> str:
+        """Đọc trường `engine` từ JSON in ra bởi driver.
+
+        Mặc định "capcut" nếu thiếu (driver cũ chưa có trường này) hoặc nếu
+        stdout không đọc được — không được để lỗi đọc JSON làm mất kết quả
+        thành công thật."""
+        try:
+            payload = json.loads((stdout or "").strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            return "capcut"
+        return str(payload.get("engine") or "capcut")
+
     def synthesize(self, text: str, lang: str, voice: str, out: Path) -> TTSResult:
         table = {v["voice_type"]: v for v in self._voice_table()}
         if voice not in table:
@@ -93,7 +137,11 @@ class CapCutTTS:
         if not clean_text or not any(ch.isalnum() for ch in clean_text):
             from reup.media.audio import silence
             silence(out, 500)
-            return TTSResult(path=out, actual_ms=500)
+            # Không gọi driver, không CapCut, không edge-tts — audio là im
+            # lặng sinh cục bộ. Phải gán engine tường minh, không để rơi vào
+            # default "capcut" của TTSResult (cùng tinh thần bug mà task này
+            # sửa: không được gắn nhãn sai nguồn gốc audio trong manifest).
+            return TTSResult(path=out, actual_ms=500, engine="silence")
 
         cmd = [
             str(self._python), str(DRIVER),
@@ -104,19 +152,36 @@ class CapCutTTS:
             "--resource-id", table[voice]["resource_id"],
             "--rate", FIXED_RATE,
             "--poll-interval", str(self.poll_interval),
+            "--max-polls", str(self.max_polls),
+            "--allow-fallback", "1" if self.allow_edge_fallback else "0",
         ]
+
+        # Tính timeout ngoài dựa trên max_polls và poll_interval.
+        # Thêm 5s buffer để driver có đủ thời gian return/raise bình thường
+        # trước khi lớp ngoài timeout.
+        outer_timeout = self.max_polls * self.poll_interval + 5.0
 
         last = ""
         for attempt in range(self.retries):
             try:
-                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15.0)
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=outer_timeout)
             except subprocess.TimeoutExpired:
-                last = "Driver timeout sau 15s"
+                last = f"Driver timeout sau {outer_timeout}s"
             else:
                 if proc.returncode == 0:
+                    engine = self._parse_engine(proc.stdout)
                     to_wav(mp3, out)
                     mp3.unlink(missing_ok=True)
-                    return TTSResult(path=out, actual_ms=duration_ms(out))
+                    self._count_success_and_maybe_pause()
+                    if engine == "edge_tts_fallback":
+                        logger.warning(
+                            "CapCut TTS rơi xuống edge-tts fallback cho câu %r "
+                            "(giọng %s, ra %s) — audio KHÔNG phải giọng CapCut thật",
+                            text[:80], voice, out,
+                        )
+                    return TTSResult(
+                        path=out, actual_ms=duration_ms(out), engine=engine
+                    )
                 last = (proc.stderr or proc.stdout).strip()
             if attempt < self.retries - 1:
                 self.sleep(2**attempt)
