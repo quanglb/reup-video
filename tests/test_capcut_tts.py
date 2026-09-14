@@ -279,6 +279,19 @@ def test_empty_text_early_return_does_not_count_toward_pause(
     assert sleeps == []
 
 
+def test_empty_text_silence_is_labelled_neither_capcut_nor_fallback(
+    capcut_dir: Path, tmp_path: Path
+):
+    """Đường im lặng cho text rỗng không gọi driver — không phải CapCut thật,
+    không phải edge-tts fallback. Không được để rơi vào default "capcut" của
+    TTSResult, kẻo manifest ghi sai là audio CapCut thật (cùng tinh thần bug
+    mà task này sửa)."""
+    result = CapCutTTS(capcut_dir).synthesize(
+        "   ", "vi", "BV074_streaming", tmp_path / "a.wav"
+    )
+    assert result.engine == "silence"
+
+
 def test_pause_counter_is_thread_safe_under_concurrent_calls(
     capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
 ):

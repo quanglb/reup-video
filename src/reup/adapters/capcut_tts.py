@@ -132,7 +132,11 @@ class CapCutTTS:
         if not clean_text or not any(ch.isalnum() for ch in clean_text):
             from reup.media.audio import silence
             silence(out, 500)
-            return TTSResult(path=out, actual_ms=500)
+            # Không gọi driver, không CapCut, không edge-tts — audio là im
+            # lặng sinh cục bộ. Phải gán engine tường minh, không để rơi vào
+            # default "capcut" của TTSResult (cùng tinh thần bug mà task này
+            # sửa: không được gắn nhãn sai nguồn gốc audio trong manifest).
+            return TTSResult(path=out, actual_ms=500, engine="silence")
 
         cmd = [
             str(self._python), str(DRIVER),
