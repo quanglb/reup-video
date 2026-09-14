@@ -1,0 +1,209 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="job-head" data-job-id="{{ job.id }}" data-title="{{ details.title or job.id }}" data-name="{{ details.name }}">
+  <a href="{{ '/?view=archived' if details.archived else '/' }}" class="back">← {{ 'Lưu trữ' if details.archived else 'Dự án' }}</a>
+  <div class="title-row">
+    <h1 class="job-title" title="{{ details.title or job.id }}">{{ details.title or job.id }}</h1>
+    <button type="button" class="icon-btn" data-action="rename" title="Đổi tên">✎</button>
+    <span class="pill {{ row.status if row else 'unknown' }}" id="jobStatusBadge">{{ row.status if row else '?' }}</span>
+    {% if row and row.stage %}<span class="stage" id="jobStageBadge">{{ row.stage }}</span>{% endif %}
+    {% if details.archived %}<span class="pill archived">🗄 đã lưu trữ</span>{% endif %}
+    <span class="spacer"></span>
+    <a class="btn ghost" href="{{ job.source_url }}" target="_blank" rel="noopener">↗ Link gốc</a>
+    {% if details.archived %}
+      <button type="button" class="ghost" data-action="unarchive">↩ Bỏ lưu trữ</button>
+    {% else %}
+      <button type="button" class="ghost" data-action="archive">🗄 Lưu trữ</button>
+    {% endif %}
+    <button type="button" class="ghost danger-text" data-action="delete" {% if running %}disabled title="Đang chạy, dừng rồi mới xoá được"{% endif %}>🗑 Xoá</button>
+  </div>
+  <p class="sub">
+    <span class="job-id">{{ job.id }}</span>
+    {% if details.source_title and details.source_title != details.title %} · {{ details.source_title }}{% endif %}
+    {% if details.uploader %} · 👤 {{ details.uploader }}{% endif %}
+  </p>
+</div>
+
+<dialog id="confirmDelete" class="modal">
+  <form method="dialog">
+    <h2>Xoá dự án?</h2>
+    <p>Xoá vĩnh viễn <b id="deleteName"></b> — gồm video gốc, bản dịch, giọng đọc, thành phẩm trong <code>output/</code>. Không hoàn tác được.</p>
+    <p class="hint-soft">Muốn giữ lại để xem sau thì dùng <b>Lưu trữ</b>.</p>
+    <div class="modal-actions">
+      <button value="archive">🗄 Lưu trữ thay vì xoá</button>
+      <span class="spacer"></span>
+      <button value="cancel">Huỷ</button>
+      <button value="ok" class="danger-btn">🗑 Xoá</button>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast" hidden></div>
+
+<div class="progress-card" id="jobProgressCard" data-job-id="{{ job.id }}" data-status="{{ row.status if row else 'pending' }}">
+  <div class="progress-header">
+    <div class="progress-title">
+      <span class="progress-status-text" id="progressStatusText">
+        {% if row and row.status == 'running' %}
+          Đang thực hiện: <b>{{ progress.stage_label }}</b>
+        {% elif row and row.status == 'needs_review' %}
+          <b>{{ progress.stage_label }}</b>
+        {% elif row and row.status == 'done' %}
+          <b>Hoàn thành toàn bộ quy trình</b>
+        {% elif row and row.status == 'failed' %}
+          <b>Lỗi tại: {{ progress.stage_label }}</b>
+        {% else %}
+          <b>{{ progress.stage_label }}</b>
+        {% endif %}
+      </span>
+    </div>
+    <div class="progress-pct-badge" id="progressPctBadge">{{ progress.percent }}%</div>
+  </div>
+
+  <div class="progress-bar-large">
+    <div class="progress-fill {{ row.status if row else 'pending' }}" id="progressBarFill" style="width: {{ progress.percent }}%"></div>
+  </div>
+
+  <div class="pipeline-stepper" id="pipelineStepper">
+    {% for st in progress.stages %}
+      <div class="step-item step-{{ st.status }}" data-stage-name="{{ st.name }}" title="{{ st.label }}{% if st.duration_s %} ({{ st.duration_s }}s){% endif %}">
+        <div class="step-icon">
+          {% if st.status == 'done' %}✓
+          {% elif st.status == 'running' %}⏳
+          {% elif st.status == 'needs_review' %}⏸
+          {% elif st.status == 'failed' %}✕
+          {% else %}{{ st.step }}
+          {% endif %}
+        </div>
+        <div class="step-name">{{ st.label }}</div>
+        {% if st.duration_s %}
+          <div class="step-time">{{ st.duration_s }}s</div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+
+  <details class="logs-accordion" id="logsAccordion" {% if progress.logs or (row and row.status in ('running', 'failed')) %}open{% endif %}>
+    <summary>Nhật ký hoạt động (<span id="logsCount">{{ progress.logs|length }}</span> mục)</summary>
+    <div class="logs-console" id="logsConsole">
+      {% if not progress.logs %}
+        <div class="log-empty">Chưa có nhật ký hoạt động nào.</div>
+      {% else %}
+        {% for l in progress.logs %}
+          <div class="log-line {{ 'log-ok' if l.ok else 'log-err' }}">
+            <span class="log-tag">[{{ l.stage }}]</span>
+            <span class="log-desc">{{ l.label }}</span>
+            <span class="log-status">{{ '✓ Xong' if l.ok else '✕ Lỗi' }}</span>
+            {% if l.duration_s %}<span class="log-dur">({{ l.duration_s }}s)</span>{% endif %}
+            {% if l.error %}<pre class="log-err-detail">{{ l.error }}</pre>{% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+  </details>
+</div>
+
+<div class="split">
+  <section class="player">
+    <div class="player-block">
+      <h3>Video gốc</h3>
+      <video controls src="/jobs/{{ job.id }}/source"></video>
+    </div>
+    {% if has_video %}
+      <div class="player-block final-block">
+        <div class="final-header">
+          <h3>Thành phẩm</h3>
+          <button type="button" class="btn-finder" id="btnRevealFinder" title="Mở file thành phẩm trong Finder (Mac)">📁 Mở trong Finder</button>
+        </div>
+        <video controls src="/jobs/{{ job.id }}/final"></video>
+      </div>
+    {% endif %}
+  </section>
+
+  <section class="editor" data-job="{{ job.id }}">
+    {% if not rows %}
+      {% if running %}
+        <p class="empty spin">Đang chạy{% if row and row.stage %} — stage <b>{{ row.stage }}</b>{% endif %}. Trang tự làm mới.</p>
+      {% else %}
+        <p class="empty">Chưa có bản dịch.</p>
+        <form method="post" action="/jobs/{{ job.id }}/run">
+          <button class="primary">{{ 'Chạy lại' if row and row.status == 'failed' else 'Chạy job này' }}</button>
+        </form>
+      {% endif %}
+    {% else %}
+    {% set pct = (tts_ready * 100 // rows|length) if rows else 0 %}
+    <div class="tts-summary" id="ttsSummary" data-total="{{ rows|length }}">
+      <div class="tts-sum-top">
+        <div class="tts-sum-text">🎙 Giọng đọc: <b id="ttsReady">{{ tts_ready }}</b>/{{ rows|length }} câu đã tổng hợp</div>
+        <span class="spacer"></span>
+        <button type="button" class="ghost" id="playAll" title="Phát lần lượt các câu đã có giọng">▶ Phát lần lượt</button>
+      </div>
+      <div class="tts-bar"><div class="tts-bar-fill" id="ttsBarFill" style="width: {{ pct }}%"></div></div>
+      <div class="seg-filter" id="segFilter">
+        <button type="button" class="on" data-filter="all">Tất cả <b>{{ rows|length }}</b></button>
+        <button type="button" data-filter="ready">Đã có giọng <b id="fReady">{{ tts_ready }}</b></button>
+        <button type="button" data-filter="missing">Chưa có <b id="fMissing">{{ rows|length - tts_ready }}</b></button>
+        <button type="button" data-filter="warn">Cần xem <b>{{ rows|selectattr('over')|list|length + rows|rejectattr('over')|selectattr('flags')|list|length }}</b></button>
+      </div>
+    </div>
+
+    <div class="seg-list" id="segList">
+      {% for s in rows %}
+        {% set st = s.tts.state if s.tts else 'none' %}
+        <article class="seg-card tts-{{ st }} {{ 'warn' if s.over or s.flags }}" data-seg-id="{{ s.id }}" data-tts="{{ st }}" data-v="{{ s.tts.v if s.tts else '' }}">
+          <button type="button" class="play" data-seg="{{ s.id }}" title="Nghe câu này">
+            <span class="play-icon">▶</span>
+          </button>
+          <div class="seg-main">
+            <div class="seg-meta">
+              <span class="seg-no">#{{ s.id }}</span>
+              <span class="time">{{ '%d:%02d'|format(s.start_ms // 60000, (s.start_ms // 1000) % 60) }} → {{ '%d:%02d'|format(s.end_ms // 60000, (s.end_ms // 1000) % 60) }}</span>
+              <span class="count {{ 'over' if s.over }}" data-budget="{{ s.budget }}" title="Âm tiết / ngân sách">
+                <span data-count="{{ s.id }}">{{ s.syllables }}</span>/{{ s.budget }} âm tiết
+              </span>
+              {% for f in s.flags %}<span class="flag">{{ f }}</span>{% endfor %}
+              <span class="spacer"></span>
+              <span class="tts-chip" data-chip="{{ s.id }}">
+                {% if st == 'tts' %}✓ Đã có giọng{% if s.tts.ms %} · {{ '%.1f'|format(s.tts.ms / 1000) }}s{% endif %}
+                {% elif st == 'preview' %}◐ Bản nghe thử
+                {% else %}○ Chưa có giọng{% endif %}
+              </span>
+            </div>
+            {% if s.source_text %}<div class="src">{{ s.source_text }}</div>{% endif %}
+            <textarea data-seg="{{ s.id }}" rows="2">{{ s.text }}</textarea>
+            <div class="play-progress"><div></div></div>
+          </div>
+        </article>
+      {% endfor %}
+    </div>
+
+    <div class="actions">
+      {% if voices %}
+      <label class="voice">Giọng
+        <select id="voice">
+          {% for v in voices %}
+            <option value="{{ v.id }}" {{ 'selected' if v.id == voice }}>{{ v.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+      {% endif %}
+      <button id="save">Lưu sửa</button>
+      {% if row and row.status == 'needs_review' %}
+        <form method="post" action="/jobs/{{ job.id }}/approve" style="display:inline">
+          <input type="hidden" name="gate" value="a">
+          <button class="primary">Duyệt và chạy tiếp</button>
+        </form>
+      {% elif row and row.status == 'done' %}
+        <form method="post" action="/jobs/{{ job.id }}/rerender" style="display:inline">
+          <button class="primary" title="Dựng lại video với câu/giọng đã sửa">🔄 Dựng lại video</button>
+        </form>
+      {% elif row and row.status == 'failed' %}
+        <form method="post" action="/jobs/{{ job.id }}/run" style="display:inline">
+          <button class="primary">Chạy lại</button>
+        </form>
+      {% endif %}
+      <span id="msg"></span>
+    </div>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

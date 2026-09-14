@@ -5,13 +5,21 @@ active = "air-16"
 concurrency    = 1
 whisper_model  = "mlx-community/whisper-large-v3-turbo-q4"
 demucs_segment = 7
+demucs_model   = "htdemucs"
+demucs_device  = "mps"
 encoder        = "h264_videotoolbox"
+video_bitrate  = "8M"
+prefer_h264    = false   # bật trên máy không có hardware AV1 decode (Intel, M1, M2)
 
 [profile.studio-24]
 concurrency    = 2
 whisper_model  = "mlx-community/whisper-large-v3-turbo"
 demucs_segment = 12
+demucs_model   = "htdemucs"
+demucs_device  = "mps"
 encoder        = "h264_videotoolbox"
+video_bitrate  = "12M"
+prefer_h264    = false
 
 [audio]
 mode     = "separate"
@@ -29,4 +37,84 @@ outline  = 4
 position = "bottom"
 
 [review]
-auto_approve_b = false
+auto_approve   = true   # Tự động 100%: bỏ qua các bước duyệt thủ công, chạy thẳng ra file xuất bản
+auto_approve_a = true   # Tự động duyệt bản dịch (chốt A)
+auto_approve_b = true   # Tự động duyệt thành phẩm (chốt B)
+
+# Bot Telegram báo cáo tình hình khi làm video. Token để trong .env:
+#   TELEGRAM_BOT_TOKEN=...   (lấy ở @BotFather)
+# Chat id: nhắn cho bot một tin rồi chạy `uv run reup telegram chat-id`.
+[notify]
+telegram      = true
+chat_id       = 5236378815          # trống = đọc TELEGRAM_CHAT_ID trong .env
+stage_updates = true        # một tin tiến trình, tự sửa sau từng bước
+send_video    = false       # gửi kèm file thành phẩm (≤ 50MB)
+web_url       = "http://127.0.0.1:8765"
+commands      = true        # bot nghe lệnh /status /lam... khi chạy `reup web`
+
+[tts]
+engine     = "capcut"          # "capcut" | "stub"
+voice      = "BV074_streaming" # Cô Gái Hoạt Ngôn — xem Voice.json của CapCut
+capcut_dir = "/Applications/_QuangLB/Workspace/Agent/capcut-tts-api"
+
+# Luật dịch theo thể loại (src/reup/translate_styles.py).
+# "auto" = LLM tự nhận thể loại. Hoặc ép: hai_tinh_huong, drama_tinh_cam,
+# review_ban_hang, huong_dan, kien_thuc_ke_chuyen, vlog_doi_song, dong_vat_cute, chung.
+# Ghi đè từng job: thêm {"genre": "..."} vào jobs/<id>/overrides.json.
+[translate]
+genre = "auto"
+
+[asr]
+engine = "whisper"             # "whisper" | "capcut"
+
+# Chạy AI qua 9router local (OpenAI-compatible) với Gemini 3.7 Flash Medium.
+[llm]
+provider  = "openai"            # "gemini" | "ollama" | "openai" | "cassette"
+model     = "ag/gemini-3.7-flash-medium"
+base_url  = "http://localhost:20128/v1"
+timeout_s = 120.0
+
+[llm.translate]
+provider = "openai"
+model    = "ag/gemini-3.7-flash-medium"
+
+[llm.reconcile]
+provider = "openai"
+model    = "ag/gemini-3.7-flash-medium"
+
+[llm.fit]
+provider = "openai"
+model    = "ag/gemini-3.7-flash-medium"
+
+[llm.export]
+provider = "openai"
+model    = "ag/gemini-3.7-flash-medium"
+
+# YouTube bắt giải "JS challenge" mới trả link tải. yt-dlp cần một JS runtime
+# (deno, node, hoặc bun) và script giải challenge tải từ GitHub. Thiếu chúng thì
+# MỌI video YouTube đều báo "This video is not available".
+# js_runtime rỗng = tự dò. remote_components rỗng = không chạy mã tải từ GitHub,
+# đổi lại YouTube hỏng.
+[fetch]
+js_runtime        = ""
+remote_components = "ejs:github"
+
+# Quét nguồn cho tab "YouTube / TikTok / Douyin" trong Web UI và lệnh `reup discover`.
+# `query`: hashtag, @tên người dùng, hoặc nguyên một URL trang nguồn.
+# TikTok và Douyin chặn khách vãng lai — đặt cookies_from_browser ("chrome",
+# "safari", "firefox"…) hoặc cookie_file (định dạng Netscape) thì mới quét được.
+# Douyin còn cần IP ra được Trung Quốc (spec R1).
+# youtube.query: chữ trần = tìm kiếm, "#tag" = hashtag, "@tên" = kênh, hoặc URL.
+[discover.youtube]
+query = "#shorts"
+limit = 12
+
+[discover.tiktok]
+query = "xuhuong"
+limit = 12
+cookies_from_browser = ""
+
+[discover.douyin]
+query = ""
+limit = 12
+cookies_from_browser = ""

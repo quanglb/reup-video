@@ -11,12 +11,17 @@ def duration_ms(path: Path) -> int:
 
 
 def extract_audio(src: Path, out: Path, sample_rate: int, channels: int) -> None:
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp.wav")
+    if tmp.exists():
+        tmp.unlink()
     run_ffmpeg([
         "-i", str(src), "-vn",
         "-ac", str(channels), "-ar", str(sample_rate),
-        "-c:a", "pcm_s16le", str(out),
+        "-c:a", "pcm_s16le", str(tmp),
     ])
+    tmp.replace(out)
 
 
 def atempo_filter(ratio: float) -> str:
@@ -36,27 +41,42 @@ def atempo_filter(ratio: float) -> str:
 
 
 def apply_tempo(src: Path, out: Path, ratio: float) -> None:
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp.wav")
+    if tmp.exists():
+        tmp.unlink()
     run_ffmpeg([
         "-i", str(src), "-filter:a", atempo_filter(ratio),
-        "-c:a", "pcm_s16le", str(out),
+        "-c:a", "pcm_s16le", str(tmp),
     ])
+    tmp.replace(out)
 
 
 def silence(out: Path, ms: int, sample_rate: int = 48000, channels: int = 2) -> None:
     layout = "mono" if channels == 1 else "stereo"
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp.wav")
+    if tmp.exists():
+        tmp.unlink()
     run_ffmpeg([
         "-f", "lavfi", "-i", f"anullsrc=r={sample_rate}:cl={layout}",
-        "-t", f"{ms / 1000:.3f}", "-c:a", "pcm_s16le", str(out),
+        "-t", f"{ms / 1000:.3f}", "-c:a", "pcm_s16le", str(tmp),
     ])
+    tmp.replace(out)
 
 
 def build_timeline(
     placements: list[tuple[int, Path]], total_ms: int, out: Path
 ) -> None:
     """Đặt mỗi wav vào mốc start_ms của nó trên nền im lặng dài total_ms."""
-    Path(out).parent.mkdir(parents=True, exist_ok=True)
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    tmp = out.with_suffix(".tmp.wav")
+    if tmp.exists():
+        tmp.unlink()
+
     if not placements:
         silence(out, total_ms)
         return
@@ -78,6 +98,28 @@ def build_timeline(
     args += [
         "-filter_complex", ";".join(chains),
         "-map", "[out]", "-t", f"{total_ms / 1000:.3f}",
-        "-c:a", "pcm_s16le", str(out),
+        "-c:a", "pcm_s16le", str(tmp),
     ]
     run_ffmpeg(args)
+    tmp.replace(out)
+
+
+def to_wav(src: Path, out: Path, sample_rate: int = 48000, channels: int = 2) -> None:
+    """Chuyển audio bất kỳ sang wav PCM đúng định dạng timeline dùng.
+
+    CapCut trả mp3 24kHz mono; `build_timeline` cần wav 48kHz stereo.
+    """
+    extract_audio(src, out, sample_rate=sample_rate, channels=channels)
+
+
+def to_mp3(src: Path, out: Path, bitrate: str = "128k") -> None:
+    """Chuyển audio sang mp3 mono 24kHz.
+
+    Dịch vụ upload của CapCut đọc mp3/m4a/mp4 chứ không chắc đọc được wav, nên
+    `CapCutSTT` nén lại trước khi đẩy lên. Mono 24kHz là đủ cho ASR và cắt
+    được phần lớn thời gian upload.
+    """
+    run_ffmpeg([
+        "-i", str(src), "-vn", "-ac", "1", "-ar", "24000",
+        "-c:a", "libmp3lame", "-b:a", bitrate, str(out),
+    ])

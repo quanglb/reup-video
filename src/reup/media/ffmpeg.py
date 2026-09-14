@@ -18,6 +18,7 @@ class MediaInfo:
     height: int
     has_video: bool
     has_audio: bool
+    video_bps: int = 0  # 0 khi ffprobe không báo — người gọi phải tự lo
 
 
 def run_ffmpeg(args: list[str]) -> str:
@@ -55,4 +56,49 @@ def probe(path: Path) -> MediaInfo:
         height=int(video["height"]) if video else 0,
         has_video=video is not None,
         has_audio=audio is not None,
+        video_bps=_video_bps(raw, video, duration),
     )
+
+
+def _video_bps(raw: dict, video: dict | None, duration: float) -> int:
+    """Bitrate của riêng stream video.
+
+    mp4 từ yt-dlp thường không ghi `bit_rate` ở stream, nên phải suy ra từ
+    `format.bit_rate` trừ đi phần audio, hoặc cuối cùng là từ kích thước file.
+    """
+    if video is None:
+        return 0
+    if video.get("bit_rate"):
+        return int(float(video["bit_rate"]))
+
+    fmt = raw.get("format", {})
+    audio_bps = sum(
+        int(float(s["bit_rate"]))
+        for s in raw.get("streams", [])
+        if s.get("codec_type") == "audio" and s.get("bit_rate")
+    )
+    if fmt.get("bit_rate"):
+        return max(0, int(float(fmt["bit_rate"])) - audio_bps)
+    if fmt.get("size") and duration > 0:
+        total = int(float(fmt["size"])) * 8 / duration
+        return max(0, round(total - audio_bps))
+    return 0
+
+
+def has_filter(name: str) -> bool:
+    """ffmpeg có filter này không.
+
+    Bản ffmpeg của Homebrew hiện không build libass nên thiếu `ass`,
+    `subtitles` và `drawtext`. Hỏi trước còn hơn để filtergraph gãy giữa chừng
+    với một thông báo khó hiểu.
+    """
+    proc = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-filters"], capture_output=True, text=True
+    )
+    if proc.returncode != 0:
+        return False
+    for line in proc.stdout.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[1] == name:
+            return True
+    return False

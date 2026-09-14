@@ -1,7 +1,6 @@
+# tests/test_ffmpeg.py
 from pathlib import Path
-
 import pytest
-
 from reup.media.ffmpeg import FFmpegError, probe, run_ffmpeg
 
 
@@ -39,3 +38,19 @@ def test_run_ffmpeg_raises_with_stderr_in_message(tmp_path: Path):
     with pytest.raises(FFmpegError) as err:
         run_ffmpeg(["-i", str(tmp_path / "khong-co.mp4"), str(tmp_path / "x.mp4")])
     assert "khong-co.mp4" in str(err.value)
+
+
+def test_probe_reports_video_bitrate(sample_video: Path):
+    info = probe(sample_video)
+    assert info.video_bps > 0
+
+
+def test_probe_reports_zero_bitrate_for_audio_only(sample_wav: Path):
+    assert probe(sample_wav).video_bps == 0
+
+
+def test_video_bps_excludes_audio_when_derived_from_container(sample_video: Path):
+    """Bitrate suy ra từ container phải trừ phần audio, không tính gộp."""
+    info = probe(sample_video)
+    total_bps = sample_video.stat().st_size * 8 / (info.duration_ms / 1000)
+    assert info.video_bps < total_bps

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="board-head">
+  <div class="board-title">
+    <h1>🏷 Tag gợi ý</h1>
+    <span class="hint-inline">Chip gợi ý ở tab YouTube / TikTok / Douyin. Gõ tên tiếng Việt, AI dịch ra từ khoá tìm kiếm (để trống ô từ khoá thì dịch lúc lưu), lưu vào <code>tags.json</code>.</span>
+  </div>
+</div>
+
+<nav class="filters platform-filters">
+  <a href="/tags" class="{{ 'on' if not platform }}">Mọi nền tảng <b>{{ counts.get('', 0) }}</b></a>
+  {% for key in platforms %}
+    <a href="/tags?platform={{ key }}" class="pf pf-{{ key }} {{ 'on' if platform == key }}">{{ platform_labels[key] }} <b>{{ counts.get(key, 0) }}</b></a>
+  {% endfor %}
+</nav>
+
+{% if error %}<pre class="scan-error">{{ error }}</pre>{% endif %}
+
+<form method="post" action="/tags" class="tag-form tag-new">
+  <select name="platform" title="Nền tảng">
+    {% for key in platforms %}<option value="{{ key }}" {{ 'selected' if form.platform == key }}>{{ platform_labels[key] }}</option>{% endfor %}
+  </select>
+  <select name="group" title="Nhóm">
+    {% for key, label in groups.items() %}<option value="{{ key }}" {{ 'selected' if form.group == key }}>{{ label }}</option>{% endfor %}
+  </select>
+  <input name="vi" value="{{ form.vi }}" placeholder="Tên tiếng Việt, vd: Nấu ăn thôn quê" required>
+  <select name="lang" title="Dịch sang">
+    {% for key, label in langs.items() %}<option value="{{ key }}" {{ 'selected' if form.lang == key }}>→ {{ label }}</option>{% endfor %}
+  </select>
+  <input name="q" value="{{ form.q }}" placeholder="Từ khoá (trống: AI dịch khi lưu)">
+  <button type="button" data-translate title="Dịch tên tiếng Việt bằng AI để xem trước">✨ Dịch</button>
+  <button class="primary">+ Thêm tag</button>
+</form>
+
+{% if not rows %}
+  <div class="empty-state"><p>Chưa có tag nào{% if platform %} cho {{ platform_labels[platform] }}{% endif %}.</p></div>
+{% else %}
+<div class="tag-list">
+  {% for t in rows %}
+  <div class="tag-row" id="tag-{{ t.id }}">
+    <form method="post" action="/tags/{{ t.id }}" class="tag-form">
+      <input type="hidden" name="back" value="{{ platform }}">
+      <select name="platform" title="Nền tảng">
+        {% for key in platforms %}<option value="{{ key }}" {{ 'selected' if t.platform == key }}>{{ platform_labels[key] }}</option>{% endfor %}
+      </select>
+      <select name="group" title="Nhóm">
+        {% for key, label in groups.items() %}<option value="{{ key }}" {{ 'selected' if t.group == key }}>{{ label }}</option>{% endfor %}
+      </select>
+      <input name="vi" value="{{ t.vi }}" required title="Tên tiếng Việt">
+      <select name="lang" title="Dịch sang">
+        {% for key, label in langs.items() %}<option value="{{ key }}" {{ 'selected' if t.lang == key }}>→ {{ label }}</option>{% endfor %}
+      </select>
+      <input name="q" value="{{ t.q }}" placeholder="trống: AI dịch lại khi lưu" title="Từ khoá tìm kiếm">
+      <button type="button" data-translate title="Dịch lại bằng AI">✨</button>
+      <button>Lưu</button>
+    </form>
+    <form method="post" action="/tags/{{ t.id }}/delete" data-msg="Xoá tag “{{ t.vi }}”?" onsubmit="return confirm(this.dataset.msg)">
+      <input type="hidden" name="back" value="{{ platform }}">
+      <button class="icon-btn" title="Xoá">✕</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

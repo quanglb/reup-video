@@ -7,3 +7,15 @@ reup.db
 .env
 .pytest_cache/
 capcut-tts-api/
+.DS_Store
+reup.db-shm
+reup.db-wal
+douyin-exports/
+
+# cache dịch tiêu đề ở tab quét, sinh lúc chạy
+title-vi-cache.json
+# cấu hình công cụ trên máy
+.claude/
+
+# tag gợi ý do tab Tag sửa; mặc định ở src/reup/web/default_tags.json
+tags.json

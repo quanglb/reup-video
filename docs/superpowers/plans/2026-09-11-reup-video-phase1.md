@@ -3221,7 +3221,7 @@ git commit -m "feat: stage compose dựng video một lượt ffmpeg"
 
 Lệnh phase 1: `add`, `run`, `redo`, `status`. Lệnh `discover`, `approve`, `web`, `benchmark` thuộc các phase sau.
 
-- [ ] **Step 1: Viết test thất bại**
+- [x] **Step 1: Viết test thất bại**
 
 ```python
 # tests/test_cli.py
@@ -3319,12 +3319,12 @@ def config_file(tmp_path: Path) -> Path:
     return dst
 ```
 
-- [ ] **Step 2: Chạy test, xác nhận thất bại**
+- [x] **Step 2: Chạy test, xác nhận thất bại**
 
 Run: `uv run pytest tests/test_cli.py -v`
 Expected: FAIL — `ImportError: cannot import name 'PHASE1_STAGES'`
 
-- [ ] **Step 3: Viết `src/reup/stages/__init__.py`**
+- [x] **Step 3: Viết `src/reup/stages/__init__.py`**
 
 ```python
 """Thứ tự stage. Runner chạy theo đúng danh sách này."""
@@ -3346,7 +3346,7 @@ PHASE1_STAGES: list[StageSpec] = [
 ]
 ```
 
-- [ ] **Step 4: Viết `src/reup/cli.py`**
+- [x] **Step 4: Viết `src/reup/cli.py`**
 
 ```python
 """Giao diện dòng lệnh. Phase 1: add, run, redo, status."""
@@ -3463,12 +3463,12 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 5: Chạy test, xác nhận pass**
+- [x] **Step 5: Chạy test, xác nhận pass**
 
 Run: `uv run pytest tests/test_cli.py -v`
 Expected: PASS — 7 test
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add src/reup/stages/__init__.py src/reup/cli.py tests/test_cli.py tests/conftest.py
@@ -3489,7 +3489,7 @@ git commit -m "feat: đăng ký thứ tự stage và CLI add/run/redo/status"
 
 Chạy trọn pipeline trên fixture, thay `fetch` bằng bản giả copy file local. Không gọi mạng, không nạp model.
 
-- [ ] **Step 1: Viết test tích hợp**
+- [x] **Step 1: Viết test tích hợp**
 
 ```python
 # tests/test_pipeline_integration.py
@@ -3609,12 +3609,12 @@ def test_log_jsonl_has_one_line_per_stage(tmp_path: Path, cfg_fixture, offline_s
     store.close()
 ```
 
-- [ ] **Step 2: Chạy toàn bộ test**
+- [x] **Step 2: Chạy toàn bộ test**
 
 Run: `uv run pytest -v`
 Expected: PASS — toàn bộ, khoảng 110 test
 
-- [ ] **Step 3: Chạy thử bằng tay trên một video thật**
+- [x] **Step 3: Chạy thử bằng tay trên một video thật**
 
 ```bash
 uv run reup add "https://www.youtube.com/shorts/<id-nao-do>" --lang en
@@ -3624,7 +3624,7 @@ uv run reup run <job_id>
 
 Xác nhận: lệnh in ra đường dẫn `jobs/<job_id>/render/final.mp4`, mở file lên thấy hình gốc và nghe được nhạc nền ở mức 35%. Giọng lồng tiếng là im lặng — đúng như thiết kế, vì StubTTS chưa phải TTS thật.
 
-- [ ] **Step 4: Viết `README.md`**
+- [x] **Step 4: Viết `README.md`**
 
 ````markdown
 # reup-video
@@ -3677,7 +3677,7 @@ Test không gọi mạng và không nạp model: fixture video sinh bằng ffmpe
 chạy, Whisper và yt-dlp được thay bằng hàm giả.
 ````
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add tests/test_pipeline_integration.py README.md

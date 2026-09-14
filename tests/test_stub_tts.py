@@ -1,7 +1,6 @@
+# tests/test_stub_tts.py
 from pathlib import Path
-
 import pytest
-
 from reup.adapters.stub_tts import StubTTS
 from reup.media.audio import duration_ms
 
@@ -38,6 +37,17 @@ def test_returns_the_path_it_was_given(tmp_path: Path):
     assert out.exists()
 
 
-def test_rejects_unknown_voice(tmp_path: Path):
-    with pytest.raises(ValueError, match="khong-co"):
-        StubTTS().synthesize("xin chào", "vi", "khong-co", tmp_path / "a.wav")
+def test_rejects_empty_voice(tmp_path: Path):
+    with pytest.raises(ValueError, match="thiếu tên giọng"):
+        StubTTS().synthesize("xin chào", "vi", "", tmp_path / "a.wav")
+
+
+def test_accepts_capcut_voice_ids(tmp_path: Path):
+    """Stub phải đứng thay được CapCut, kể cả khi config đặt giọng thật.
+
+    Nếu stub giữ danh sách giọng riêng thì đổi `tts.engine` sang "stub" sẽ gãy
+    chỉ vì `tts.voice` là một id của CapCut.
+    """
+    result = StubTTS().synthesize("xin chào", "vi", "BV074_streaming", tmp_path / "a.wav")
+    assert result.path.exists()
+    assert result.actual_ms > 0

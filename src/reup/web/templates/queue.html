@@ -1,0 +1,178 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="board-head">
+  <div class="board-title">
+    <h1>{{ 'Lưu trữ' if view == 'archived' else 'Dự án' }}</h1>
+    <nav class="view-switch">
+      <a href="/" class="{{ 'on' if view != 'archived' }}">Đang làm</a>
+      <a href="/?view=archived" class="{{ 'on' if view == 'archived' }}">🗄 Lưu trữ <b>{{ archived_count }}</b></a>
+    </nav>
+  </div>
+  <div class="board-tools">
+    {% if view != 'archived' %}
+    <form method="post" action="/run-all" class="run-all">
+      <button class="primary">▶ Chạy tất cả</button>
+    </form>
+    {% elif rows %}
+    <button type="button" id="bulkStart">☑ Chọn nhiều</button>
+    <button type="button" id="emptyArchive" class="danger-text">🗑 Dọn sạch lưu trữ</button>
+    {% endif %}
+  </div>
+</div>
+
+{% macro qs(st, pf) -%}
+/?{% if view == 'archived' %}view=archived&{% endif %}{% if st %}status={{ st }}&{% endif %}{% if pf %}platform={{ pf }}{% endif %}
+{%- endmacro %}
+<nav class="filters">
+  <a href="{{ qs('', platform) }}" class="{{ 'on' if not status }}">Tất cả <b>{{ counts.get('', 0) }}</b></a>
+  {% for key, label in statuses.items() %}
+    <a href="{{ qs(key, platform) }}" class="{{ 'on' if status == key }} f-{{ key }}">{{ label }} <b>{{ counts.get(key, 0) }}</b></a>
+  {% endfor %}
+</nav>
+<nav class="filters platform-filters">
+  <a href="{{ qs(status, '') }}" class="{{ 'on' if not platform }}">Mọi nền tảng <b>{{ platform_counts.get('', 0) }}</b></a>
+  {% for key, label in [('youtube', '▶ YouTube'), ('tiktok', '♪ TikTok'), ('douyin', '♪ Douyin')] %}
+    <a href="{{ qs(status, key) }}" class="pf pf-{{ key }} {{ 'on' if platform == key }}">{{ label }} <b>{{ platform_counts.get(key, 0) }}</b></a>
+  {% endfor %}
+</nav>
+
+{% if view == 'archived' and rows %}
+<div class="bulk-bar" id="bulkBar" hidden>
+  <label><input type="checkbox" id="bulkAll"> Chọn tất cả</label>
+  <span>Đã chọn <b id="bulkCount">0</b></span>
+  <span class="spacer"></span>
+  <button type="button" id="bulkCancel">Huỷ</button>
+  <button type="button" id="bulkDelete" class="danger-btn" disabled>🗑 Xoá đã chọn</button>
+</div>
+{% endif %}
+
+{% if not rows %}
+  <div class="empty-state">
+    {% if view == 'archived' %}
+      <p>Lưu trữ đang trống.</p>
+      <small>Bấm “⋯ → Lưu trữ” trên một dự án để cất nó vào đây mà không xoá.</small>
+    {% elif status %}
+      <p>Không có dự án nào ở trạng thái này.</p>
+    {% else %}
+      <p>Chưa có job nào.</p>
+      <small>Dán một link video ở thanh trên, hoặc chọn video từ tab YouTube / TikTok / Douyin.</small>
+    {% endif %}
+  </div>
+{% else %}
+{% for g in groups %}
+<section class="platform-group g-{{ g.key }}">
+  <h2 class="group-head"><span class="group-dot"></span>{{ g.label }} <b>{{ g.rows|length }}</b></h2>
+<div class="job-grid">
+  {% for r in g.rows %}
+  {% set is_running = r.id in running %}
+  <article class="job-card s-{{ r.status }}" data-job-id="{{ r.id }}" data-status="{{ r.status }}"
+           data-title="{{ r.title }}" data-name="{{ r.name }}"
+           data-search="{{ (r.title ~ ' ' ~ r.source_title ~ ' ' ~ r.url ~ ' ' ~ r.id ~ ' ' ~ r.uploader)|lower }}">
+    {% if view == 'archived' %}
+    <label class="pick" title="Chọn"><input type="checkbox" value="{{ r.id }}" {% if is_running %}disabled{% endif %}></label>
+    {% endif %}
+    <a class="thumb" href="/jobs/{{ r.id }}"
+       {% if r.has_final %}data-preview="/jobs/{{ r.id }}/final"{% elif r.has_source %}data-preview="/jobs/{{ r.id }}/source"{% endif %}>
+      {% if r.has_source or r.has_final %}
+        <img src="/jobs/{{ r.id }}/thumb" alt="" loading="lazy" data-fallback="{{ r.thumb_url }}">
+      {% elif r.thumb_url %}
+        <img src="{{ r.thumb_url }}" alt="" loading="lazy" referrerpolicy="no-referrer">
+      {% endif %}
+      <span class="thumb-empty">🎬</span>
+      <span class="badge status-badge {{ r.status }}">{% if is_running %}<i class="dot"></i>{% endif %}{{ r.status_label }}</span>
+      {% if r.platform and not platform %}<span class="badge platform {{ r.platform }}">{{ {"youtube": "▶ YouTube", "tiktok": "♪ TikTok", "douyin": "♪ Douyin", "bilibili": "Bilibili"}.get(r.platform, r.platform) }}</span>{% endif %}
+      {% if r.duration_s %}<span class="badge duration">{{ (r.duration_s * 1000)|duration }}</span>{% endif %}
+      {% if r.has_final %}<span class="badge final">✓ Thành phẩm</span>{% endif %}
+      {% if r.has_source or r.has_final %}<span class="hover-hint">▶ Rê chuột để xem</span>{% endif %}
+    </a>
+
+    <div class="card-body">
+      <div class="title-row">
+        <h3 class="job-title" title="{{ r.title }}">{{ r.title }}</h3>
+        <button type="button" class="icon-btn" data-action="rename" title="Đổi tên">✎</button>
+        <div class="menu">
+          <button type="button" class="icon-btn" data-action="menu" title="Thêm">⋯</button>
+          <div class="menu-pop" hidden>
+            <button type="button" data-action="rename">✎ Đổi tên</button>
+            {% if r.archived %}
+              <button type="button" data-action="unarchive">↩ Bỏ lưu trữ</button>
+            {% else %}
+              <button type="button" data-action="archive">🗄 Lưu trữ</button>
+            {% endif %}
+            <a href="{{ r.url }}" target="_blank" rel="noopener">↗ Mở link gốc</a>
+            <hr>
+            <button type="button" data-action="delete" class="danger" {% if is_running %}disabled title="Đang chạy, dừng rồi mới xoá được"{% endif %}>🗑 Xoá vĩnh viễn</button>
+          </div>
+        </div>
+      </div>
+      {% if r.source_title and r.source_title != r.title %}
+        <p class="sub" title="{{ r.source_title }}">{{ r.source_title }}</p>
+      {% endif %}
+      <p class="meta-line">
+        {% if r.uploader %}<span>👤 {{ r.uploader }}</span>{% endif %}
+        <span class="job-id">{{ r.id }}</span>
+      </p>
+      <span class="url" hidden>{{ r.url }}</span>
+
+      <div class="progress-wrap">
+        <div class="progress-bar">
+          <div class="progress-fill {{ r.status }}" style="width: {{ r.percent }}%"></div>
+        </div>
+        <div class="progress-label">
+          <span class="stage-text">{{ r.stage_label }}</span>
+          <span class="pct-text">{{ r.percent }}%</span>
+        </div>
+      </div>
+      {% if r.error %}<div class="err" title="{{ r.error }}">⚠ {{ r.error }}</div>{% endif %}
+
+      <div class="card-foot">
+        {% if is_running %}
+          <span class="spin">đang chạy…</span>
+        {% elif r.status in ('pending', 'failed') %}
+          <form method="post" action="/jobs/{{ r.id }}/run">
+            <button class="{{ 'primary' if r.status == 'pending' else 'warn-btn' }}">{{ '↻ Chạy lại' if r.status == 'failed' else '▶ Chạy' }}</button>
+          </form>
+        {% elif r.status == 'needs_review' %}
+          <a class="btn primary" href="/jobs/{{ r.id }}">Duyệt →</a>
+        {% endif %}
+        {% if r.archived %}
+          <button type="button" class="icon-btn foot-archive" data-action="unarchive" title="Bỏ lưu trữ">↩</button>
+        {% else %}
+          <button type="button" class="icon-btn foot-archive" data-action="archive" title="Lưu trữ">🗄</button>
+        {% endif %}
+        <a class="btn ghost" href="/jobs/{{ r.id }}">Mở</a>
+      </div>
+    </div>
+  </article>
+  {% endfor %}
+</div>
+</section>
+{% endfor %}
+{% endif %}
+
+<dialog id="confirmDelete" class="modal">
+  <form method="dialog">
+    <h2>Xoá dự án?</h2>
+    <p>Xoá vĩnh viễn <b id="deleteName"></b> — gồm video gốc, bản dịch, giọng đọc, thành phẩm trong <code>output/</code>. Không hoàn tác được.</p>
+    <p class="hint-soft">Muốn giữ lại để xem sau thì dùng <b>Lưu trữ</b>.</p>
+    <div class="modal-actions">
+      <button value="archive" id="deleteArchiveInstead">🗄 Lưu trữ thay vì xoá</button>
+      <span class="spacer"></span>
+      <button value="cancel">Huỷ</button>
+      <button value="ok" class="danger-btn">🗑 Xoá</button>
+    </div>
+  </form>
+</dialog>
+<dialog id="confirmBulk" class="modal">
+  <form method="dialog">
+    <h2 id="bulkTitle">Xoá nhiều dự án?</h2>
+    <p>Xoá vĩnh viễn <b id="bulkWhat"></b> — gồm video gốc, bản dịch, giọng đọc, thành phẩm trong <code>output/</code>. Không hoàn tác được.</p>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button value="cancel">Huỷ</button>
+      <button value="ok" class="danger-btn">🗑 Xoá vĩnh viễn</button>
+    </div>
+  </form>
+</dialog>
+<div class="toast" id="toast" hidden></div>
+{% endblock %}

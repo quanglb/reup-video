@@ -14,3 +14,6 @@ class StageSpec:
     name: str
     produces: tuple[str, ...]
     run: Callable[["Job", "Config"], None]
+    # Chốt duyệt đứng NGAY SAU stage này, nếu có. "a" sau translate (trước khi
+    # tốn TTS và render), "b" sau compose (xem thành phẩm).
+    gate: str | None = None

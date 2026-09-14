@@ -15,6 +15,16 @@ class Candidate:
     duration_ms: int
     view_count: int
     published_at: str
+    # Link nhúng để xem thử ngay trong Web UI. Rỗng khi nền tảng không có
+    # player nhúng công khai — UI khi đó chỉ mở link ra tab mới.
+    embed_url: str = ""
+    thumbnail: str = ""
+    uploader: str = ""
+    # Chỉ file xuất Douyin có đủ số liệu này; crawler yt-dlp để 0 / rỗng.
+    like_count: int = 0
+    share_count: int = 0
+    position: int = 0  # vị trí trên kênh, 1 = mới nhất
+    media_url: str = ""  # link tải thẳng, bỏ qua yt-dlp
 
 
 @dataclass(frozen=True)

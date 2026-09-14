@@ -217,7 +217,7 @@ Gộp một lượt ffmpeg duy nhất, không xuất file trung gian:
   [xf]ass=sub.ass[v];
   [1:a][2:a]amix=inputs=2:duration=first:weights='0.35 1'[a]
 "
--map "[v]" -map "[a]" -c:v h264_videotoolbox -b:v 8M -c:a aac -b:a 192k
+-map "[v]" -map "[a]" -c:v h264_videotoolbox -b:v <chọn theo 7.8> -c:a aac -b:a 192k
 ```
 
 `TRANSFORM` được sinh ra từ mục `[transform]` trong config: chuỗi rỗng khi tắt hết,
@@ -274,7 +274,7 @@ không phải dịch xong rồi cắt.
     {"id": 1, "start_ms": 0, "end_ms": 3200,
      "slot_ms": 3200, "syllable_budget": 14,
      "text": "Hôm nay mình dạy mọi người làm thịt kho tàu",
-     "syllables": 11, "revision": 0, "flags": []}
+     "syllables": 10, "revision": 0, "flags": []}
   ]
 }
 ```
@@ -288,19 +288,56 @@ TTS xong đo lại, so `dài thật / khe`:
 | Tỉ lệ | Xử lý |
 |---|---|
 | ≤ 1.15 | `atempo` nén nhẹ — tai không nghe ra |
-| 1.15 – 1.5 | sinh lại TTS với `rate` cao hơn (CapCut đổi tốc độ ngay lúc tổng hợp, nghe tự nhiên hơn nén tín hiệu); vẫn dài thì bắt Gemini viết lại, tối đa 2 lần |
+| 1.15 – 1.5 | bắt Gemini viết lại ngắn hơn, tối đa 2 lần; hết ngân sách thì `atempo` trần 1.25 |
 | > 1.5 sau 2 lần | gắn cờ `overflow`, đưa job **trở lại trạng thái `needs_review`** ở chốt A |
 | < 0.85 | chèn khoảng lặng ở cuối đoạn. **Không** làm chậm giọng — nghe lè nhè |
 
 Ngân sách 2 lần viết lại là cứng, để một câu hỏng không kéo cả job vào vòng lặp vô tận.
 
-Thứ tự ưu tiên khi câu dài quá khe: `rate` lúc tổng hợp → `atempo` sau tổng hợp →
-Gemini viết lại. `rate` đứng đầu vì nó đổi nhịp đọc chứ không nén dạng sóng, nên
-không có tiếng méo kiểu tua nhanh.
+Thứ tự ưu tiên khi câu dài quá khe: **Gemini viết lại → `atempo` sau tổng hợp.**
+Chỉ có hai bậc, không phải ba.
+
+**`rate` của CapCut không dùng được — đã đo, không phải suy đoán.** Sáu câu tiếng
+Việt, mỗi câu đúng 10 âm tiết, chia hai nhóm:
+
+| rate | ms/âm tiết |
+|---|---|
+| 1.0 | 228.0 · 228.0 · 220.8 → **225.6** |
+| 1.5 | 208.8 · 216.0 → **212.4** |
+
+`rate=1.5` lẽ ra phải ngắn hơn 33%, thực tế chỉ 5.9% — ngang mức dao động giữa
+các câu trong cùng một nhóm. Bản thiết kế đầu đặt `rate` ở bậc ưu tiên cao nhất
+vì tưởng nó đổi nhịp đọc; nó không đổi gì cả.
+
+**Server cache theo text và bỏ qua rate.** Response có cờ `hit_cache`; gọi lại
+cùng một câu với rate khác trả về đúng file cũ, giống nhau từng byte. Nên cách
+duy nhất để đổi độ dài một đoạn là **đổi chữ** — tức là viết lại. Mặt tốt: chạy
+lại job không tốn thêm lượt gọi nào, và đoạn nào không sửa thì lấy lại tức thì.
 
 Job bị đẩy ngược về chốt A giữ nguyên mọi file TTS đã sinh; duyệt lại chỉ chạy lại TTS
 cho những đoạn có nội dung thay đổi. Trạng thái `needs_review` mang thêm trường
 `reopened_from: "fit"` để UI hiển thị đúng lý do.
+
+### 7.8 Bitrate encode và codec nguồn
+
+Hai con số này đo trên một YouTube Shorts 18 giây 1080×1920, máy M4:
+
+| Nguồn | Tải về | File ra | `compose` |
+|---|---|---|---|
+| AV1 (mặc định của Shorts) | 3.68 MB / 1.50 Mbps | 6.17 MB | 4906 ms |
+| h264 (ép bằng `[vcodec^=avc1]`) | 7.90 MB / 3.37 Mbps | 12.74 MB | 4951 ms |
+
+Rút ra hai luật:
+
+**Bitrate là trần, không phải mức cố định.** `compose` chọn
+`min(trần, max(2.5M, 1.6 × bitrate_nguồn))`. VideoToolbox cần headroom so với
+nguồn (R6) nhưng 1.6× là đủ; encode mọi clip ở thẳng 8M cho ra file nặng gấp
+5 lần nguồn mà không thêm chi tiết nào.
+
+**Không ép h264 trên máy có hardware AV1 decode.** AV1 vẫn nằm trong container
+mp4 nên selector `[ext=mp4]` khớp cả hai; ép `avc1` chỉ đổi lấy bản nặng gấp
+đôi. Trên M4 khâu decode chênh 45 ms — trong sai số. `prefer_h264 = true` dành
+cho máy Intel / M1 / M2, nơi AV1 rơi xuống decode bằng CPU.
 
 ## 8. Web UI
 
@@ -341,12 +378,16 @@ concurrency = 1
 whisper_model = "large-v3-turbo-4bit"
 demucs_segment = 7
 encoder = "h264_videotoolbox"
+video_bitrate = "8M"     # trần, không phải mức cố định — xem 7.8
+prefer_h264 = false      # chỉ bật trên máy không có hardware AV1 decode
 
 [profile.studio-24]
 concurrency = 2
 whisper_model = "large-v3-turbo"
 demucs_segment = 12
 encoder = "h264_videotoolbox"
+video_bitrate = "12M"
+prefer_h264 = false
 
 [audio]
 mode = "separate"            # "separate" | "drop_original"
@@ -452,8 +493,9 @@ Crawler xếp gần cuối vì nó là phần dễ gãy nhất và ít giá tr�
 | R3 | Demucs chậm và làm nóng Air | `demucs_segment` nhỏ, concurrency 1, VideoToolbox cho encode, và `drop_original` làm nút thoát |
 | R4 | `ocrmac` khóa dự án vào macOS | OCR nằm sau interface; muốn chạy Linux thì viết implement RapidOCR thay vào |
 | R5 | Whisper sai với tiếng Trung phương ngữ | OCR đối chiếu bắt phần lớn; còn lại chốt A bắt. Đổi `asr.engine = "capcut"` để thử engine khác |
-| R6 | VideoToolbox chất lượng kém hơn libx264 ở cùng bitrate | Dùng bitrate cao hơn (8M cho 1080×1920); profile studio-24 có thể đổi sang libx264 |
-| R7 | Chưa biết hình thù source CapCut TTS | StubTTS cho phép xây xong mọi thứ khác trước |
+| R6 | VideoToolbox chất lượng kém hơn libx264 ở cùng bitrate | Cấp headroom 1.6× trên bitrate nguồn, sàn 2.5M, trần `profile.video_bitrate` (8M cho air-16). Dùng thẳng trần cho mọi clip làm file ra phình 5× nguồn mà không thêm chi tiết — đo thật trên Shorts 1.5 Mbps. Profile studio-24 có thể đổi sang libx264 |
+| R7 | ~~Chưa biết hình thù source CapCut TTS~~ **Đã khảo sát** | TTS chạy, ~225 ms/âm tiết, ra mp3 24kHz mono. `rate` vô dụng (7.7), server cache theo text, và API gãy sau ~15 request liên tiếp nên adapter phải có retry + backoff |
+| R8 | `generate_audio.py` tự rơi xuống edge-tts khi CapCut lỗi, đổi cả giọng lẫn bitrate mà không báo | Adapter **không** dùng nhánh fallback đó. Lỗi phải nổi lên để `fit` không đo nhầm giọng khác |
 
 ## 16. Lưu ý về bản quyền
 

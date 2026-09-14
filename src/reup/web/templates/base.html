@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} · reup</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<header>
+  <a class="brand" href="/">reup</a>
+  <nav class="tabs">
+    <a href="/" class="{{ 'on' if tab == 'queue' or not tab }}">Dự án</a>
+    <a href="/saved" class="{{ 'on' if tab == 'saved' }}">⭐ Hàng chờ <b class="tab-count" id="savedCount">{{ saved_count() }}</b></a>
+    <a href="/discover?platform=youtube" class="{{ 'on' if tab == 'discover' and platform == 'youtube' }}">YouTube</a>
+    <a href="/discover?platform=tiktok" class="{{ 'on' if tab == 'discover' and platform == 'tiktok' }}">TikTok</a>
+    <a href="/discover?platform=douyin" class="{{ 'on' if tab == 'discover' and platform == 'douyin' }}">Douyin</a>
+    <a href="/tags" class="{{ 'on' if tab == 'tags' }}">🏷 Tag</a>
+  </nav>
+  <form class="add" method="post" action="/jobs">
+    <input name="url" placeholder="Dán link video…" required>
+    <select name="lang">
+      <option value="auto">tự nhận</option>
+      <option value="zh">Trung</option>
+      <option value="en">Anh</option>
+    </select>
+    <button>Thêm</button>
+  </form>
+</header>
+<main>{% block content %}{% endblock %}</main>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -58,6 +58,18 @@ class Job:
         return self.root / "asr.json"
 
     @property
+    def subrect_json(self) -> Path:
+        return self.root / "subrect.json"
+
+    @property
+    def ocr_json(self) -> Path:
+        return self.root / "ocr.json"
+
+    @property
+    def sub_ass(self) -> Path:
+        return self.root / "sub.ass"
+
+    @property
     def transcript_json(self) -> Path:
         return self.root / "transcript.json"
 
@@ -89,8 +101,81 @@ class Job:
         return self.root / "meta.json"
 
     @property
+    def preview_dir(self) -> Path:
+        return self.root / "preview"
+
+    def preview_segment(self, seg_id: int) -> Path:
+        return self.preview_dir / f"seg_{seg_id:04d}.wav"
+
+    @property
+    def overrides_json(self) -> Path:
+        return self.root / "overrides.json"
+
+    @property
+    def overrides(self) -> dict:
+        """Knob của config bị job này ghi đè (spec §9).
+
+        Chỉ có `voice` dùng tới: giọng chọn ở chốt A phải sống qua lần chạy sau,
+        mà config.toml là của cả máy — sửa nó thì mọi job khác đổi theo.
+        """
+        if not self.overrides_json.exists():
+            return {}
+        return json.loads(self.overrides_json.read_text(encoding="utf-8"))
+
+    def set_override(self, key: str, value) -> None:
+        from reup.core.runner import atomic_write
+
+        data = self.overrides
+        data[key] = value
+        atomic_write(
+            self.overrides_json, json.dumps(data, ensure_ascii=False, indent=2)
+        )
+
+    @property
+    def settings(self) -> dict:
+        """Toàn bộ job.json, gồm cả phần người dùng đặt: tên, lưu trữ."""
+        return json.loads(self.job_json.read_text(encoding="utf-8"))
+
+    def update_settings(self, **fields) -> dict:
+        """Ghi thêm khoá vào job.json. Giá trị None là xoá khoá đó.
+
+        Tên và cờ lưu trữ nằm ở đây chứ không ở SQLite, cùng lý do với dấu
+        duyệt: mất reup.db thì vẫn dựng lại được từ thư mục job.
+        """
+        from reup.core.runner import atomic_write
+
+        data = self.settings
+        for key, value in fields.items():
+            if value is None:
+                data.pop(key, None)
+            else:
+                data[key] = value
+        atomic_write(self.job_json, json.dumps(data, ensure_ascii=False, indent=2))
+        return data
+
+    @property
+    def thumb_jpg(self) -> Path:
+        return self.root / "thumb.jpg"
+
+    @property
     def log_jsonl(self) -> Path:
         return self.root / "log.jsonl"
+
+    def gate_marker(self, gate: str) -> Path:
+        return self.root / f"gate_{gate}.ok"
+
+    def gate_approved(self, gate: str) -> bool:
+        return self.gate_marker(gate).exists()
+
+    def approve_gate(self, gate: str) -> None:
+        """Ghi dấu duyệt vào thư mục job, không vào SQLite.
+
+        Mất reup.db thì dựng lại được từ thư mục job; mất dấu duyệt thì người
+        dùng phải ngồi duyệt lại từ đầu.
+        """
+        self.gate_marker(gate).write_text(
+            datetime.now().isoformat(timespec="seconds"), encoding="utf-8"
+        )
 
 
 def create_job(

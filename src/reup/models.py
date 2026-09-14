@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
 
@@ -41,8 +41,18 @@ class Transcript:
 
     @classmethod
     def load(cls, path: Path) -> Transcript:
+        """Bỏ qua trường lạ trong mỗi đoạn.
+
+        `translation.json` là superset của `transcript.json` — nó mang thêm
+        slot_ms, syllable_budget, syllables, revision. Nhờ luật này mà cả hai
+        file dùng chung một bộ đọc.
+        """
         raw = json.loads(Path(path).read_text(encoding="utf-8"))
+        known = {f.name for f in fields(Segment)}
         return cls(
             source_lang=raw["source_lang"],
-            segments=[Segment(**s) for s in raw["segments"]],
+            segments=[
+                Segment(**{k: v for k, v in s.items() if k in known})
+                for s in raw["segments"]
+            ],
         )

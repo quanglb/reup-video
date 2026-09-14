@@ -17,6 +17,17 @@ def require_ffmpeg():
             pytest.skip(f"cần {tool} trong PATH", allow_module_level=True)
 
 
+@pytest.fixture(autouse=True)
+def no_real_telegram(monkeypatch):
+    """Test không bao giờ nhắn bot thật.
+
+    config.toml bật [notify], còn `reup` nạp .env thật lúc chạy lệnh. Đặt sẵn
+    biến rỗng thì `load_dotenv` không ghi đè, nên token thật không lọt vào.
+    """
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "")
+
+
 def _run(args: list[str]) -> None:
     subprocess.run(args, check=True, capture_output=True)
 
@@ -47,18 +58,33 @@ def sample_wav(tmp_path: Path) -> Path:
     return out
 
 
-from reup.config import (  # noqa: E402
+from reup.config import (
     AudioConfig, Config, ProfileConfig, ReviewConfig, SubtitleConfig, TransformConfig,
 )
 
 
 @pytest.fixture
-def cfg_fixture() -> Config:
+def cfg_fixture(tmp_path: Path) -> Config:
+    """output_dir trỏ vào tmp_path chứ không phải "output" tương đối.
+
+    Mặc định của ReviewConfig tính theo thư mục hiện hành, nên test nào chạy
+    tới stage `export` sẽ ghi thẳng vào thư mục sản phẩm thật của dự án —
+    `output/j1.mp4` nằm lẫn với video đã làm xong.
+    """
     return Config(
         profile_name="test",
         profile=ProfileConfig(1, "tiny", 7, "h264_videotoolbox"),
         audio=AudioConfig("separate", 0.35),
         transform=TransformConfig(False, 1.0, 1.0),
         subtitle=SubtitleConfig("Be Vietnam Pro", 64, 4, "bottom"),
-        review=ReviewConfig(False),
+        review=ReviewConfig(False, output_dir=str(tmp_path / "output")),
     )
+
+
+@pytest.fixture
+def config_file(tmp_path: Path) -> Path:
+    """Bản sao config.toml của dự án, dùng cho test CLI."""
+    src = Path(__file__).resolve().parents[1] / "config.toml"
+    dst = tmp_path / "config.toml"
+    dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+    return dst
