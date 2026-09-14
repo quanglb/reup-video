@@ -339,3 +339,48 @@ def test_run_refuses_a_job_id_together_with_all(tmp_path: Path, capsys, config_f
     common = _common(tmp_path, config_file)
     assert main([*common, "run", "j1", "--all"]) == 2
     assert "một trong hai" in capsys.readouterr().err
+
+
+def test_web_without_password_on_localhost_warns_but_still_runs(
+    tmp_path: Path, capsys, config_file, monkeypatch
+):
+    """Không có mật khẩu nhưng host cục bộ (127.0.0.1) thì chỉ cảnh báo, vẫn chạy."""
+    monkeypatch.delenv("REUP_WEB_PASSWORD", raising=False)
+    monkeypatch.setattr("uvicorn.run", lambda *a, **kw: None)
+    common = _common(tmp_path, config_file)
+    code = main([*common, "web", "--host", "127.0.0.1", "--port", "0"])
+    err = capsys.readouterr().err
+    assert code == 0
+    assert "KHÔNG có mật khẩu" in err
+    assert "từ chối chạy" not in err
+
+
+def test_web_without_password_on_public_host_refuses_to_run(
+    tmp_path: Path, capsys, config_file, monkeypatch
+):
+    """Không có mật khẩu và host không phải máy cục bộ → từ chối, không gọi uvicorn."""
+    monkeypatch.delenv("REUP_WEB_PASSWORD", raising=False)
+    called = []
+    monkeypatch.setattr("uvicorn.run", lambda *a, **kw: called.append(True))
+    common = _common(tmp_path, config_file)
+    code = main([*common, "web", "--host", "0.0.0.0", "--port", "0"])
+    err = capsys.readouterr().err
+    assert code == 1
+    assert "KHÔNG có mật khẩu" in err
+    assert "từ chối chạy" in err
+    assert "REUP_WEB_PASSWORD" in err
+    assert not called
+
+
+def test_web_with_password_on_public_host_runs_without_warning(
+    tmp_path: Path, capsys, config_file, monkeypatch
+):
+    """Có mật khẩu thì mở host công khai không bị cảnh báo/chặn."""
+    monkeypatch.setenv("REUP_WEB_PASSWORD", "matkhaubimat")
+    monkeypatch.setattr("uvicorn.run", lambda *a, **kw: None)
+    common = _common(tmp_path, config_file)
+    code = main([*common, "web", "--host", "0.0.0.0", "--port", "0"])
+    err = capsys.readouterr().err
+    assert code == 0
+    assert "không có mật khẩu" not in err
+    assert "từ chối chạy" not in err
