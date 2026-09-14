@@ -170,3 +170,77 @@ def test_backoff_grows(capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3
 def test_missing_capcut_dir_fails_with_a_useful_message(tmp_path: Path):
     with pytest.raises(CapCutError, match="không thấy"):
         CapCutTTS(tmp_path / "khong-co").voices("vi")
+
+
+def test_timeout_computed_from_max_polls_and_poll_interval(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """Timeout ngoài phải tính từ (max_polls * poll_interval) + 5,
+    không còn là hằng số 15.0."""
+    timeouts_captured = []
+    real_run = subprocess.run
+
+    def capture_timeout(cmd, **kwargs):
+        if "capcut_driver.py" in " ".join(str(c) for c in cmd):
+            timeouts_captured.append(kwargs.get("timeout"))
+            # Giả lập driver thành công
+            out = Path(cmd[cmd.index("--out") + 1])
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(sample_mp3.read_bytes())
+            payload = json.dumps(
+                {"path": str(out), "bytes": out.stat().st_size,
+                 "duration_ms": 2000, "hit_cache": False}
+            )
+            return subprocess.CompletedProcess(cmd, 0, payload, "")
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", capture_timeout)
+
+    # Test với max_polls=10, poll_interval=1.0
+    # Timeout phải là 10*1.0 + 5 = 15.0
+    tts = CapCutTTS(capcut_dir, max_polls=10, poll_interval=1.0)
+    tts.synthesize("test", "vi", "BV074_streaming", tmp_path / "a.wav")
+    assert len(timeouts_captured) == 1
+    assert timeouts_captured[0] == 15.0
+
+
+def test_timeout_scales_with_poll_interval(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """Khi poll_interval thay đổi, timeout phải thay đổi theo."""
+    timeouts_captured = []
+    real_run = subprocess.run
+
+    def capture_timeout(cmd, **kwargs):
+        if "capcut_driver.py" in " ".join(str(c) for c in cmd):
+            timeouts_captured.append(kwargs.get("timeout"))
+            out = Path(cmd[cmd.index("--out") + 1])
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_bytes(sample_mp3.read_bytes())
+            payload = json.dumps(
+                {"path": str(out), "bytes": out.stat().st_size,
+                 "duration_ms": 2000, "hit_cache": False}
+            )
+            return subprocess.CompletedProcess(cmd, 0, payload, "")
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(subprocess, "run", capture_timeout)
+
+    # Test với max_polls=10, poll_interval=2.0
+    # Timeout phải là 10*2.0 + 5 = 25.0 (không phải 15.0)
+    tts = CapCutTTS(capcut_dir, max_polls=10, poll_interval=2.0)
+    tts.synthesize("test", "vi", "BV074_streaming", tmp_path / "b.wav")
+    assert len(timeouts_captured) == 1
+    assert timeouts_captured[0] == 25.0
+
+
+def test_max_polls_passed_to_driver(
+    capcut_dir: Path, tmp_path: Path, monkeypatch, sample_mp3: Path
+):
+    """Argument --max-polls phải được truyền cho driver."""
+    state = _fake_driver(monkeypatch, sample_mp3)
+    tts = CapCutTTS(capcut_dir, max_polls=5)
+    tts.synthesize("test", "vi", "BV074_streaming", tmp_path / "c.wav")
+    cmd = state["cmds"][0]
+    assert "--max-polls" in cmd
+    assert cmd[cmd.index("--max-polls") + 1] == "5"

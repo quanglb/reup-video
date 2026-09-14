@@ -39,11 +39,13 @@ class CapCutTTS:
         sleep: Callable[[float], None] = time.sleep,
         retries: int = 3,
         poll_interval: float = 1.0,
+        max_polls: int = 10,
     ) -> None:
         self.capcut_dir = Path(capcut_dir)
         self.sleep = sleep
         self.retries = retries
         self.poll_interval = poll_interval
+        self.max_polls = max_polls
 
     @property
     def _python(self) -> Path:
@@ -104,14 +106,20 @@ class CapCutTTS:
             "--resource-id", table[voice]["resource_id"],
             "--rate", FIXED_RATE,
             "--poll-interval", str(self.poll_interval),
+            "--max-polls", str(self.max_polls),
         ]
+
+        # Tính timeout ngoài dựa trên max_polls và poll_interval.
+        # Thêm 5s buffer để driver có đủ thời gian return/raise bình thường
+        # trước khi lớp ngoài timeout.
+        outer_timeout = self.max_polls * self.poll_interval + 5.0
 
         last = ""
         for attempt in range(self.retries):
             try:
-                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=15.0)
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=outer_timeout)
             except subprocess.TimeoutExpired:
-                last = "Driver timeout sau 15s"
+                last = f"Driver timeout sau {outer_timeout}s"
             else:
                 if proc.returncode == 0:
                     to_wav(mp3, out)
