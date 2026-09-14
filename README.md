@@ -96,6 +96,11 @@ nghe thử **một câu** — chưa chạy `tts` thì server tổng hợp ngay c
 | `subdetect` | 8.8s | | `export` | 19s |
 | `ocr` | 8.3s | | **tổng** | **~2 phút** |
 
+Số đo `tts` ở trên là chạy tuần tự (`tts.concurrency = 1`). Với
+`tts.concurrency > 1`, các câu sinh giọng song song nên `tts` có thể nhanh hơn
+đáng kể — mức nhanh hơn bao nhiêu phụ thuộc độ trễ mạng thật tới CapCut ở từng
+môi trường, chưa đo lại trên M4 nên chưa ghi số cụ thể vào bảng.
+
 ## Giá một job tính theo request LLM
 
 Hạn mức miễn phí của Gemini đếm theo **số request**, không theo lượng chữ, nên
@@ -180,6 +185,16 @@ Sửa `config.toml`. Vài knob đáng biết:
   không tốn Neural Engine; hữu ích khi máy quá ì). CapCut STT **không tự nhận
   ngôn ngữ**, nên job phải khai rõ: `reup add <url> --lang zh`.
 - `review.auto_approve_b = true` — bỏ qua chốt duyệt thành phẩm.
+- `tts.concurrency` (mặc định `3`) — số câu sinh giọng song song trong một
+  job; server CapCut gãy sau ~15 request liên tiếp nên đừng đẩy quá cao.
+- `tts.pause_every` / `tts.pause_seconds` (mặc định `12` / `2.0`) — nghỉ nhịp
+  chủ động sau mỗi 12 request thành công liên tiếp, mỗi lần nghỉ 2 giây —
+  tránh chạm ngưỡng gãy của CapCut ở trên.
+- `tts.allow_edge_fallback` (mặc định `true`) — khi CapCut lỗi, `true` cho
+  phép âm thầm đổi sang edge-tts để job chạy tiếp; `false` bắt lỗi CapCut phải
+  raise thật. Dù chọn gì, `tts/manifest.json` cũng ghi field `engine` cho từng
+  câu (`capcut` / `edge_tts_fallback` / `silence`) để biết câu nào không phải
+  giọng CapCut thật.
 
 ## Ba chỗ môi trường bắt đi chệch thiết kế
 
