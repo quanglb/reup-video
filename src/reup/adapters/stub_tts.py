@@ -36,4 +36,4 @@ class StubTTS:
             raise ValueError("thiếu tên giọng: truyền voice rỗng")
         ms = max(MIN_MS, count_syllables(text, lang) * self.ms_per_syllable)
         silence(out, ms)
-        return TTSResult(path=Path(out), actual_ms=ms)
+        return TTSResult(path=Path(out), actual_ms=ms, engine="stub")

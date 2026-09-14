@@ -13,6 +13,7 @@ Ba điều học được lúc khảo sát, đều nằm trong code dưới đâ
 from __future__ import annotations
 
 import json
+import logging
 import subprocess
 import threading
 import time
@@ -23,6 +24,8 @@ from reup.adapters.tts import TTSResult, Voice
 from reup.media.audio import duration_ms, to_wav
 
 DRIVER = Path(__file__).with_name("capcut_driver.py")
+
+logger = logging.getLogger(__name__)
 
 # rate không có tác dụng — hằng số này tồn tại để nói rõ đó là lựa chọn, không
 # phải quên. Xem spec §7.7.
@@ -43,6 +46,7 @@ class CapCutTTS:
         max_polls: int = 10,
         pause_every: int = 12,
         pause_seconds: float = 2.0,
+        allow_edge_fallback: bool = True,
     ) -> None:
         self.capcut_dir = Path(capcut_dir)
         self.sleep = sleep
@@ -51,6 +55,10 @@ class CapCutTTS:
         self.max_polls = max_polls
         self.pause_every = pause_every
         self.pause_seconds = pause_seconds
+        # tts.allow_edge_fallback trong config.toml. False thì driver không
+        # được âm thầm đổi sang edge-tts nữa — lỗi phải nổi lên thành
+        # CapCutError thật để retry đúng nghĩa (xem capcut_driver.py).
+        self.allow_edge_fallback = allow_edge_fallback
         self._request_count = 0
         self._lock = threading.Lock()
 
@@ -93,6 +101,19 @@ class CapCutTTS:
         if should_pause:
             self.sleep(self.pause_seconds)
 
+    @staticmethod
+    def _parse_engine(stdout: str) -> str:
+        """Đọc trường `engine` từ JSON in ra bởi driver.
+
+        Mặc định "capcut" nếu thiếu (driver cũ chưa có trường này) hoặc nếu
+        stdout không đọc được — không được để lỗi đọc JSON làm mất kết quả
+        thành công thật."""
+        try:
+            payload = json.loads((stdout or "").strip().splitlines()[-1])
+        except (ValueError, IndexError):
+            return "capcut"
+        return str(payload.get("engine") or "capcut")
+
     def synthesize(self, text: str, lang: str, voice: str, out: Path) -> TTSResult:
         table = {v["voice_type"]: v for v in self._voice_table()}
         if voice not in table:
@@ -123,6 +144,7 @@ class CapCutTTS:
             "--rate", FIXED_RATE,
             "--poll-interval", str(self.poll_interval),
             "--max-polls", str(self.max_polls),
+            "--allow-fallback", "1" if self.allow_edge_fallback else "0",
         ]
 
         # Tính timeout ngoài dựa trên max_polls và poll_interval.
@@ -138,10 +160,19 @@ class CapCutTTS:
                 last = f"Driver timeout sau {outer_timeout}s"
             else:
                 if proc.returncode == 0:
+                    engine = self._parse_engine(proc.stdout)
                     to_wav(mp3, out)
                     mp3.unlink(missing_ok=True)
                     self._count_success_and_maybe_pause()
-                    return TTSResult(path=out, actual_ms=duration_ms(out))
+                    if engine == "edge_tts_fallback":
+                        logger.warning(
+                            "CapCut TTS rơi xuống edge-tts fallback cho câu %r "
+                            "(giọng %s, ra %s) — audio KHÔNG phải giọng CapCut thật",
+                            text[:80], voice, out,
+                        )
+                    return TTSResult(
+                        path=out, actual_ms=duration_ms(out), engine=engine
+                    )
                 last = (proc.stderr or proc.stdout).strip()
             if attempt < self.retries - 1:
                 self.sleep(2**attempt)

@@ -21,6 +21,10 @@ class Voice:
 class TTSResult:
     path: Path
     actual_ms: int
+    # "capcut" (thật) hay "edge_tts_fallback" (âm thầm đổi giọng khi CapCut
+    # lỗi — xem capcut_driver.py). Mặc định "capcut" để không phải sửa mọi
+    # chỗ dựng TTSResult không liên quan (StubTTS, đường im lặng câu rỗng...).
+    engine: str = "capcut"
 
 
 class TTSAdapter(Protocol):

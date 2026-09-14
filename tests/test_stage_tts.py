@@ -158,7 +158,10 @@ def test_synthesize_all_concurrency_one_matches_sequential(tmp_path: Path):
     for seg in transcript.segments:
         out = job.tts_segment(seg.id)
         result = adapter.synthesize(seg.text, tts_stage.LANG, "voice-x", out)
-        sequential.append({"id": seg.id, "path": out.name, "actual_ms": result.actual_ms})
+        sequential.append({
+            "id": seg.id, "path": out.name, "actual_ms": result.actual_ms,
+            "engine": result.engine,
+        })
 
     # Chạy lại từ đầu với job khác để synthesize_all không ghi đè file vừa đo.
     job2 = create_job(tmp_path / "jobs", "https://a/2", "zh", job_id="j2")
@@ -246,6 +249,30 @@ def test_redo_resynthesizes_when_wav_missing_despite_cache_match(
 
     assert adapter.calls == [1]
     assert [e["id"] for e in entries] == [1, 2]
+
+
+class _MixedEngineAdapter:
+    """Adapter giả: câu 1 CapCut thật, câu 2 bị fallback edge-tts — mô phỏng
+    một job thật khi CapCut lỗi giữa chừng."""
+
+    def synthesize(self, text: str, lang: str, voice: str, out: Path) -> TTSResult:
+        seg_id = int(out.stem.split("_")[1])
+        out.write_bytes(b"\x00\x00")
+        engine = "capcut" if seg_id == 1 else "edge_tts_fallback"
+        return TTSResult(path=out, actual_ms=300, engine=engine)
+
+
+def test_manifest_records_engine_per_segment(tmp_path: Path, cfg_fixture):
+    """Task 1.5: manifest.json phải cho biết câu nào bị đổi sang edge-tts,
+    không phải chỉ CapCut thật — để `redo`/xem thủ công biết mà kiểm tra."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed(job, ["Hôm nay dạy làm", "Trước hết thái thịt"])
+
+    tts_stage.run_with(job, cfg_fixture, _MixedEngineAdapter())
+
+    manifest = json.loads((job.tts_dir / "manifest.json").read_text(encoding="utf-8"))
+    entries = {e["id"]: e["engine"] for e in manifest["segments"]}
+    assert entries == {1: "capcut", 2: "edge_tts_fallback"}
 
 
 def test_write_manifest_writes_text_cache(tmp_path: Path, cfg_fixture):

@@ -45,6 +45,24 @@ def _load_text_cache(job: Job) -> dict:
         return {}
 
 
+def _load_prev_engines(job: Job) -> dict:
+    """`engine` của lần chạy trước, theo `seg.id` — để câu dùng lại từ cache
+    (không gọi lại adapter) vẫn giữ đúng nhãn capcut/edge_tts_fallback trong
+    manifest mới, thay vì bị đoán nhầm thành "capcut" mặc định."""
+    path = job.tts_dir / "manifest.json"
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return {}
+    return {
+        entry["id"]: entry.get("engine", "capcut")
+        for entry in data.get("segments", [])
+        if "id" in entry
+    }
+
+
 def synthesize_all(
     job: Job,
     transcript: Transcript,
@@ -71,12 +89,23 @@ def synthesize_all(
     def synthesize(seg) -> dict:
         out = job.tts_segment(seg.id)
         result = adapter.synthesize(seg.text, LANG, voice, out)
-        return {"id": seg.id, "path": out.name, "actual_ms": result.actual_ms}
+        return {
+            "id": seg.id,
+            "path": out.name,
+            "actual_ms": result.actual_ms,
+            "engine": getattr(result, "engine", "capcut"),
+        }
 
     def reuse_cached(seg, out) -> dict:
-        return {"id": seg.id, "path": out.name, "actual_ms": duration_ms(out)}
+        return {
+            "id": seg.id,
+            "path": out.name,
+            "actual_ms": duration_ms(out),
+            "engine": prev_engines.get(seg.id, "capcut"),
+        }
 
     cache = _load_text_cache(job)
+    prev_engines = _load_prev_engines(job)
     segments = transcript.segments
     results: list[dict | None] = [None] * len(segments)
     todo: list[tuple[int, object]] = []

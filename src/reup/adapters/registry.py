@@ -27,6 +27,7 @@ def make_tts(cfg: Config):
             Path(cfg.tts.capcut_dir),
             pause_every=cfg.tts.pause_every,
             pause_seconds=cfg.tts.pause_seconds,
+            allow_edge_fallback=cfg.tts.allow_edge_fallback,
         )
     raise ValueError(f"không có TTS engine {engine!r}")
 

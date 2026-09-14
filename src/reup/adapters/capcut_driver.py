@@ -58,7 +58,13 @@ def fallback_edge_tts(text, out_path, voice):
             )
             if os.path.exists(tmp):
                 os.rename(tmp, out_path)
-                print(json.dumps({"path": out_path, "bytes": os.path.getsize(out_path), "duration_ms": 500, "hit_cache": False}))
+                print(json.dumps({
+                    "path": out_path,
+                    "bytes": os.path.getsize(out_path),
+                    "duration_ms": 500,
+                    "hit_cache": False,
+                    "engine": "edge_tts_fallback",
+                }))
                 return True
         except Exception:
             pass
@@ -92,6 +98,7 @@ def fallback_edge_tts(text, out_path, voice):
                                 "bytes": os.path.getsize(out_path),
                                 "duration_ms": 0,
                                 "hit_cache": False,
+                                "engine": "edge_tts_fallback",
                             },
                             ensure_ascii=False,
                         )
@@ -112,7 +119,9 @@ def main():
     ap.add_argument("--rate", default="1.0")
     ap.add_argument("--max-polls", type=int, default=10)
     ap.add_argument("--poll-interval", type=float, default=0.5)
+    ap.add_argument("--allow-fallback", type=int, default=1)
     args = ap.parse_args()
+    allow_fallback = bool(args.allow_fallback)
 
     sys.path.insert(0, args.capcut_dir)
     import capcut_common_task_client as capcut
@@ -130,19 +139,19 @@ def main():
     try:
         resp = requests.post(url, headers=headers, data=body.encode("utf-8"), timeout=30)
     except Exception:
-        if fallback_edge_tts(args.text, args.out, args.voice):
+        if allow_fallback and fallback_edge_tts(args.text, args.out, args.voice):
             return
         raise
 
     if resp.status_code != 200:
-        if fallback_edge_tts(args.text, args.out, args.voice):
+        if allow_fallback and fallback_edge_tts(args.text, args.out, args.voice):
             return
         raise SystemExit("tts-new HTTP %s: %s" % (resp.status_code, resp.text[:400]))
 
     payload = resp.json()
     tasks = (payload.get("data") or {}).get("tasks") or []
     if not tasks:
-        if fallback_edge_tts(args.text, args.out, args.voice):
+        if allow_fallback and fallback_edge_tts(args.text, args.out, args.voice):
             return
         raise SystemExit("tts-new không trả task nào: %s" % json.dumps(payload)[:400])
     task_id = tasks[0]["id"]
@@ -186,17 +195,18 @@ def main():
                         "bytes": len(audio.content),
                         "duration_ms": int(sub.get("duration") or 0),
                         "hit_cache": bool(sub.get("hit_cache")),
+                        "engine": "capcut",
                     },
                     ensure_ascii=False,
                 )
             )
             return
         if status == "failed":
-            if fallback_edge_tts(args.text, args.out, args.voice):
+            if allow_fallback and fallback_edge_tts(args.text, args.out, args.voice):
                 return
             raise SystemExit("CapCut báo lỗi: %s" % task.get("err_msg"))
 
-    if fallback_edge_tts(args.text, args.out, args.voice):
+    if allow_fallback and fallback_edge_tts(args.text, args.out, args.voice):
         return
     raise SystemExit("hết %d lượt hỏi mà task chưa xong" % args.max_polls)
 
