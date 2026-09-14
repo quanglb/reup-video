@@ -27,6 +27,7 @@ STAGE_LABELS: dict[str, str] = {
     "reconcile": "Hợp nhất ASR + OCR",
     "translate": "Dịch sang tiếng Việt",
     "gate_a": "Chờ duyệt bản dịch (Chốt A)",
+    "pronounce": "Chuẩn hoá phiên âm TTS",
     "tts": "Tạo giọng đọc (CapCut TTS)",
     "fit": "Khớp câu & nhịp độ (LLM Local)",
     "compose": "Render video & chèn phụ đề",

@@ -9,7 +9,7 @@ def test_stage_order(cfg_fixture):
     """translate giữa asr và tts; separate TRƯỚC asr để ASR nghe giọng đã tách."""
     assert [s.name for s in stages_for(cfg_fixture)] == [
         "fetch", "demux", "separate", "asr", "subdetect", "ocr",
-        "reconcile", "translate", "tts", "fit", "compose", "export",
+        "reconcile", "translate", "pronounce", "tts", "fit", "compose", "export",
     ]
 
 

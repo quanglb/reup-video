@@ -33,3 +33,7 @@ class TTSAdapter(Protocol):
     def synthesize(
         self, text: str, lang: str, voice: str, out: Path
     ) -> TTSResult: ...
+
+    def synthesize_batch(
+        self, items: list[tuple[str, Path]], lang: str, voice: str
+    ) -> list[TTSResult]: ...

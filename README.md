@@ -194,6 +194,10 @@ Sửa `config.toml`. Vài knob đáng biết:
 - `review.auto_approve_b = true` — bỏ qua chốt duyệt thành phẩm.
 - `tts.concurrency` (mặc định `3`) — số câu sinh giọng song song trong một
   job; server CapCut gãy sau ~15 request liên tiếp nên đừng đẩy quá cao.
+- `tts.batch_size` (mặc định `8`) — số câu gộp vào 1 request CapCut TTS, giảm hẳn
+  số round-trip và nguy cơ quá tải server.
+- `tts.max_polls` / `tts.poll_interval` (mặc định `10` / `1.0`) — số lượt poll tối đa
+  và thời gian chờ giữa các lượt khi truy vấn audio từ CapCut.
 - `tts.pause_every` / `tts.pause_seconds` (mặc định `12` / `2.0`) — nghỉ nhịp
   chủ động sau mỗi 12 request thành công liên tiếp, mỗi lần nghỉ 2 giây —
   tránh chạm ngưỡng gãy của CapCut ở trên.
@@ -202,6 +206,9 @@ Sửa `config.toml`. Vài knob đáng biết:
   raise thật. Dù chọn gì, `tts/manifest.json` cũng ghi field `engine` cho từng
   câu (`capcut` / `edge_tts_fallback` / `silence`) để biết câu nào không phải
   giọng CapCut thật.
+- `tts.pronunciation_rules_path` (mặc định `docs/tts_pronunciation_rules.md`) —
+  file quy tắc phiên âm tiếng Anh, chữ số, từ viết tắt sang tiếng Việt cho stage `pronounce`.
+- `[llm.pronounce]` — cấu hình mô hình AI thực hiện chuẩn hoá phiên âm TTS sau khi dịch.
 
 ## Ba chỗ môi trường bắt đi chệch thiết kế
 

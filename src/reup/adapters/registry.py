@@ -25,6 +25,8 @@ def make_tts(cfg: Config):
             )
         return CapCutTTS(
             Path(cfg.tts.capcut_dir),
+            poll_interval=getattr(cfg.tts, "poll_interval", 1.0),
+            max_polls=getattr(cfg.tts, "max_polls", 10),
             pause_every=cfg.tts.pause_every,
             pause_seconds=cfg.tts.pause_seconds,
             allow_edge_fallback=cfg.tts.allow_edge_fallback,

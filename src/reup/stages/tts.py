@@ -3,19 +3,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
+from pathlib import Path
 
 from reup.config import Config
 from reup.core.job import Job
 from reup.core.runner import atomic_write
 from reup.core.stage import StageSpec
-from reup.models import Transcript
+from reup.media.audio import duration_ms
+from reup.models import Segment, Transcript
+
+logger = logging.getLogger(__name__)
 
 # Đầu ra luôn là tiếng Việt: đây là pipeline lồng tiếng Việt, và Voice.json của
 # CapCut cũng chỉ có giọng vi.
 LANG = "vi"
-
-
-from reup.media.audio import duration_ms
 
 
 def _hash_text(text: str) -> str:
@@ -69,32 +71,21 @@ def synthesize_all(
     adapter,
     voice: str,
     concurrency: int = 1,
+    batch_size: int = 8,
+    notifier=None,
 ) -> list[dict]:
     """Sinh wav cho mọi đoạn, trả về bản kê. Dùng lại được từ stage fit.
 
-    Trước khi gọi `adapter.synthesize`, kiểm tra cache `tts/text_cache.json`
+    Trước khi gọi `adapter`, kiểm tra cache `tts/text_cache.json`
     (ghi bởi `write_manifest` lần chạy trước): nếu file wav của câu đã tồn tại
     VÀ hash của `text` hiện tại khớp hash lúc sinh, bỏ qua — không tốn một
-    subprocess Python nào cho câu đó. Việc này diễn ra TRƯỚC khi đưa câu vào
-    `ThreadPoolExecutor`, để các câu đã cache không hề chạm tới pool: chỉ
-    những câu thật sự cần tổng hợp mới được chạy song song.
+    subprocess Python nào cho câu đó.
 
-    Mỗi câu cần tổng hợp là một subprocess độc lập với server CapCut, không
-    phụ thuộc câu trước, nên chạy song song tối đa `concurrency` câu cùng lúc
-    (cùng cách `run_jobs` ở core/runner.py chạy nhiều job song song). Kết quả
-    vẫn trả về đúng thứ tự `transcript.segments` gốc — không phải thứ tự hoàn
-    thành — vì `fit`/`compose` dựa vào thứ tự này.
+    Gộp các câu cần tổng hợp thành các batch `batch_size` câu để gọi
+    `adapter.synthesize_batch` (giảm số lần gọi HTTP/spawn subprocess).
+    Kết quả vẫn trả về đúng thứ tự `transcript.segments` gốc vì `fit`/`compose`
+    dựa vào thứ tự này.
     """
-
-    def synthesize(seg) -> dict:
-        out = job.tts_segment(seg.id)
-        result = adapter.synthesize(seg.text, LANG, voice, out)
-        return {
-            "id": seg.id,
-            "path": out.name,
-            "actual_ms": result.actual_ms,
-            "engine": getattr(result, "engine", "capcut"),
-        }
 
     def reuse_cached(seg, out) -> dict:
         return {
@@ -108,7 +99,7 @@ def synthesize_all(
     prev_engines = _load_prev_engines(job)
     segments = transcript.segments
     results: list[dict | None] = [None] * len(segments)
-    todo: list[tuple[int, object]] = []
+    todo: list[tuple[int, Segment]] = []
     for i, seg in enumerate(segments):
         out = job.tts_segment(seg.id)
         if out.exists() and cache.get(str(seg.id)) == _hash_text(seg.text):
@@ -119,34 +110,40 @@ def synthesize_all(
     if not todo:
         return results
 
-    concurrency = max(1, int(concurrency))
-    if concurrency == 1 or len(todo) <= 1:
-        for i, seg in todo:
-            results[i] = synthesize(seg)
-        return results
+    batch_size = max(1, int(batch_size))
 
-    from concurrent.futures import ThreadPoolExecutor, as_completed
+    # Chia todo thành các batch
+    batches = [todo[k : k + batch_size] for k in range(0, len(todo), batch_size)]
 
-    # KHÔNG dùng `pool.map`: nó nộp hết việc lên ngay từ đầu, nên một câu lỗi
-    # (vd. CapCutError khi allow_edge_fallback=false) không chặn được các câu
-    # ĐÃ nộp khác — chúng vẫn chạy hết 3 lần retry với backoff của riêng mình
-    # trước khi exception từ iterator của `map` mới lộ ra. Trên job 50 câu đó
-    # là ~50×3 request CapCut vô ích thay vì dừng sau ~3, ngược hẳn mục đích
-    # nghỉ nhịp ở `_count_success_and_maybe_pause` (né ngưỡng gãy ~15 request
-    # liên tiếp của CapCut). Dùng `submit` + `as_completed` để vừa nghe lỗi
-    # sớm, vừa huỷ được các future CHƯA kịp chạy khi lỗi xảy ra.
-    with ThreadPoolExecutor(max_workers=concurrency) as pool:
-        futures = {pool.submit(synthesize, seg): i for i, seg in todo}
+    for batch in batches:
+        items = [(seg.text, job.tts_segment(seg.id)) for _, seg in batch]
+        if hasattr(adapter, "synthesize_batch"):
+            batch_results = adapter.synthesize_batch(items, LANG, voice)
+        else:
+            batch_results = [
+                adapter.synthesize(text, LANG, voice, out) for text, out in items
+            ]
+        for (i, seg), res in zip(batch, batch_results):
+            out = job.tts_segment(seg.id)
+            results[i] = {
+                "id": seg.id,
+                "path": out.name,
+                "actual_ms": res.actual_ms,
+                "engine": getattr(res, "engine", "capcut"),
+            }
+
+    # Báo cảnh báo Telegram nếu có câu fallback sang edge-tts
+    fallback_ids = [
+        r["id"] for r in results if r and r.get("engine") == "edge_tts_fallback"
+    ]
+    if fallback_ids and notifier is not None:
         try:
-            for future in as_completed(futures):
-                i = futures[future]
-                results[i] = future.result()
-        except BaseException:
-            for other in futures:
-                other.cancel()
-            pool.shutdown(cancel_futures=True)
-            raise
-    return results
+            if hasattr(notifier, "tts_fallback_warning"):
+                notifier.tts_fallback_warning(job, fallback_ids)
+        except Exception:
+            logger.exception("Không gửi được cảnh báo TTS fallback qua notifier")
+
+    return [r for r in results if r is not None]
 
 
 def write_manifest(
@@ -176,7 +173,7 @@ def write_manifest(
     )
 
 
-def run_with(job: Job, cfg: Config, adapter) -> None:
+def run_with(job: Job, cfg: Config, adapter, notifier=None) -> None:
     # Phase 2: nguồn sự thật là bản dịch, không còn là transcript gốc.
     transcript = Transcript.load(job.translation_json)
     if not transcript.segments:
@@ -185,15 +182,60 @@ def run_with(job: Job, cfg: Config, adapter) -> None:
     # Giọng chọn ở chốt A thắng config: config.toml là của cả máy, còn lựa chọn
     # ở chốt A là của riêng job này (spec §8.2).
     voice = job.overrides.get("voice") or cfg.tts.voice
-    entries = synthesize_all(job, transcript, adapter, voice, cfg.tts.concurrency)
-    texts = {seg.id: seg.text for seg in transcript.segments}
+
+    # Đọc phiên âm từ pronunciation.json nếu có
+    pron_file = job.tts_dir / "pronunciation.json"
+    pronunciation_map = {}
+    if pron_file.exists():
+        try:
+            pronunciation_map = json.loads(pron_file.read_text(encoding="utf-8"))
+        except Exception:
+            pronunciation_map = {}
+
+    tts_segments = []
+    texts = {}
+    for seg in transcript.segments:
+        tts_text = (
+            pronunciation_map.get(str(seg.id))
+            or pronunciation_map.get(seg.id)
+            or seg.text
+        )
+        texts[seg.id] = tts_text
+        tts_segments.append(
+            Segment(
+                id=seg.id,
+                start_ms=seg.start_ms,
+                end_ms=seg.end_ms,
+                text=tts_text,
+                text_source=seg.text_source,
+                confidence=seg.confidence,
+                flags=list(seg.flags),
+            )
+        )
+
+    tts_transcript = Transcript(
+        source_lang=transcript.source_lang,
+        segments=tts_segments,
+    )
+
+    batch_size = getattr(cfg.tts, "batch_size", 8)
+    entries = synthesize_all(
+        job,
+        tts_transcript,
+        adapter,
+        voice,
+        concurrency=cfg.tts.concurrency,
+        batch_size=batch_size,
+        notifier=notifier,
+    )
     write_manifest(job, voice, entries, texts)
 
 
 def run(job: Job, cfg: Config) -> None:
     from reup.adapters.registry import make_tts
+    from reup.notify import from_config
 
-    run_with(job, cfg, make_tts(cfg))
+    run_with(job, cfg, make_tts(cfg), notifier=from_config(cfg))
 
 
 SPEC = StageSpec(name="tts", produces=("tts/manifest.json",), run=run)

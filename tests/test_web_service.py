@@ -333,7 +333,7 @@ def test_get_job_progress_structure(tmp_path: Path, stub_cfg):
     prog = get_job_progress(job, {"status": "running", "stage": "demux"}, stub_cfg)
     assert prog["id"] == "j_prog"
     assert prog["status"] == "running"
-    assert len(prog["stages"]) == 12
+    assert len(prog["stages"]) == 13
     assert prog["stages"][0]["status"] == "done"
     assert prog["stages"][1]["status"] == "running"
     assert len(prog["logs"]) == 1

@@ -57,9 +57,13 @@ engine     = "capcut"          # "capcut" | "stub"
 voice      = "BV074_streaming" # Cô Gái Hoạt Ngôn — xem Voice.json của CapCut
 capcut_dir = "/Applications/_QuangLB/Workspace/Agent/capcut-tts-api"
 concurrency = 3                # số câu sinh giọng song song; server CapCut gãy sau ~15 request liên tiếp
+batch_size = 8                 # số câu gộp vào 1 request CapCut TTS
+max_polls  = 10                # số lượt poll tối đa cho mỗi request
+poll_interval = 1.0            # khoảng cách giữa các lần poll (giây)
 pause_every = 12                # nghỉ nhịp chủ động sau mỗi 12 request thành công liên tiếp (dưới ngưỡng gãy)
 pause_seconds = 2.0             # số giây nghỉ mỗi lần nghỉ nhịp
 allow_edge_fallback = true      # false: lỗi CapCut phải raise thật, không âm thầm đổi sang edge-tts
+pronunciation_rules_path = "docs/tts_pronunciation_rules.md" # file quy tắc phiên âm cho TTS
 
 # Luật dịch theo thể loại (src/reup/translate_styles.py).
 # "auto" = LLM tự nhận thể loại. Hoặc ép: hai_tinh_huong, drama_tinh_cam,
@@ -79,6 +83,10 @@ base_url  = "http://localhost:20128/v1"
 timeout_s = 120.0
 
 [llm.translate]
+provider = "openai"
+model    = "ag/gemini-3.7-flash-medium"
+
+[llm.pronounce]
 provider = "openai"
 model    = "ag/gemini-3.7-flash-medium"
 

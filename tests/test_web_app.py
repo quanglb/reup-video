@@ -406,7 +406,7 @@ def test_job_progress_endpoint_and_logs(client):
     assert len(data["logs"]) == 2
     assert data["logs"][0]["label"] == "Tải video nguồn"
     assert data["logs"][0]["duration_s"] == 2.5
-    assert len(data["stages"]) == 12
+    assert len(data["stages"]) == 13
 
     # Check review page contains progress card
     review_html = c.get("/jobs/j_log").text

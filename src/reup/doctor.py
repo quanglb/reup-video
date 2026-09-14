@@ -229,9 +229,31 @@ def check_web_password() -> Check:
                  "thiết lập để bảo vệ giao diện web khi chạy từ xa")
 
 
+def check_pronunciation_rules(cfg: Config) -> Check | None:
+    rules_path = getattr(cfg.tts, "pronunciation_rules_path", "")
+    if not rules_path:
+        return None
+    p = Path(rules_path)
+    if not p.is_absolute():
+        p = Path.cwd() / p
+    if p.is_file():
+        return Check("luật phiên âm TTS", OK, str(p))
+    return Check(
+        "luật phiên âm TTS",
+        BAD,
+        f"không thấy file {p}",
+        "tạo file quy tắc phiên âm hoặc sửa `tts.pronunciation_rules_path` trong config.toml",
+    )
+
+
 def run_checks(cfg: Config, jobs_dir: Path) -> list[Check]:
     checks = [*check_ffmpeg(), check_ytdlp(), check_js_runtime()]
-    for maybe in (check_gemini_key(cfg), check_capcut(cfg), check_telegram(cfg)):
+    for maybe in (
+        check_gemini_key(cfg),
+        check_capcut(cfg),
+        check_pronunciation_rules(cfg),
+        check_telegram(cfg),
+    ):
         if maybe is not None:
             checks.append(maybe)
     checks.extend(check_ollama(cfg))

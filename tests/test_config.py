@@ -146,7 +146,7 @@ def _write(tmp_path, llm_block: str):
 
 def test_a_stage_without_its_own_table_uses_the_shared_one(tmp_path):
     cfg = load_config(_write(tmp_path, '[llm]\nprovider = "gemini"\nmodel = "m1"\n'))
-    for role in ("reconcile", "translate", "fit", "export"):
+    for role in ("reconcile", "translate", "fit", "export", "pronounce"):
         assert cfg.llm_for(role).provider == "gemini"
         assert cfg.llm_for(role).model == "m1"
 

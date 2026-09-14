@@ -24,7 +24,7 @@ def roles(**by_role) -> LLMRoles:
     return LLMRoles(
         **{
             r: by_role.get(r, base)
-            for r in ("reconcile", "translate", "fit", "export")
+            for r in ("reconcile", "translate", "fit", "export", "pronounce")
         }
     )
 
@@ -65,14 +65,14 @@ def test_the_api_key_is_only_required_when_a_stage_uses_gemini(cfg_fixture, monk
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     local = LLMConfig(provider="ollama", model="qwen3:8b")
     cfg = replace(cfg_fixture, llm_roles=roles(
-        reconcile=local, translate=local, fit=local, export=local))
+        reconcile=local, translate=local, fit=local, export=local, pronounce=local))
     assert doctor.check_gemini_key(cfg) is None
 
 
 def test_the_key_check_names_which_stages_need_it(cfg_fixture, monkeypatch):
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     local = LLMConfig(provider="ollama", model="qwen3:8b")
-    cfg = replace(cfg_fixture, llm_roles=roles(reconcile=local, fit=local, export=local))
+    cfg = replace(cfg_fixture, llm_roles=roles(reconcile=local, fit=local, export=local, pronounce=local))
     c = doctor.check_gemini_key(cfg)
     assert c.blocking
     assert "translate" in c.detail
@@ -196,3 +196,20 @@ def test_web_password_unset_warns(monkeypatch):
     assert c.status == doctor.WARN
     assert not c.blocking
     assert "chưa đặt" in c.detail
+
+
+def test_pronunciation_rules_check(tmp_path, cfg_fixture):
+    # File tồn tại -> OK
+    rules = tmp_path / "rules.md"
+    rules.write_text("Hello -> Hê lô", encoding="utf-8")
+    cfg = replace(cfg_fixture, tts=replace(cfg_fixture.tts, pronunciation_rules_path=str(rules)))
+    c = doctor.check_pronunciation_rules(cfg)
+    assert c is not None
+    assert c.status == doctor.OK
+
+    # File không tồn tại -> BAD
+    cfg_bad = replace(cfg_fixture, tts=replace(cfg_fixture.tts, pronunciation_rules_path=str(tmp_path / "missing.md")))
+    c_bad = doctor.check_pronunciation_rules(cfg_bad)
+    assert c_bad is not None
+    assert c_bad.blocking
+    assert "không thấy" in c_bad.detail

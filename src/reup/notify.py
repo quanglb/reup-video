@@ -65,6 +65,7 @@ class Notifier:
     def job_needs_review(self, job, gate: str) -> None: ...
     def job_done(self, job, output_dir: str) -> None: ...
     def job_failed(self, job, stage: str, error: str) -> None: ...
+    def tts_fallback_warning(self, job, ids: list[int | str]) -> None: ...
     def batch_finished(self, counts: dict[str, int]) -> None: ...
 
 
@@ -244,6 +245,14 @@ class TelegramNotifier(Notifier):
             f"<pre>{html.escape((error or '')[:600])}</pre>\n{self._link(job)}",
             self._keyboard([[("↻ Chạy lại", "run"), ("🔍 Xem lỗi", "log")],
                             [("🗄 Lưu trữ", "archive"), ("🗑 Xoá", "delask")]], job.id),
+        )
+
+    def tts_fallback_warning(self, job, ids: list[int | str]) -> None:
+        ids_str = ", ".join(f"#{i}" for i in ids)
+        self.send(
+            f"{self._head(job, '⚠️', 'Cảnh báo TTS')}\n"
+            f"CapCut lỗi, đã đổi sang edge-tts cho các câu: {html.escape(ids_str)}.\n"
+            f"Audio các câu này có thể khác giọng.\n{self._link(job)}"
         )
 
     def batch_finished(self, counts: dict[str, int]) -> None:

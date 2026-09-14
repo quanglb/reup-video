@@ -377,3 +377,61 @@ def test_write_manifest_writes_text_cache(tmp_path: Path, cfg_fixture):
 
     cache = json.loads((job.tts_dir / "text_cache.json").read_text(encoding="utf-8"))
     assert cache == {"1": tts_stage._hash_text("Hôm nay dạy làm")}
+
+
+def test_reads_pronunciation_json_when_present(tmp_path: Path, cfg_fixture):
+    """Khi có tts/pronunciation.json, tts.py phải lấy tts_text thay vì text gốc."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed(job, ["Hello các bạn", "Số 0912345678"])
+
+    # Ghi pronunciation.json giả lập do stage pronounce sinh ra
+    pron = {
+        "1": "Hê lô các bạn",
+        "2": "Số không chín một hai ba bốn năm sáu bảy tám",
+    }
+    (job.tts_dir / "pronunciation.json").write_text(
+        json.dumps(pron, ensure_ascii=False), encoding="utf-8"
+    )
+
+    class TextCapturingAdapter:
+        def __init__(self):
+            self.captured_texts = []
+
+        def synthesize_batch(self, items, lang, voice):
+            from reup.media.audio import silence
+            results = []
+            for text, out in items:
+                self.captured_texts.append(text)
+                silence(out, 300)
+                results.append(TTSResult(path=out, actual_ms=300, engine="capcut"))
+            return results
+
+    adapter = TextCapturingAdapter()
+    tts_stage.run_with(job, cfg_fixture, adapter)
+
+    assert adapter.captured_texts == [
+        "Hê lô các bạn",
+        "Số không chín một hai ba bốn năm sáu bảy tám",
+    ]
+    # Cache ghi hash của từ phiên âm
+    cache = json.loads((job.tts_dir / "text_cache.json").read_text(encoding="utf-8"))
+    assert cache["1"] == tts_stage._hash_text("Hê lô các bạn")
+
+
+def test_fallback_warning_sent_to_notifier(tmp_path: Path, cfg_fixture):
+    """Khi có câu fallback sang edge-tts, notifier nhận cảnh báo tts_fallback_warning."""
+    job = create_job(tmp_path / "jobs", "https://a/1", "zh", job_id="j1")
+    _seed(job, ["Hôm nay dạy làm", "Trước hết thái thịt"])
+
+    class FakeNotifier:
+        def __init__(self):
+            self.warnings = []
+
+        def tts_fallback_warning(self, j, ids):
+            self.warnings.append((j.id, ids))
+
+    notifier = FakeNotifier()
+    tts_stage.run_with(job, cfg_fixture, _MixedEngineAdapter(), notifier=notifier)
+
+    assert len(notifier.warnings) == 1
+    assert notifier.warnings[0] == ("j1", [2])

@@ -10,9 +10,9 @@ TTS_ENGINES = ("capcut", "stub")
 ASR_ENGINES = ("whisper", "capcut")
 LLM_PROVIDERS = ("gemini", "ollama", "cassette", "openai")
 PLATFORMS = ("youtube", "tiktok", "douyin")
-# Bốn stage gọi LLM. Mỗi cái chịu được một model khác nhau: chỉ `translate`
-# thật sự cần model giỏi, ba cái còn lại không phải suy luận gì nhiều.
-LLM_ROLES = ("reconcile", "translate", "fit", "export")
+# Năm stage gọi LLM. Mỗi cái chịu được một model khác nhau: chỉ `translate`
+# thật sự cần model giỏi, bốn cái còn lại không phải suy luận gì nhiều.
+LLM_ROLES = ("reconcile", "translate", "fit", "export", "pronounce")
 
 
 def parse_bitrate(text: str) -> int:
@@ -74,6 +74,8 @@ class TTSConfig:
     round-trip của CapCut mà không dồn dập tới ngưỡng server đó gãy (~15
     request liên tiếp).
 
+    `batch_size`: số câu gộp vào 1 request CapCut TTS (mặc định 8).
+
     `pause_every`/`pause_seconds`: nghỉ nhịp chủ động sau mỗi `pause_every`
     request thành công liên tiếp (mặc định 12 — dưới ngưỡng biết là 15), thay
     vì chỉ retry sau khi đã gãy.
@@ -88,9 +90,13 @@ class TTSConfig:
     voice: str = "BV074_streaming"
     capcut_dir: str = ""
     concurrency: int = 3
+    batch_size: int = 8
+    max_polls: int = 10
+    poll_interval: float = 1.0
     pause_every: int = 12
     pause_seconds: float = 2.0
     allow_edge_fallback: bool = True
+    pronunciation_rules_path: str = "docs/tts_pronunciation_rules.md"
 
 
 @dataclass(frozen=True)
@@ -135,7 +141,7 @@ class FetchConfig:
 class LLMRoles:
     """Cấu hình LLM đã giải xong cho từng stage.
 
-    Tách theo stage vì hạn mức đếm theo số request: đẩy ba việc nhẹ sang model
+    Tách theo stage vì hạn mức đếm theo số request: đẩy các việc nhẹ sang model
     local thì hạn mức miễn phí của nhà cung cấp chỉ còn phải gánh `translate`,
     tức một request mỗi video.
     """
@@ -144,6 +150,7 @@ class LLMRoles:
     translate: "LLMConfig"
     fit: "LLMConfig"
     export: "LLMConfig"
+    pronounce: "LLMConfig"
 
     def for_role(self, name: str) -> "LLMConfig":
         if name not in LLM_ROLES:

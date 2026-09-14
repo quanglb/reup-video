@@ -11,6 +11,7 @@ from reup.stages import (
     fetch,
     fit,
     ocr,
+    pronounce,
     reconcile,
     separate,
     subdetect,
@@ -18,7 +19,7 @@ from reup.stages import (
     tts,
 )
 
-# Mười hai trong mười ba stage của spec. Còn thiếu: discover(1) — crawler.
+# Mười ba stage của pipeline.
 #
 # subdetect và ocr không phụ thuộc nhánh audio (demux/separate/asr) nên về lý
 # thuyết chạy song song được; runner hiện chạy tuần tự nên xếp sau cho dễ đọc.
@@ -31,6 +32,7 @@ ALL_STAGES: list[StageSpec] = [
     ocr.SPEC,
     reconcile.SPEC,
     translate.SPEC,
+    pronounce.SPEC,
     tts.SPEC,
     fit.SPEC,
     compose.SPEC,

@@ -37,3 +37,8 @@ class StubTTS:
         ms = max(MIN_MS, count_syllables(text, lang) * self.ms_per_syllable)
         silence(out, ms)
         return TTSResult(path=Path(out), actual_ms=ms, engine="stub")
+
+    def synthesize_batch(
+        self, items: list[tuple[str, Path]], lang: str, voice: str
+    ) -> list[TTSResult]:
+        return [self.synthesize(text, lang, voice, out) for text, out in items]
