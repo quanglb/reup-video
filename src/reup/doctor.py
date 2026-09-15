@@ -218,7 +218,8 @@ def check_telegram(cfg: Config) -> Check | None:
     if not (cfg.notify.chat_id or os.environ.get("TELEGRAM_CHAT_ID")):
         return Check("Telegram", WARN, "thiếu chat id",
                      "nhắn cho bot một tin rồi chạy `uv run reup telegram chat-id`")
-    return Check("Telegram", OK, "bật — kiểm thử bằng `uv run reup telegram test`")
+    topic_info = f" (topic #{cfg.notify.topic_id})" if cfg.notify.topic_id else ""
+    return Check("Telegram", OK, f"bật{topic_info} — kiểm thử bằng `uv run reup telegram test`")
 
 
 def check_web_password() -> Check:

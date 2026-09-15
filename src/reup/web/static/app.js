@@ -771,8 +771,8 @@ function reupFetch(url, options) {
       }
     }
 
-    document.getElementById('bulkStart').addEventListener('click', () => setSelecting(true));
-    document.getElementById('bulkCancel').addEventListener('click', () => setSelecting(false));
+    document.getElementById('bulkStart')?.addEventListener('click', () => setSelecting(true));
+    document.getElementById('bulkCancel')?.addEventListener('click', () => setSelecting(false));
     allBox.addEventListener('change', () => {
       boxes().forEach((b) => { b.checked = allBox.checked; });
       refresh();
@@ -803,7 +803,7 @@ function reupFetch(url, options) {
         }));
       });
     });
-    document.getElementById('emptyArchive').addEventListener('click', () => {
+    document.getElementById('emptyArchive')?.addEventListener('click', () => {
       const total = document.querySelector('.view-switch a.on b');
       confirmBulk(`toàn bộ ${total ? total.textContent : ''} dự án trong Lưu trữ`,
         () => report(post('/archive/empty')));

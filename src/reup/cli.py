@@ -62,6 +62,10 @@ def _build_parser() -> argparse.ArgumentParser:
     approve.add_argument("job_id")
     approve.add_argument("--gate", choices=["a", "b"], default="a")
 
+    del_cmd = sub.add_parser("delete", aliases=["rm"], help="xoá hẳn job, artifact và dòng trong sổ cái")
+    del_cmd.add_argument("job_id", nargs="?", help="id của job cần xoá")
+    del_cmd.add_argument("--all", action="store_true", help="xoá tất cả job (trừ job đang chạy)")
+
     sub.add_parser("status", help="liệt kê job")
     sub.add_parser("doctor", help="kiểm tra môi trường trước khi chạy")
     sub.add_parser("benchmark", help="đo thời gian từng stage trên máy này")
@@ -333,13 +337,19 @@ def _cmd_telegram(args, store: Store) -> int:
         print("chưa có TELEGRAM_BOT_TOKEN trong .env (lấy từ @BotFather)", file=sys.stderr)
         return 1
     if args.action == "chat-id":
-        found = notify.chat_ids(token)
+        print("Đang quét tin nhắn Telegram (chờ tối đa 10 giây)...")
+        found = notify.chat_ids(token, wait_seconds=10, jobs_dir=args.jobs_dir)
         if not found:
-            print("chưa thấy chat nào. Mở bot trên Telegram, bấm Start hoặc nhắn một tin, rồi chạy lại.")
+            print("Chưa thấy tin nhắn nào.")
+            print("Mẹo: Mở Topic trong nhóm/forum, tag bot `@quang_reup_bot hello` (hoặc cấp quyền Admin cho bot), rồi chạy lại.")
             return 1
-        for chat_id, name in found:
-            print(f"{chat_id}\t{name}")
-        print("\nChép số vào [notify] chat_id trong config.toml, hoặc TELEGRAM_CHAT_ID trong .env")
+        for item in found:
+            if item.topic_id:
+                topic_info = f" (Topic #{item.topic_id}" + (f": {item.topic_name}" if item.topic_name else "") + ")"
+                print(f"{item.chat_id}\t{item.name}{topic_info}\n\t-> chat_id = {item.chat_id}, topic_id = {item.topic_id}")
+            else:
+                print(f"{item.chat_id}\t{item.name}")
+        print("\nChép số vào [notify] (chat_id, topic_id) trong config.toml, hoặc TELEGRAM_CHAT_ID / TELEGRAM_TOPIC_ID trong .env")
         return 0
 
     cfg = load_config(args.config)
@@ -350,9 +360,48 @@ def _cmd_telegram(args, store: Store) -> int:
             "([notify] chat_id hoặc TELEGRAM_CHAT_ID)", file=sys.stderr,
         )
         return 1
+    dest = f"chat {bot.chat_id}" + (f", topic #{bot.topic_id}" if bot.topic_id else "")
     ok = bot.send("👋 <b>reup</b> đã kết nối. Bot sẽ báo khi làm video.")
-    print("đã gửi" if ok else "gửi hỏng — xem lỗi phía trên")
+    print(f"đã gửi tới {dest}" if ok else "gửi hỏng — xem lỗi phía trên")
     return 0 if ok else 1
+
+
+def _cmd_delete(args, store: Store) -> int:
+    from reup.web.service import delete_job
+
+    cfg = load_config(args.config)
+    if args.all:
+        rows = store.list_jobs()
+        deleted = 0
+        for r in rows:
+            if r["status"] == "running":
+                continue
+            try:
+                job = load_job(args.jobs_dir, r["id"])
+                delete_job(job, store, cfg)
+                deleted += 1
+            except FileNotFoundError:
+                store.delete_job(r["id"])
+                deleted += 1
+        print(f"đã xoá {deleted} job")
+        return 0
+
+    if not args.job_id:
+        print("cần truyền job_id hoặc dùng cờ --all", file=sys.stderr)
+        return 2
+
+    row = store.get_job(args.job_id)
+    if row and row["status"] == "running":
+        print(f"job {args.job_id} đang chạy, không xoá được", file=sys.stderr)
+        return 1
+
+    try:
+        job = load_job(args.jobs_dir, args.job_id)
+        delete_job(job, store, cfg)
+    except FileNotFoundError:
+        store.delete_job(args.job_id)
+    print(f"đã xoá job {args.job_id}")
+    return 0
 
 
 def _cmd_status(args, store: Store) -> int:
@@ -377,6 +426,8 @@ def main(argv: list[str] | None = None) -> int:
             "add": _cmd_add,
             "run": _cmd_run,
             "redo": _cmd_redo,
+            "delete": _cmd_delete,
+            "rm": _cmd_delete,
             "status": _cmd_status,
             "approve": _cmd_approve,
             "benchmark": _cmd_benchmark,

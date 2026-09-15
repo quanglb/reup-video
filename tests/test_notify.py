@@ -106,5 +106,61 @@ def test_chat_id_config_accepts_a_bare_number(tmp_path, config_file):
 
     text = re.sub(r"(?m)^chat_id\s*=.*$", "chat_id = 12345",
                   config_file.read_text(encoding="utf-8"))
+    text = re.sub(r"(?m)^topic_id\s*=.*$", "topic_id = 6789", text)
     config_file.write_text(text, encoding="utf-8")
-    assert load_config(config_file).notify.chat_id == "12345"
+    cfg = load_config(config_file)
+    assert cfg.notify.chat_id == "12345"
+    assert cfg.notify.topic_id == 6789
+
+
+def test_topic_id_is_included_in_send_and_from_config(config_file, monkeypatch):
+    import re
+
+    text = re.sub(r"(?m)^chat_id\s*=.*$", 'chat_id = ""', config_file.read_text(encoding="utf-8"))
+    text = re.sub(r"(?m)^topic_id\s*=.*$", "topic_id = 0", text)
+    config_file.write_text(text, encoding="utf-8")
+    cfg = load_config(config_file)
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "t")
+    monkeypatch.setenv("TELEGRAM_CHAT_ID", "-100123")
+    monkeypatch.setenv("TELEGRAM_TOPIC_ID", "555")
+    bot = notify.from_config(cfg)
+    assert isinstance(bot, notify.TelegramNotifier)
+    assert bot.topic_id == 555
+    assert bot.chat_id == "-100123"
+
+    rec = RecordingBot(topic_id=555)
+    rec.send("Xin chào topic")
+    method, payload = rec.calls[-1]
+    assert method == "sendMessage"
+    assert payload.get("message_thread_id") == 555
+
+
+def test_chat_ids_extracts_topics(monkeypatch):
+    updates = [
+        {
+            "update_id": 1,
+            "message": {
+                "chat": {"id": -100123, "title": "Nhóm Reup", "type": "supergroup"},
+                "message_thread_id": 88,
+                "forum_topic_created": {"name": "Video Mới"},
+            },
+        },
+        {
+            "update_id": 2,
+            "message": {
+                "chat": {"id": 999, "first_name": "Quang", "type": "private"},
+            },
+        },
+    ]
+    monkeypatch.setattr(notify.TelegramNotifier, "call", lambda self, m, p: updates)
+    targets = notify.chat_ids("dummy_token")
+    assert len(targets) == 2
+    topic_tgt = [t for t in targets if t.topic_id == 88][0]
+    assert topic_tgt.chat_id == "-100123"
+    assert topic_tgt.name == "Nhóm Reup"
+    assert topic_tgt.topic_name == "Video Mới"
+
+    # Test tuple unpacking backward-compatibility
+    chat_id, name = topic_tgt
+    assert chat_id == "-100123"
+    assert name == "Nhóm Reup"

@@ -13,6 +13,9 @@
     <form method="post" action="/run-all" class="run-all">
       <button class="primary">▶ Chạy tất cả</button>
     </form>
+    {% if rows %}
+    <button type="button" id="bulkStart">☑ Chọn nhiều</button>
+    {% endif %}
     {% elif rows %}
     <button type="button" id="bulkStart">☑ Chọn nhiều</button>
     <button type="button" id="emptyArchive" class="danger-text">🗑 Dọn sạch lưu trữ</button>
@@ -36,7 +39,7 @@
   {% endfor %}
 </nav>
 
-{% if view == 'archived' and rows %}
+{% if rows %}
 <div class="bulk-bar" id="bulkBar" hidden>
   <label><input type="checkbox" id="bulkAll"> Chọn tất cả</label>
   <span>Đã chọn <b id="bulkCount">0</b></span>
@@ -68,9 +71,7 @@
   <article class="job-card s-{{ r.status }}" data-job-id="{{ r.id }}" data-status="{{ r.status }}"
            data-title="{{ r.title }}" data-name="{{ r.name }}"
            data-search="{{ (r.title ~ ' ' ~ r.source_title ~ ' ' ~ r.url ~ ' ' ~ r.id ~ ' ' ~ r.uploader)|lower }}">
-    {% if view == 'archived' %}
     <label class="pick" title="Chọn"><input type="checkbox" value="{{ r.id }}" {% if is_running %}disabled{% endif %}></label>
-    {% endif %}
     <a class="thumb" href="/jobs/{{ r.id }}"
        {% if r.has_final %}data-preview="/jobs/{{ r.id }}/final"{% elif r.has_source %}data-preview="/jobs/{{ r.id }}/source"{% endif %}>
       {% if r.has_source or r.has_final %}
@@ -140,6 +141,7 @@
         {% else %}
           <button type="button" class="icon-btn foot-archive" data-action="archive" title="Lưu trữ">🗄</button>
         {% endif %}
+        <button type="button" class="icon-btn danger-text foot-delete" data-action="delete" title="Xoá vĩnh viễn" {% if is_running %}disabled title="Đang chạy, dừng rồi mới xoá được"{% endif %}>🗑</button>
         <a class="btn ghost" href="/jobs/{{ r.id }}">Mở</a>
       </div>
     </div>

@@ -192,6 +192,7 @@ class DiscoverConfig:
 class NotifyConfig:
     telegram: bool = False
     chat_id: str = ""  # trống thì đọc TELEGRAM_CHAT_ID trong .env
+    topic_id: int = 0  # 0 = chat thường / General topic; >0 = topic ID trong forum
     stage_updates: bool = True  # một tin nhắn tiến trình, sửa sau từng stage
     send_video: bool = False  # gửi kèm file thành phẩm (≤ 50MB)
     web_url: str = "http://127.0.0.1:8765"  # để tin nhắn có link mở job
@@ -296,6 +297,11 @@ def _notify(raw: dict) -> NotifyConfig:
     raw = dict(raw)
     if "chat_id" in raw:
         raw["chat_id"] = str(raw["chat_id"])  # toml cho viết số trần
+    if "topic_id" in raw:
+        try:
+            raw["topic_id"] = int(raw["topic_id"]) if raw["topic_id"] else 0
+        except (ValueError, TypeError):
+            raw["topic_id"] = 0
     return NotifyConfig(**raw)
 
 

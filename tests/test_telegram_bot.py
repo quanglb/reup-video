@@ -197,3 +197,30 @@ def test_web_app_exposes_bot_actions(tmp_path, config_file):
     import pytest
     with pytest.raises(ValueError):
         acts["run"]("khong-co")
+
+
+def test_forum_topic_filtering(tmp_path):
+    bot = RecordingBot(topic_id=123)
+    db = tmp_path / "db"
+    s = Store(db)
+    s.init_schema()
+    s.close()
+    p = BotPoller(bot, tmp_path / "jobs", db)
+
+    # Tin nhắn ở topic khác (ví dụ topic 999) -> bị bỏ qua
+    p.handle({
+        "update_id": 1,
+        "message": {"chat": {"id": 42}, "message_thread_id": 999, "text": "/status"},
+    })
+    assert bot.calls == []
+
+    # Tin nhắn ở đúng topic 123 -> được xử lý và gửi về đúng topic 123
+    p.handle({
+        "update_id": 2,
+        "message": {"chat": {"id": 42}, "message_thread_id": 123, "text": "/status"},
+    })
+    assert len(bot.calls) == 1
+    method, payload = bot.calls[0]
+    assert method == "sendMessage"
+    assert payload["message_thread_id"] == 123
+    assert "Tổng quan" in payload["text"]

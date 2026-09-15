@@ -384,3 +384,32 @@ def test_web_with_password_on_public_host_runs_without_warning(
     assert code == 0
     assert "không có mật khẩu" not in err
     assert "từ chối chạy" not in err
+
+
+def test_cli_delete_one_job(tmp_path: Path, capsys, config_file: Path):
+    common = _common(tmp_path, config_file)
+    main([*common, "add", "https://douyin.com/video/del1", "--lang", "zh"])
+    job_id = capsys.readouterr().out.strip()
+    assert (tmp_path / "jobs" / job_id).exists()
+
+    code = main([*common, "delete", job_id])
+    assert code == 0
+    assert not (tmp_path / "jobs" / job_id).exists()
+    out = capsys.readouterr().out
+    assert f"đã xoá job {job_id}" in out
+
+
+def test_cli_delete_all_jobs(tmp_path: Path, capsys, config_file: Path):
+    common = _common(tmp_path, config_file)
+    main([*common, "add", "https://douyin.com/video/del2", "--lang", "zh"])
+    j1 = capsys.readouterr().out.strip()
+    main([*common, "add", "https://douyin.com/video/del3", "--lang", "zh"])
+    j2 = capsys.readouterr().out.strip()
+
+    code = main([*common, "rm", "--all"])
+    assert code == 0
+    assert not (tmp_path / "jobs" / j1).exists()
+    assert not (tmp_path / "jobs" / j2).exists()
+    out = capsys.readouterr().out
+    assert "đã xoá 2 job" in out
+

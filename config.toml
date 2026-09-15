@@ -43,10 +43,11 @@ auto_approve_b = true   # Tự động duyệt thành phẩm (chốt B)
 
 # Bot Telegram báo cáo tình hình khi làm video. Token để trong .env:
 #   TELEGRAM_BOT_TOKEN=...   (lấy ở @BotFather)
-# Chat id: nhắn cho bot một tin rồi chạy `uv run reup telegram chat-id`.
+# Chat/Forum ID & Topic ID: nhắn tin cho bot trong chat/topic rồi chạy `uv run reup telegram chat-id`.
 [notify]
 telegram      = true
-chat_id       = 5236378815          # trống = đọc TELEGRAM_CHAT_ID trong .env
+chat_id       = -1004496599131      # Nhóm/Forum "do somethings"
+topic_id      = 93                  # Topic "Reup Tool"
 stage_updates = true        # một tin tiến trình, tự sửa sau từng bước
 send_video    = false       # gửi kèm file thành phẩm (≤ 50MB)
 web_url       = "http://127.0.0.1:8765"

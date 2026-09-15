@@ -29,6 +29,48 @@ COMMANDS = [
 STATUS_ICONS = {"pending": "🕓", "running": "⚙️", "needs_review": "⏸", "done": "✅", "failed": "❌"}
 
 
+def _record_chat(upd: dict, jobs_dir: Path) -> None:
+    import json
+
+    msg = upd.get("message") or upd.get("channel_post") or upd.get("my_chat_member") or {}
+    chat = msg.get("chat") or {}
+    if "id" not in chat:
+        return
+    chat_id = str(chat["id"])
+    chat_type = chat.get("type", "private")
+    name = chat.get("title") or " ".join(
+        x for x in (chat.get("first_name"), chat.get("last_name")) if x
+    ) or chat.get("username") or ""
+    topic_id = int(msg.get("message_thread_id") or 0)
+    topic_name = ""
+    topic_info = msg.get("forum_topic_created")
+    if not topic_info and isinstance(msg.get("reply_to_message"), dict):
+        topic_info = msg["reply_to_message"].get("forum_topic_created")
+    if isinstance(topic_info, dict):
+        topic_name = topic_info.get("name", "")
+
+    text = msg.get("text") or ""
+    print(f"[telegram] Nhận tin: chat_id={chat_id} ({name}) topic_id={topic_id}: {text!r}", file=sys.stderr, flush=True)
+
+    cache_file = Path(jobs_dir) / ".telegram_chats.json"
+    try:
+        data = {}
+        if cache_file.exists():
+            data = json.loads(cache_file.read_text(encoding="utf-8"))
+        key = f"{chat_id}:{topic_id}"
+        data[key] = {
+            "chat_id": chat_id,
+            "name": name,
+            "type": chat_type,
+            "topic_id": topic_id,
+            "topic_name": topic_name,
+            "time": time.time(),
+        }
+        cache_file.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
 class BotPoller:
     def __init__(
         self,
@@ -78,6 +120,7 @@ class BotPoller:
                 continue
             for upd in updates:
                 self.offset = upd["update_id"] + 1
+                _record_chat(upd, self.jobs_dir)
                 try:
                     self.handle(upd)
                 except Exception as exc:  # một lệnh hỏng không được giết cả bot
@@ -93,6 +136,10 @@ class BotPoller:
         msg = update.get("message") or {}
         if str((msg.get("chat") or {}).get("id")) != self.bot.chat_id:
             return  # người lạ: im lặng, không lộ là bot có tồn tại
+        if self.bot.topic_id:
+            msg_thread = int(msg.get("message_thread_id") or 0)
+            if msg_thread != self.bot.topic_id:
+                return  # tin nhắn ở topic khác trong cùng forum: im lặng
         text = (msg.get("text") or "").strip()
         if not text.startswith("/"):
             self.bot.send("Gõ /help để xem lệnh.")
@@ -332,7 +379,7 @@ def start_for_app(app) -> BotPoller | None:
     base = notify.from_config(cfg)
     if not isinstance(base, TelegramNotifier) or not cfg.notify.commands:
         return None
-    bot = TelegramNotifier(base.token, base.chat_id, timeout=40.0)  # dài hơn long-poll 25s
+    bot = TelegramNotifier(base.token, base.chat_id, topic_id=base.topic_id, timeout=40.0)  # dài hơn long-poll 25s
     poller = BotPoller(
         bot, app.state.jobs_dir, app.state.db_path,
         live=app.state.runner.live,

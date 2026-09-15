@@ -573,6 +573,10 @@ button:disabled { opacity: .45; cursor: not-allowed; }
   .job-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 }
 .card-foot .foot-archive { margin-left: auto; font-size: 13px; padding: 1px 6px; border-color: var(--line); }
+.card-foot .foot-delete { font-size: 13px; padding: 1px 6px; border-color: var(--line); color: var(--bad); }
+.card-foot .foot-delete:hover { background: rgba(239, 68, 68, 0.15); border-color: var(--bad); }
+.card-foot .foot-archive + .foot-delete { margin-left: 0; }
+.card-foot .foot-delete + .btn.ghost { margin-left: 0; }
 .card-foot .foot-archive + .btn.ghost { margin-left: 0; }
 
 /* --- kênh Douyin đã lưu ----------------------------------------------------- */

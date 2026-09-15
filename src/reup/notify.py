@@ -18,6 +18,7 @@ import threading
 import time
 import urllib.request
 import uuid
+from dataclasses import dataclass
 from pathlib import Path
 
 API = "https://api.telegram.org"
@@ -74,6 +75,7 @@ class TelegramNotifier(Notifier):
         self,
         token: str,
         chat_id: str,
+        topic_id: int = 0,
         stage_updates: bool = True,
         send_video: bool = False,
         web_url: str = "",
@@ -83,6 +85,7 @@ class TelegramNotifier(Notifier):
     ) -> None:
         self.token = token
         self.chat_id = str(chat_id)
+        self.topic_id = int(topic_id) if topic_id else 0
         self.stage_updates = stage_updates
         self.send_video = send_video
         self.web_url = web_url.rstrip("/")
@@ -112,11 +115,20 @@ class TelegramNotifier(Notifier):
             return None
         return data.get("result") if data.get("ok") else None
 
-    def send(self, text: str, keyboard: list | None = None, reply_to: int | None = None) -> int | None:
+    def send(
+        self,
+        text: str,
+        keyboard: list | None = None,
+        reply_to: int | None = None,
+        thread_id: int | None = None,
+    ) -> int | None:
         payload = {
             "chat_id": self.chat_id, "text": text[:4000], "parse_mode": "HTML",
             "disable_web_page_preview": True,
         }
+        tid = self.topic_id if thread_id is None else thread_id
+        if tid:
+            payload["message_thread_id"] = tid
         if keyboard:
             payload["reply_markup"] = {"inline_keyboard": keyboard}
         if reply_to:
@@ -135,11 +147,19 @@ class TelegramNotifier(Notifier):
             "parse_mode": "HTML", "disable_web_page_preview": True,
         })
 
-    def upload_video(self, path: Path, caption: str) -> None:
+    def upload_video(self, path: Path, caption: str, thread_id: int | None = None) -> None:
         boundary = uuid.uuid4().hex
         parts = []
-        for name, value in (("chat_id", self.chat_id), ("caption", caption[:1000]),
-                            ("parse_mode", "HTML"), ("supports_streaming", "true")):
+        tid = self.topic_id if thread_id is None else thread_id
+        fields = [
+            ("chat_id", self.chat_id),
+            ("caption", caption[:1000]),
+            ("parse_mode", "HTML"),
+            ("supports_streaming", "true"),
+        ]
+        if tid:
+            fields.append(("message_thread_id", str(tid)))
+        for name, value in fields:
             parts.append(
                 f'--{boundary}\r\nContent-Disposition: form-data; name="{name}"\r\n\r\n{value}\r\n'
                 .encode("utf-8")
@@ -266,6 +286,19 @@ class TelegramNotifier(Notifier):
         self.send(f"🏁 <b>Hết lượt chạy</b> · {total} job\n" + " · ".join(parts) + link)
 
 
+@dataclass(frozen=True)
+class ChatTarget:
+    chat_id: str
+    name: str
+    chat_type: str = "private"
+    topic_id: int = 0
+    topic_name: str = ""
+
+    def __iter__(self):
+        yield self.chat_id
+        yield self.name
+
+
 def token_from_env() -> str:
     return os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 
@@ -279,23 +312,68 @@ def from_config(cfg) -> Notifier:
     chat = str(notify.chat_id or os.environ.get("TELEGRAM_CHAT_ID", "")).strip()
     if not (token and chat):
         return Notifier()
+    topic_env = os.environ.get("TELEGRAM_TOPIC_ID", "") or os.environ.get("TELEGRAM_THREAD_ID", "")
+    try:
+        topic = notify.topic_id or (int(topic_env) if topic_env else 0)
+    except (ValueError, TypeError):
+        topic = 0
     return TelegramNotifier(
-        token, chat, stage_updates=notify.stage_updates,
+        token, chat, topic_id=topic, stage_updates=notify.stage_updates,
         send_video=notify.send_video, web_url=notify.web_url,
         buttons=notify.commands,
     )
 
 
-def chat_ids(token: str) -> list[tuple[str, str]]:
-    """Chat đã nhắn cho bot gần đây: (id, tên). Để người dùng khỏi phải tự mò."""
-    bot = TelegramNotifier(token, "")
-    found: dict[str, str] = {}
-    for upd in bot.call("getUpdates", {"limit": 50}) or []:
+def chat_ids(token: str, wait_seconds: float = 0, jobs_dir: Path | None = None) -> list[ChatTarget]:
+    """Chat/Forum và Topic đã nhắn cho bot gần đây. Để người dùng khỏi phải tự mò."""
+    found: dict[tuple[str, int], ChatTarget] = {}
+
+    if jobs_dir is None:
+        jobs_dir = Path("jobs")
+    cache_file = Path(jobs_dir) / ".telegram_chats.json"
+    if cache_file.exists():
+        try:
+            cached_data = json.loads(cache_file.read_text(encoding="utf-8"))
+            for v in cached_data.values():
+                key = (str(v["chat_id"]), int(v.get("topic_id") or 0))
+                found[key] = ChatTarget(
+                    chat_id=str(v["chat_id"]),
+                    name=v.get("name", ""),
+                    chat_type=v.get("type", "private"),
+                    topic_id=int(v.get("topic_id") or 0),
+                    topic_name=v.get("topic_name", ""),
+                )
+        except Exception:
+            pass
+
+    bot = TelegramNotifier(token, "", timeout=max(15.0, wait_seconds + 10.0))
+    payload = {"limit": 50}
+    if wait_seconds > 0:
+        payload["timeout"] = int(wait_seconds)
+    for upd in bot.call("getUpdates", payload) or []:
         msg = upd.get("message") or upd.get("channel_post") or upd.get("my_chat_member") or {}
         chat = msg.get("chat") or {}
-        if "id" in chat:
-            name = chat.get("title") or " ".join(
-                x for x in (chat.get("first_name"), chat.get("last_name")) if x
-            ) or chat.get("username") or ""
-            found[str(chat["id"])] = name
-    return list(found.items())
+        if "id" not in chat:
+            continue
+        chat_id = str(chat["id"])
+        chat_type = chat.get("type", "private")
+        name = chat.get("title") or " ".join(
+            x for x in (chat.get("first_name"), chat.get("last_name")) if x
+        ) or chat.get("username") or ""
+        topic_id = int(msg.get("message_thread_id") or 0)
+        topic_name = ""
+        topic_info = msg.get("forum_topic_created")
+        if not topic_info and isinstance(msg.get("reply_to_message"), dict):
+            topic_info = msg["reply_to_message"].get("forum_topic_created")
+        if isinstance(topic_info, dict):
+            topic_name = topic_info.get("name", "")
+        key = (chat_id, topic_id)
+        if key not in found or (topic_name and not found[key].topic_name):
+            found[key] = ChatTarget(
+                chat_id=chat_id,
+                name=name,
+                chat_type=chat_type,
+                topic_id=topic_id,
+                topic_name=topic_name,
+            )
+    return list(found.values())
