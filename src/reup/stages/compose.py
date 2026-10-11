@@ -18,6 +18,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from reup import cover
 from reup.config import Config, TransformConfig, parse_bitrate
 from reup.core.job import Job
 from reup.core.stage import StageSpec
@@ -37,13 +38,13 @@ from reup.subtitle import (
 # VideoToolbox kém hiệu quả hơn libx264 ở cùng bitrate (spec R6), nên phải cấp
 # thêm chỗ so với nguồn. 1.6x là mức bù đủ mà không phình file.
 HEADROOM = 1.6
-# Che chữ gốc kiểu kính mờ: blur nhiều lượt rồi phủ một lớp trắng rất mỏng (10%).
-# Blur mới là thứ xoá nét chữ; lớp trắng chỉ ám nhẹ cho vùng che trông như
-# tấm kính mờ thay vì một mảng nhoè bẩn, và không lấn át hình phía sau.
+# Che chữ gốc trên nền có hình: blur để xoá nét chữ, rồi phủ tấm nền tối gần đặc
+# (xem `reup.cover`). Bản cũ phủ trắng 10% thành "kính mờ" — TikTok đọc là che
+# logo và gắn nhãn không nguyên tác.
 BLUR_RADIUS = 20
 BLUR_PASSES = 3
-COVER_COLOR = "white"
-COVER_OPACITY = 0.1
+COVER_COLOR = cover.PLATE_COLOR
+COVER_OPACITY = cover.PLATE_OPACITY
 # Đệm quanh hộp OCR: hộp của Vision ôm sát nét chữ, không đệm là lộ viền chữ.
 COVER_PAD_RATIO = 0.3
 COVER_PAD_MIN = 10
@@ -92,8 +93,13 @@ def blur_radius_for(w: int, h: int, wanted: int = BLUR_RADIUS) -> int:
 def build_blur_chain(regions: list[dict]) -> tuple[str, str]:
     """Chuỗi filter che các vùng chữ gốc. Trả (chuỗi, nhãn đầu ra).
 
-    Nguồn được `split` MỘT lần thành khung nền + mỗi vùng một nhánh
-    crop -> boxblur -> phủ trắng, rồi các nhánh overlay lần lượt lên nền.
+    Mỗi vùng mang `fill` do `reup.cover` chọn:
+    - `flat`: tô thẳng màu nền bằng `drawbox` trên luồng chính — không cần nhánh.
+    - `plate` (mặc định): nhánh crop -> boxblur -> tấm nền tối gần đặc, rồi
+      overlay về. KHÔNG còn kính mờ trắng 10%: ô mờ trong suốt là đúng thứ TikTok
+      gọi là "hình mờ / logo bị che".
+
+    Nguồn được `split` MỘT lần thành khung nền + mỗi vùng plate một nhánh.
     Đừng split nối tiếp từng vùng: mỗi tầng split lồng nhau làm hàng đợi khung
     trong filtergraph phình theo cấp số nhân — 16 vùng mất vài giây, 31 vùng
     thì ffmpeg treo ở frame=0.
@@ -104,23 +110,41 @@ def build_blur_chain(regions: list[dict]) -> tuple[str, str]:
     if not regions:
         return "", "[0:v]"
 
-    branches = "".join(f"[reg{i}]" for i in range(len(regions)))
-    parts = [f"[0:v]split={len(regions) + 1}[base]{branches}"]
-    current = "[base]"
-    for i, r in enumerate(regions):
+    def enable_for(r: dict) -> str:
+        if "start_ms" in r and "end_ms" in r:
+            return (
+                f":enable='between(t,{r['start_ms'] / 1000:.3f},{r['end_ms'] / 1000:.3f})'"
+            )
+        return ""
+
+    plates = [r for r in regions if (r.get("fill") or {}).get("mode") != cover.FLAT]
+    flats = [r for r in regions if (r.get("fill") or {}).get("mode") == cover.FLAT]
+
+    parts: list[str] = []
+    current = "[0:v]"
+    # Tô nền phẳng TRƯỚC, dải plate SAU: hai câu chồng thời gian mà một câu tô
+    # đen một câu plate thì dải plate phải nằm trên cùng, không thì lộ hai tông.
+    if flats:
+        boxes = ",".join(
+            f"drawbox=x={r['x']}:y={r['y']}:w={r['w']}:h={r['h']}:"
+            f"color={r['fill']['color']}@1:t=fill{enable_for(r)}"
+            for r in flats
+        )
+        parts.append(f"{current}{boxes}[flat]")
+        current = "[flat]"
+    if plates:
+        branches = "".join(f"[reg{i}]" for i in range(len(plates)))
+        parts.append(f"{current}split={len(plates) + 1}[base]{branches}")
+        current = "[base]"
+    for i, r in enumerate(plates):
         geom = f"{r['w']}:{r['h']}:{r['x']}:{r['y']}"
         radius = blur_radius_for(r["w"], r["h"])
         parts.append(
             f"[reg{i}]crop={geom},boxblur={radius}:{BLUR_PASSES},"
             f"drawbox=x=0:y=0:w=iw:h=ih:color={COVER_COLOR}@{COVER_OPACITY}:t=fill[bl{i}]"
         )
-        enable = ""
-        if "start_ms" in r and "end_ms" in r:
-            enable = (
-                f":enable='between(t,{r['start_ms'] / 1000:.3f},{r['end_ms'] / 1000:.3f})'"
-            )
         nxt = f"[cl{i}]"
-        parts.append(f"{current}[bl{i}]overlay={r['x']}:{r['y']}{enable}{nxt}")
+        parts.append(f"{current}[bl{i}]overlay={r['x']}:{r['y']}{enable_for(r)}{nxt}")
         current = nxt
     return ";".join(parts) + ";", current
 
@@ -248,6 +272,163 @@ def load_blur_regions(job: Job) -> list[dict]:
     return windows + [r for r in static if r["kind"] == "watermark"]
 
 
+def annotate_fills(job: Job, regions: list[dict], video_w: int = 0) -> list[dict]:
+    """Gắn cách che (`flat` tô màu nền / `plate` tấm nền tối) cho từng vùng.
+
+    Vùng phụ đề phải dùng plate thì nới thành một dải kéo hết bề ngang khung:
+    một băng phụ đề tối trông như thiết kế có chủ ý, còn miếng vá đúng cỡ chữ
+    gốc (rộng hơn chữ Việt) thì lòi hai mẩu tối hai bên chữ.
+    """
+    frames = sorted((job.root / "frames").glob("f_*.png"))
+    fills = [cover.classify_region(frames, r, others=regions) for r in regions]
+    subs = [i for i, r in enumerate(regions) if r.get("kind") == "subtitle"]
+    plated = sum(1 for i in subs if fills[i]["mode"] == cover.PLATE)
+    # Nhiều câu phải dùng dải thì dùng dải cho mọi câu: phụ đề cả video cùng một
+    # kiểu, không lúc có băng lúc không. Trên nền đen dải tối gần như vô hình.
+    band_all = bool(subs) and plated >= len(subs) * BAND_ALL_RATIO
+    out = []
+    for i, r in enumerate(regions):
+        fill = fills[i]
+        if band_all and i in subs:
+            fill = {"mode": cover.PLATE}
+        r = {**r, "fill": fill}
+        if fill["mode"] == cover.PLATE and r.get("kind") == "subtitle" and video_w:
+            r["x"], r["w"] = 0, video_w
+        out.append(r)
+    return out
+
+
+# Bề ngang tối thiểu dành cho một câu phụ đề Việt, so với bề ngang khung.
+SUB_WIDTH_RATIO = 0.8
+# Từ ngần này phần câu phải dùng dải plate trở lên thì cả video dùng dải.
+BAND_ALL_RATIO = 0.3
+
+
+# Chữ cố định dịch ra được nới ngang tới ngần này bề ngang khung khi nền phẳng:
+# tiếng Việt dài gấp 2-3 lần chữ Hán, nhét vừa hộp cũ thì chữ bé tí.
+HEADER_WIDTH_RATIO = 0.88
+
+
+def _same_box(a: dict, b: dict) -> bool:
+    return all(a.get(k) == b.get(k) for k in ("x", "y", "w", "h"))
+
+
+def header_overlays(job: Job, cfg: Config, regions: list[dict], duration_ms: int,
+                    video_w: int, video_h: int) -> list[Overlay]:
+    """Bản dịch chữ cố định (tiêu đề cháy sẵn của video gốc), đặt lại đúng chỗ.
+
+    Nền phẳng: vùng đã được tô màu nền, chữ Việt nới ngang cho dễ đọc. Nền có
+    hình: chữ nằm gọn trong tấm nền tối. Vùng nền có hình mà không có bản dịch
+    thì in tiêu đề video — không bao giờ để một tấm nền trống suốt video.
+    """
+    if not job.meta_json.exists():
+        return []
+    meta = json.loads(job.meta_json.read_text(encoding="utf-8"))
+    headers = meta.get("headers") or []
+    if not headers:
+        return []
+    from reup.textcolor import colors_from_frame
+
+    frames = sorted((job.root / "frames").glob("f_*.png"))
+    mid = frames[len(frames) // 2] if frames else None
+    font = find_font(cfg.subtitle.font)
+    out_dir = job.root / "subs"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    overlays = []
+    for i, h in enumerate(headers):
+        region = next((r for r in regions if _same_box(r, h)), None)
+        mode = ((region or {}).get("fill") or {}).get("mode", cover.PLATE)
+        text = (h.get("vi") or "").strip()
+        if not text and mode == cover.PLATE:
+            text = (meta.get("title") or "")[:42].strip()
+        if not text:
+            continue
+        box = {k: h[k] for k in ("x", "y", "w", "h")}
+        colors = colors_from_frame(mid, box) if mid else {}
+        line_h = max(12, box["h"] - 16)  # subdetect đệm 8px mỗi phía
+        if mode == cover.FLAT:
+            want = max(box["w"], int(video_w * HEADER_WIDTH_RATIO))
+            cx = box["x"] + box["w"] / 2
+            x = int(max(0, min(video_w - want, cx - want / 2)))
+            box = {**box, "x": x, "w": min(want, video_w)}
+        png = out_dir / f"header_{i:02d}.png"
+        w, hh, _ = render_fitted(
+            text, png, font, box["w"], box["h"],
+            cfg.subtitle.outline / max(1, cfg.subtitle.size),
+            max_size=round(line_h / 0.9),
+            fill=from_hex(colors["color"]) if colors.get("color") else None,
+            stroke=from_hex(colors["outline"], BLACK) if colors.get("outline") else None,
+        )
+        x, y = place_in_box(w, hh, box, video_w, video_h)
+        overlays.append(Overlay(path=png, start_ms=0, end_ms=duration_ms, x=x, y=y))
+    return overlays
+
+
+def label_regions(job: Job) -> list[dict]:
+    """Vùng che cho nhãn chữ Hán trong cảnh (meta.json đã dịch), đúng lúc nó hiện."""
+    if not job.meta_json.exists():
+        return []
+    meta = json.loads(job.meta_json.read_text(encoding="utf-8"))
+    return [
+        {k: lb[k] for k in ("x", "y", "w", "h", "start_ms", "end_ms")} | {"kind": "label"}
+        for lb in meta.get("labels") or []
+    ]
+
+
+# Nhãn dịch ra được nới ngang tới ngần này bề ngang khung khi nền phẳng.
+LABEL_WIDTH_RATIO = 0.5
+# Cột của nhãn dọc: đủ cho một từ tiếng Việt mỗi dòng.
+VERTICAL_LABEL_RATIO = 0.12
+
+
+def label_overlays(job: Job, cfg: Config, regions: list[dict],
+                   video_w: int, video_h: int) -> list[Overlay]:
+    """Bản dịch của nhãn trong cảnh, cùng chỗ, cùng màu, cùng khoảng thời gian."""
+    if not job.meta_json.exists():
+        return []
+    labels = json.loads(job.meta_json.read_text(encoding="utf-8")).get("labels") or []
+    if not labels:
+        return []
+    from reup.textcolor import colors_from_frame
+
+    frames = sorted((job.root / "frames").glob("f_*.png"))
+    font = find_font(cfg.subtitle.font)
+    out_dir = job.root / "subs"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    overlays = []
+    for i, lb in enumerate(labels):
+        text = (lb.get("vi") or "").strip()
+        if not text:
+            continue
+        region = next((r for r in regions if r.get("kind") == "label" and _same_box(r, lb)
+                       and r.get("start_ms") == lb["start_ms"]), None)
+        mode = ((region or {}).get("fill") or {}).get("mode", cover.PLATE)
+        box = {k: lb[k] for k in ("x", "y", "w", "h")}
+        mid = frames[min(len(frames) - 1, (lb["start_ms"] + lb["end_ms"]) // 1000)] if frames else None
+        colors = colors_from_frame(mid, box) if mid else {}
+        # Nhãn dọc: giữ dạng cột, chỉ nới vừa cho mỗi dòng một từ — nới ngang hẳn
+        # thì chữ Việt đè lên vật mà nhãn đang chỉ (lá bài ngay cạnh).
+        if lb.get("vertical"):
+            want = max(box["w"], int(video_w * VERTICAL_LABEL_RATIO))
+            cx = box["x"] + box["w"] / 2
+            box = {**box, "x": int(max(0, min(video_w - want, cx - want / 2))), "w": min(want, video_w)}
+        elif mode == cover.FLAT:
+            want = max(box["w"], int(video_w * LABEL_WIDTH_RATIO))
+            cx = box["x"] + box["w"] / 2
+            box = {**box, "x": int(max(0, min(video_w - want, cx - want / 2))), "w": min(want, video_w)}
+        png = out_dir / f"label_{i:03d}.png"
+        w, hh, _ = render_fitted(
+            text, png, font, box["w"], box["h"],
+            cfg.subtitle.outline / max(1, cfg.subtitle.size),
+            max_size=round((lb.get("line_h") or box["h"]) / 0.9),
+            fill=from_hex(colors["color"]) if colors.get("color") else None,
+            stroke=from_hex(colors["outline"], BLACK) if colors.get("outline") else None,
+        )
+        x, y = place_in_box(w, hh, box, video_w, video_h)
+        overlays.append(Overlay(path=png, start_ms=lb["start_ms"], end_ms=lb["end_ms"], x=x, y=y))
+    return overlays
+
+
 def subtitle_cover(job: Job) -> dict | None:
     """Vùng phụ đề gốc cố định rộng nhất — chỗ đặt sub Việt khi không có khung theo câu."""
     subs = [r for r in _static_regions(job) if r["kind"] == "subtitle"]
@@ -316,8 +497,14 @@ def _render_one(rj: _RenderJob) -> Overlay:
     """Vẽ một PNG phụ đề. Hàm mức module (không phải closure) để
     `ProcessPoolExecutor` pickle được khi gửi sang worker."""
     if rj.box:
-        # Không rộng quá khung hình trừ lề, kể cả khi khung chữ gốc sát mép.
-        fit_w = min(rj.box["w"], int(rj.video_w * (1 - SIDE_MARGIN_RATIO * 2)))
+        # Chữ Việt dài gấp 2-3 lần chữ Hán: ép vừa bề ngang chữ gốc thì chữ bé và
+        # xuống dòng. Vùng gốc đã được che (dải phụ đề kéo hết ngang, hoặc tô nền
+        # phẳng) nên cho chữ rộng tới SUB_WIDTH_RATIO khung; cỡ chữ vẫn bị trần
+        # theo chiều cao dòng gốc. Không rộng quá khung hình trừ lề.
+        fit_w = min(
+            max(rj.box["w"], int(rj.video_w * SUB_WIDTH_RATIO)),
+            int(rj.video_w * (1 - SIDE_MARGIN_RATIO * 2)),
+        )
         w, h, _ = render_fitted(
             rj.text, rj.png, rj.font, fit_w, rj.box["h"], rj.outline_ratio,
             max_size=rj.max_size,
@@ -415,9 +602,17 @@ def run(job: Job, cfg: Config) -> None:
     if has_bgm:
         inputs += ["-i", str(job.bgm)]
 
-    regions = load_blur_regions(job)
+    regions = annotate_fills(
+        job, load_blur_regions(job) + label_regions(job), source_info.width
+    )
     use_ass = job.sub_ass.exists() and has_filter("ass")
     overlays = [] if use_ass else build_overlays(job, cfg)
+    if not use_ass:
+        overlays += header_overlays(
+            job, cfg, regions, source_info.duration_ms,
+            source_info.width, source_info.height,
+        )
+        overlays += label_overlays(job, cfg, regions, source_info.width, source_info.height)
     first_overlay_input = len(inputs) // 2
     for ov in overlays:
         inputs += ["-i", str(ov.path)]

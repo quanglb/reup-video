@@ -1,4 +1,4 @@
-"""Stage 13 — sinh tiêu đề / mô tả / hashtag và chép video ra thư mục output.
+"""Stage cuối — chép thành phẩm và tiêu đề (đã qua `meta` và `policy`) ra output/.
 
 Pipeline dừng ở file. Đăng bài làm thủ công (spec §2): hạn mức YouTube Data API
 chỉ cho ~6 upload/ngày, và TikTok bắt duyệt app mới cho đăng công khai.
@@ -13,70 +13,77 @@ from reup.config import Config
 from reup.core.job import Job
 from reup.core.runner import atomic_write
 from reup.core.stage import StageSpec
-from reup.models import Transcript
 
-META_SCHEMA = {
-    "type": "object",
-    "properties": {
-        "title": {"type": "string"},
-        "description": {"type": "string"},
-        "hashtags": {"type": "array", "items": {"type": "string"}},
-    },
-    "required": ["title", "description", "hashtags"],
-}
+from reup.policy import rules
+from reup.stages.meta import MAX_TITLE_CHARS, META_SCHEMA  # noqa: F401 — giữ chỗ gọi cũ
 
-MAX_TITLE_CHARS = 100
-MAX_HASHTAGS = 8
-
-
-def build_prompt(transcript: Transcript, source_title: str) -> str:
-    body = " ".join(s.text for s in transcript.segments)[:1500]
-    return (
-        "Viết phần mô tả cho một video ngắn tiếng Việt sắp đăng lên "
-        "YouTube Shorts và TikTok.\n\n"
-        f"Tiêu đề bản gốc: {source_title or '(không có)'}\n"
-        f"Lời thoại tiếng Việt: {body}\n\n"
-        "Yêu cầu:\n"
-        f"- title: tiêu đề tiếng Việt, tối đa {MAX_TITLE_CHARS} ký tự, "
-        "gợi tò mò nhưng không giật gân sai sự thật.\n"
-        "- description: 2-3 câu tiếng Việt.\n"
-        f"- hashtags: tối đa {MAX_HASHTAGS} thẻ, không kèm dấu #, "
-        "không dấu cách, chữ thường.\n\n"
-        'Trả JSON: {"title": "...", "description": "...", "hashtags": ["..."]}'
-    )
+MAX_HASHTAGS = rules.MAX_HASHTAGS
+# Khoá của meta.json được chép ra output/ — phần còn lại (headers, repaired) là
+# việc nội bộ của pipeline, người đăng bài không cần thấy.
+PUBLIC_KEYS = ("title", "description", "hashtags", "source_url", "source_title")
 
 
 def clean_hashtags(tags: list) -> list[str]:
-    out = []
-    for tag in tags or []:
-        clean = str(tag).lstrip("#").strip().replace(" ", "").lower()
-        if clean and clean not in out:
-            out.append(clean)
-    return out[:MAX_HASHTAGS]
+    return rules.clean_hashtags(tags)
 
 
-def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> None:
+def public_meta(meta: dict, policy: dict | None = None) -> dict:
+    out = {k: meta.get(k, "" if k != "hashtags" else []) for k in PUBLIC_KEYS}
+    tags = " ".join(f"#{t}" for t in out["hashtags"])
+    # Dán thẳng vào ô mô tả TikTok: đúng thẻ đã lọc, không tự thêm #Shorts #Reels.
+    out["caption"] = f"{out['title']}\n{out['description']}\n{tags}".strip()
+    if policy:
+        out["policy"] = {
+            "verdict": policy.get("verdict"),
+            "notes": policy.get("notes", [])[:5],
+        }
+    return out
+
+
+def sanitize_filename(name: str) -> str:
+    for ch in r'/\:*?"<>|':
+        name = name.replace(ch, " ")
+    return " ".join(name.split()).strip()
+
+
+def next_output_index(out_dir: Path) -> int:
+    import re
+    max_idx = 0
+    if not out_dir.exists():
+        return 1
+    for p in out_dir.iterdir():
+        m = re.match(r"^(\d+)\.", p.name)
+        if m:
+            try:
+                idx = int(m.group(1))
+                if idx > max_idx:
+                    max_idx = idx
+            except ValueError:
+                pass
+    return max_idx + 1
+
+
+def run_with(job: Job, cfg: Config, llm: LLMAdapter | None = None) -> None:
+    """Chép thành phẩm ra output/. Chưa có meta.json (gọi trực tiếp, job cũ) thì
+    sinh luôn bằng `llm`."""
     if not job.final_mp4.exists():
         raise FileNotFoundError(f"chưa có {job.final_mp4} — stage compose phải chạy trước")
+    if not job.meta_json.exists():
+        if llm is None:
+            raise FileNotFoundError(f"chưa có {job.meta_json} — stage meta phải chạy trước")
+        from reup.stages import meta as meta_stage
 
-    transcript = Transcript.load(job.translation_json)
-    source_title = ""
-    if job.source_info.exists():
-        source_title = json.loads(
-            job.source_info.read_text(encoding="utf-8")
-        ).get("title", "")
-
-    answer = llm.complete_json(build_prompt(transcript, source_title), META_SCHEMA)
-    meta = {
-        "title": (answer.get("title") or "").strip()[:MAX_TITLE_CHARS],
-        "description": (answer.get("description") or "").strip(),
-        "hashtags": clean_hashtags(answer.get("hashtags")),
-        "source_url": job.source_url,
-        "source_title": source_title,
-    }
-    atomic_write(job.meta_json, json.dumps(meta, ensure_ascii=False, indent=2))
+        meta_stage.run_with(job, cfg, llm)
+    meta = json.loads(job.meta_json.read_text(encoding="utf-8"))
+    policy = (
+        json.loads(job.policy_json.read_text(encoding="utf-8"))
+        if job.policy_json.exists() else None
+    )
+    out_meta = public_meta(meta, policy)
+    payload = json.dumps(out_meta, ensure_ascii=False, indent=2)
 
     import os
+    import re
 
     out_dir = cfg.output_dir_path()
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -84,15 +91,41 @@ def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> None:
     tmp_target = out_dir / f"{job.id}.tmp.mp4"
     shutil.copy2(job.final_mp4, tmp_target)
     os.replace(tmp_target, target_mp4)
+    atomic_write(out_dir / f"{job.id}.json", payload)
+
+    # Đặt tên file theo thứ tự + tiêu đề: "NN. <Tiêu đề>.mp4" và "NN. <Tiêu đề>.json"
+    named_base = ""
+    title = meta.get("title", "").strip()
+    if title:
+        safe_title = sanitize_filename(title)
+        existing_titled = [
+            p for p in out_dir.glob("*.json")
+            if safe_title in p.name and re.match(r"^\d+\.", p.name)
+        ]
+        if existing_titled:
+            named_base = existing_titled[0].stem
+        else:
+            idx = next_output_index(out_dir)
+            named_base = f"{idx:02d}. {safe_title}"
+
+        named_mp4 = out_dir / f"{named_base}.mp4"
+        named_json = out_dir / f"{named_base}.json"
+        if named_mp4.exists():
+            named_mp4.unlink()  # thành phẩm có thể vừa render lại
+        try:
+            os.link(target_mp4, named_mp4)
+        except OSError:
+            shutil.copy2(target_mp4, named_mp4)
+        atomic_write(named_json, payload)
+
     atomic_write(
-        out_dir / f"{job.id}.json", json.dumps(meta, ensure_ascii=False, indent=2)
+        job.exported_json,
+        json.dumps({"output": str(out_dir / f"{named_base or job.id}.mp4")}, ensure_ascii=False),
     )
 
 
 def run(job: Job, cfg: Config) -> None:
-    from reup.adapters.registry import make_llm
-
-    run_with(job, cfg, make_llm(cfg, "export"))
+    run_with(job, cfg)
 
 
-SPEC = StageSpec(name="export", produces=("meta.json",), run=run)
+SPEC = StageSpec(name="export", produces=("exported.json",), run=run)

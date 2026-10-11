@@ -23,6 +23,7 @@ from reup.core.stage import StageSpec
 from reup.fit import decide_fit
 from reup.media.audio import apply_tempo, build_timeline, duration_ms
 from reup.models import Transcript
+from reup.policy.rules import soften
 from reup.stages.translate import load_style_hint, rewrite_shorter_batch
 from reup.stages.tts import LANG, _load_prev_engines, write_manifest
 from reup.text import count_syllables
@@ -73,7 +74,7 @@ def _rewrite_rounds(
         for seg in pending:
             new_text = rewritten.get(seg.id)
             if new_text:
-                seg.text = new_text
+                seg.text = soften(new_text)
             # Tính lượt kể cả khi LLM bỏ sót câu này: không thì vòng lặp quay
             # mãi với cùng một câu và cùng một kết quả.
             revision[seg.id] += 1

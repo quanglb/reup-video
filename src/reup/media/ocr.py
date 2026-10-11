@@ -67,3 +67,34 @@ def recognize(
             TextBox(text=clean, confidence=float(confidence), x=x, y=y, w=w, h=h)
         )
     return boxes
+
+
+def recognize_vertical(
+    image: Path, width: int, height: int, languages: list[str] | None = None,
+) -> list[TextBox]:
+    """Chữ viết DỌC (chú thích tiếng Trung hay xếp một chữ mỗi dòng).
+
+    Vision thường chỉ đọc chữ ngang — xoay ảnh rồi đọc cũng chập chờn (đo trên
+    job 97290706: lúc ra lúc không). LiveText của macOS đọc được chữ Hán dọc
+    ổn định và nhanh (~0.1s/khung). Chỉ giữ dòng dọc; máy không có LiveText
+    (macOS < 14) thì trả rỗng — AI ở stage policy vẫn là lưới thứ hai.
+    """
+    from ocrmac import ocrmac
+
+    try:
+        raw = ocrmac.OCR(
+            str(image), framework="livetext",
+            language_preference=languages or ["zh-Hans"], unit="line",
+        ).recognize()
+    except Exception:
+        return []
+    out = []
+    for text, confidence, box in raw:
+        clean = (text or "").strip()
+        if not clean:
+            continue
+        x, y, w, h = to_pixels(tuple(box), width, height)
+        if h < w * 1.5:
+            continue  # dòng ngang: lượt `recognize` thường đã đọc
+        out.append(TextBox(text=clean, confidence=float(confidence), x=x, y=y, w=w, h=h))
+    return out

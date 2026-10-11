@@ -74,6 +74,35 @@ def _download(job: Job, cfg: Config) -> None:
                 direct_error += f"\nlink mới hơn trong file xuất cũng hỏng: {again}"
 
     cookies = _platform_cookies(cfg, job.source_url)
+    if "douyin.com" in job.source_url:
+        import re
+        vid_match = re.search(r"/video/(\d+)", job.source_url)
+        if vid_match:
+            vid = vid_match.group(1)
+            try:
+                cdn_url = douyin_export.resolve_cdn_url(vid)
+                douyin_export.download(cdn_url, job.source_video)
+                if not job.source_info.exists():
+                    job.source_info.write_text(
+                        json.dumps(
+                            {
+                                "id": vid,
+                                "title": "",
+                                "description": "",
+                                "uploader": "",
+                                "duration": 0,
+                                "webpage_url": job.source_url,
+                                "extractor": "douyin",
+                            },
+                            ensure_ascii=False,
+                            indent=2,
+                        ),
+                        encoding="utf-8",
+                    )
+                return
+            except Exception as e:
+                direct_error += f"\nkhông resolve được link CDN qua Chrome: {e}"
+
     try:
         ManualSource(
             prefer_h264=cfg.profile.prefer_h264,

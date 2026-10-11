@@ -44,21 +44,36 @@ class OpenAILLM:
         self.timeout_s = timeout_s
         self.json_retries = json_retries
         self._opener = opener or urllib.request.urlopen
+        self.last_usage: dict = {}
 
     def _endpoint(self) -> str:
         if self.base_url.endswith("/chat/completions"):
             return self.base_url
         return f"{self.base_url}/chat/completions"
 
-    def _call_once(self, prompt: str) -> str:
+    def _call_once(self, prompt: str, images: list[bytes] | None = None) -> str:
         if not self.api_key:
             raise OpenAIUnavailable(
                 f"Chưa cấu hình API key cho OpenAI provider ({self.model}).\n"
                 "Điền `api_key` vào config.toml hoặc đặt OPENAI_API_KEY / ROUTER_API_KEY trong .env"
             )
+        content: str | list = prompt
+        if images:
+            import base64
+
+            content = [{"type": "text", "text": prompt}] + [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": "data:image/jpeg;base64," + base64.b64encode(img).decode(),
+                        "detail": "low",
+                    },
+                }
+                for img in images
+            ]
         payload = {
             "model": self.model,
-            "messages": [{"role": "user", "content": prompt}],
+            "messages": [{"role": "user", "content": content}],
             "response_format": {"type": "json_object"},
             "stream": False,
             "temperature": 0.2,
@@ -95,6 +110,8 @@ class OpenAILLM:
                 "Kiểm tra xem service/router đã bật chưa hoặc sửa llm.base_url."
             ) from exc
 
+        # Để policy ghi lại số token mỗi video — nhiều video/ngày thì cần biết.
+        self.last_usage = data.get("usage") or {}
         choices = data.get("choices") or []
         if not choices:
             raise LLMError(f"OpenAI/Router không trả về choices nào cho model {self.model!r}")
@@ -103,6 +120,17 @@ class OpenAILLM:
         if not content:
             raise LLMError(f"OpenAI/Router trả về câu rỗng cho model {self.model!r}")
         return content
+
+    supports_images = True
+
+    def complete_json_with_images(self, prompt: str, images: list[bytes], schema: dict) -> dict:
+        """Như `complete_json` nhưng kèm ảnh JPEG (model phải đọc được ảnh)."""
+        return complete_json_with_repair(
+            lambda p: self._call_once(p, images),
+            prompt,
+            retries=self.json_retries,
+            who=f"OpenAI ({self.model})",
+        )
 
     def complete_json(self, prompt: str, schema: dict) -> dict:
         return complete_json_with_repair(

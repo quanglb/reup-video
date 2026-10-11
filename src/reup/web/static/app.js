@@ -882,6 +882,7 @@ function reupFetch(url, options) {
   const all = document.getElementById('pickAll');
   const count = document.getElementById('pickCount');
   const runPicked = document.getElementById('runPicked');
+  const runPickedLol = document.getElementById('runPickedLol');
   const firstN = document.getElementById('firstN');
 
   function refresh() {
@@ -889,6 +890,8 @@ function reupFetch(url, options) {
     count.textContent = n;
     runPicked.disabled = n === 0;
     runPicked.textContent = n ? `▶ Làm ${n} video đã chọn` : '▶ Làm các video đã chọn';
+    runPickedLol.disabled = n === 0;
+    runPickedLol.textContent = n ? `⚔ LOL ${n} video đã chọn` : '⚔ LOL các video đã chọn';
     all.checked = n > 0 && n === boxes.length;
     all.indeterminate = n > 0 && n < boxes.length;
     boxes.forEach((b) => b.closest('.card').classList.toggle('picked', b.checked));
@@ -899,13 +902,16 @@ function reupFetch(url, options) {
     refresh();
   });
 
-  // Hai nút cùng một form: nút "Làm N video đầu" gửi `first`, nút kia bỏ `first`
-  // để server lấy theo các ô đã tick.
+  // Các nút cùng một form: nút "Làm N video đầu" gửi `first`, nút kia bỏ `first`
+  // để server lấy theo các ô đã tick. Nút ⚔ LOL gửi thêm `project=lol`.
   form.addEventListener('submit', (e) => {
-    const byFirst = e.submitter && e.submitter.id === 'runFirst';
+    const id = (e.submitter && e.submitter.id) || '';
+    const byFirst = id.startsWith('runFirst');
+    const lol = id.endsWith('Lol');
     const n = byFirst ? parseInt(firstN.value, 10) || 0 : boxes.filter((b) => b.checked).length;
     if (!n) { e.preventDefault(); return; }
-    if (!confirm(`Tạo và chạy ${n} job?`)) { e.preventDefault(); return; }
+    const what = lol ? `${n} video LOL (chỉ đặt khung, không lồng tiếng)` : `${n} job`;
+    if (!confirm(`Tạo và chạy ${what}?`)) { e.preventDefault(); return; }
     firstN.disabled = !byFirst;
     if (byFirst) boxes.forEach((b) => { b.disabled = true; });
   });
@@ -920,7 +926,9 @@ function reupFetch(url, options) {
   toast.textContent = `Đã tạo ${n} job từ hàng chờ — đang chạy lần lượt ▶`;
   toast.hidden = false;
   setTimeout(() => { toast.hidden = true; }, 4000);
-  history.replaceState(null, '', location.pathname);
+  const qs = new URLSearchParams(location.search);
+  qs.delete('batch');
+  history.replaceState(null, '', location.pathname + (qs.toString() ? `?${qs}` : ''));
 })();
 
 (function () {

@@ -11,6 +11,7 @@
   <a class="brand" href="/">reup</a>
   <nav class="tabs">
     <a href="/" class="{{ 'on' if tab == 'queue' or not tab }}">Dự án</a>
+    <a href="/?project=lol" class="{{ 'on' if tab == 'project:lol' }}">⚔ LOL</a>
     <a href="/saved" class="{{ 'on' if tab == 'saved' }}">⭐ Hàng chờ <b class="tab-count" id="savedCount">{{ saved_count() }}</b></a>
     <a href="/discover?platform=youtube" class="{{ 'on' if tab == 'discover' and platform == 'youtube' }}">YouTube</a>
     <a href="/discover?platform=tiktok" class="{{ 'on' if tab == 'discover' and platform == 'tiktok' }}">TikTok</a>

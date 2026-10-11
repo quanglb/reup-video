@@ -101,6 +101,23 @@ class Job:
         return self.root / "meta.json"
 
     @property
+    def precheck_json(self) -> Path:
+        return self.root / "precheck.json"
+
+    @property
+    def policy_json(self) -> Path:
+        return self.root / "policy.json"
+
+    @property
+    def exported_json(self) -> Path:
+        return self.root / "exported.json"
+
+    @property
+    def policy_allowed(self) -> bool:
+        """Người dùng đã ép cho qua chốt chính sách (`reup policy-allow`)."""
+        return self.overrides.get("policy") == "allow"
+
+    @property
     def preview_dir(self) -> Path:
         return self.root / "preview"
 

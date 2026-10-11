@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -61,6 +62,12 @@ def _build_parser() -> argparse.ArgumentParser:
     approve = sub.add_parser("approve", help="duyệt một chốt để job chạy tiếp")
     approve.add_argument("job_id")
     approve.add_argument("--gate", choices=["a", "b"], default="a")
+
+    allow = sub.add_parser(
+        "policy-allow",
+        help="ép job qua chốt chính sách (precheck/policy) — chỉ khi chắc chắn video an toàn",
+    )
+    allow.add_argument("job_id")
 
     del_cmd = sub.add_parser("delete", aliases=["rm"], help="xoá hẳn job, artifact và dòng trong sổ cái")
     del_cmd.add_argument("job_id", nargs="?", help="id của job cần xoá")
@@ -156,7 +163,7 @@ def _cmd_run_all(args, store: Store) -> int:
 
     workers = cfg.profile.concurrency
     print(f"chạy {len(jobs)} job, {workers} luồng")
-    results = run_jobs(jobs, cfg, args.db, stages_for(cfg), workers)
+    results = run_jobs(jobs, cfg, args.db, lambda j: stages_for(cfg, j.settings.get("project")), workers)
 
     for job_id, status in results.items():
         print(f"{status:<13} {job_id}")
@@ -182,7 +189,7 @@ def _cmd_run(args, store: Store) -> int:
         print(str(exc), file=sys.stderr)
         return 1
     cfg = load_config(args.config)
-    status = run_job(job, cfg, store, stages_for(cfg))
+    status = run_job(job, cfg, store, stages_for(cfg, job.settings.get("project")))
     if status == "failed":
         row = store.get_job(job.id)
         print(f"job {job.id} hỏng ở stage {row['stage']}: {row['error']}", file=sys.stderr)
@@ -199,7 +206,12 @@ def _cmd_run(args, store: Store) -> int:
 
 
 def _cmd_redo(args, store: Store) -> int:
-    stages = stages_for(load_config(args.config))
+    try:
+        job = load_job(args.jobs_dir, args.job_id)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    stages = stages_for(load_config(args.config), job.settings.get("project"))
     names = [s.name for s in stages]
     if args.from_stage not in names:
         print(
@@ -207,11 +219,6 @@ def _cmd_redo(args, store: Store) -> int:
             file=sys.stderr,
         )
         return 2
-    try:
-        job = load_job(args.jobs_dir, args.job_id)
-    except FileNotFoundError as exc:
-        print(str(exc), file=sys.stderr)
-        return 1
 
     start = names.index(args.from_stage)
     for spec in stages[start:]:
@@ -415,6 +422,22 @@ def _cmd_status(args, store: Store) -> int:
     return 0
 
 
+def _cmd_policy_allow(args, store: Store) -> int:
+    try:
+        job = load_job(args.jobs_dir, args.job_id)
+    except FileNotFoundError as exc:
+        print(str(exc), file=sys.stderr)
+        return 1
+    job.set_override("policy", "allow")
+    rejected = job.root / "policy.rejected.json"
+    if rejected.exists():
+        reasons = json.loads(rejected.read_text(encoding="utf-8")).get("hard", [])
+        print("Lý do từng bị chặn:\n" + "\n".join(f"  - {r}" for r in reasons))
+    store.upsert_job(job.id, job.source_url, "pending", stage=None)
+    print(f"đã cho {job.id} qua chốt chính sách — `reup run {job.id}` để chạy tiếp")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
     # Khoá API đọc từ .env (đã trong .gitignore) để không phải gõ lại mỗi phiên.
@@ -435,6 +458,7 @@ def main(argv: list[str] | None = None) -> int:
             "discover": _cmd_discover,
             "doctor": _cmd_doctor,
             "telegram": _cmd_telegram,
+            "policy-allow": _cmd_policy_allow,
         }[args.command](args, store)
     finally:
         store.close()

@@ -823,3 +823,21 @@ body.login-page main {
 @media (max-width: 480px) {
   .login-box { max-width: none; margin: 0 16px; }
 }
+
+/* Tab dự án đặc thù (LOL): ô dán link riêng, job tạo ra mang khoá project */
+.project-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
+.project-add input[name=url] { flex: 1; min-width: 240px; max-width: 620px; }
+.project-add small { flex-basis: 100%; opacity: .7; }
+.lol-btn { border-color: #b8913a; color: #b8913a; }
+
+/* Duyệt chính sách TikTok (stage policy) */
+.policy-box { border: 1px solid #2c3340; border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; }
+.policy-box.policy-reject { border-color: #6b2a27; background: #2a1514; }
+.policy-box.policy-fixed { border-color: #6b5117; }
+.policy-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.policy-tag { padding: 2px 8px; border-radius: 999px; background: #2c3340; font-size: 13px; }
+.policy-tag.bad { color: var(--bad); } .policy-tag.warn { color: var(--warn); } .policy-tag.good { color: var(--good); }
+.policy-list { margin: 8px 0 0; padding-left: 20px; overflow-wrap: anywhere; }
+.policy-list.bad li { color: var(--bad); }
+.policy-box form { margin-top: 8px; }
+.policy-box .dim { color: var(--dim); }

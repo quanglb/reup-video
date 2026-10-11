@@ -24,7 +24,7 @@ def roles(**by_role) -> LLMRoles:
     return LLMRoles(
         **{
             r: by_role.get(r, base)
-            for r in ("reconcile", "translate", "fit", "export", "pronounce")
+            for r in ("reconcile", "translate", "fit", "export", "pronounce", "policy")
         }
     )
 
@@ -65,7 +65,8 @@ def test_the_api_key_is_only_required_when_a_stage_uses_gemini(cfg_fixture, monk
     monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     local = LLMConfig(provider="ollama", model="qwen3:8b")
     cfg = replace(cfg_fixture, llm_roles=roles(
-        reconcile=local, translate=local, fit=local, export=local, pronounce=local))
+        reconcile=local, translate=local, fit=local, export=local, pronounce=local,
+        policy=local))
     assert doctor.check_gemini_key(cfg) is None
 
 

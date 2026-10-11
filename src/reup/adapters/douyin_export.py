@@ -173,13 +173,69 @@ def save_direct(
     return out
 
 
+def resolve_cdn_url(video_id: str) -> str:
+    """Mở tab Chrome trong nền để đọc link stream CDN từ player của Douyin."""
+    import time
+    from reup.adapters.douyin_chrome import open_in_chrome, osascript
+
+    url = f"https://www.douyin.com/video/{video_id}"
+    needle = video_id
+    open_in_chrome(url)
+    deadline = time.monotonic() + 15
+    resolve_js = """(() => {
+        if (window.__reupCdnUrl) return window.__reupCdnUrl;
+
+        const v = document.querySelector('video');
+        if (v && v.currentSrc && v.currentSrc.startsWith('http')) {
+            return (window.__reupCdnUrl = v.currentSrc);
+        }
+
+        const detailEntry = performance.getEntriesByType('resource')
+            .find(r => r.name.includes('/aweme/v1/web/aweme/detail/'));
+        if (detailEntry && !window.__reupFetchingDetail) {
+            window.__reupFetchingDetail = true;
+            fetch(detailEntry.name, {credentials: 'include'})
+                .then(r => r.json())
+                .then(data => {
+                    const vid = data.aweme_detail ? data.aweme_detail.video : null;
+                    if (!vid) return;
+                    const candidates = [];
+                    if (vid.play_addr && vid.play_addr.url_list) candidates.push(...vid.play_addr.url_list);
+                    if (vid.bit_rate) {
+                        for (const b of vid.bit_rate) {
+                            if (b.play_addr && b.play_addr.url_list) candidates.push(...b.play_addr.url_list);
+                        }
+                    }
+                    const mp4 = candidates.find(u => u.includes('douyinvod.com') || u.includes('.mp4')) || candidates[0];
+                    if (mp4) {
+                        window.__reupCdnUrl = mp4;
+                    }
+                })
+                .catch(() => {});
+        }
+        return window.__reupCdnUrl || '';
+    })()"""
+    while time.monotonic() < deadline:
+        src = osascript(needle, resolve_js)
+        if src and src.startswith("http") and src != "__no_tab__":
+            osascript(needle, "__close__")
+            return src
+        time.sleep(0.5)
+    osascript(needle, "__close__")
+    raise RuntimeError(f"Không lấy được link CDN video {video_id} qua Chrome")
+
+
 def download(url: str, dest: Path, timeout: float = 120.0) -> None:
     """CDN Douyin chặn request thiếu Referer; ghi ra file tạm rồi mới đổi tên để
     một lần tải đứt giữa chừng không để lại source.mp4 nửa vời."""
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Referer": REFERER})
     tmp = Path(dest).with_suffix(".part")
-    with urllib.request.urlopen(req, timeout=timeout) as resp, tmp.open("wb") as f:
-        shutil.copyfileobj(resp, f)
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+        content_type = resp.headers.get("Content-Type", "")
+        if "text/html" in content_type:
+            raise ValueError(f"URL trả về trang HTML thay vì file video: {url}")
+        with tmp.open("wb") as f:
+            shutil.copyfileobj(resp, f)
     if tmp.stat().st_size == 0:
         tmp.unlink()
         raise OSError(f"CDN Douyin trả file rỗng: {url}")
@@ -192,7 +248,16 @@ def fetch_direct(root: Path, dest: Path, info_path: Path) -> bool:
     if not meta_path.exists():
         return False
     meta = json.loads(meta_path.read_text(encoding="utf-8"))
-    download(meta["media_url"], dest)
+    media_url = meta.get("media_url", "")
+    video_id = meta.get("video_id", "")
+    if "douyin.com/video/" in media_url and video_id:
+        try:
+            media_url = resolve_cdn_url(video_id)
+            meta["media_url"] = media_url
+            meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception as err:
+            raise RuntimeError(f"Không lấy được link CDN video {video_id} qua Chrome: {err}") from err
+    download(media_url, dest)
     # Khoá theo kiểu yt-dlp: translate đoán thể loại và export dựng metadata từ đây.
     info_path.write_text(
         json.dumps(

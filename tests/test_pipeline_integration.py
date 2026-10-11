@@ -200,5 +200,7 @@ def test_every_llm_stage_declares_its_role(tmp_path: Path, cfg_fixture, offline_
 
     run_all_gates(job, cfg_fixture, store, offline_stages)
 
-    assert set(LLM_ROLES_SEEN) == {"reconcile", "translate", "fit", "export", "pronounce"}
+    assert set(LLM_ROLES_SEEN) == {
+        "reconcile", "translate", "fit", "export", "pronounce", "policy",
+    }
     assert None not in LLM_ROLES_SEEN

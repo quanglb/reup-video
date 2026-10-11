@@ -12,7 +12,7 @@ LLM_PROVIDERS = ("gemini", "ollama", "cassette", "openai")
 PLATFORMS = ("youtube", "tiktok", "douyin")
 # Năm stage gọi LLM. Mỗi cái chịu được một model khác nhau: chỉ `translate`
 # thật sự cần model giỏi, bốn cái còn lại không phải suy luận gì nhiều.
-LLM_ROLES = ("reconcile", "translate", "fit", "export", "pronounce")
+LLM_ROLES = ("reconcile", "translate", "fit", "export", "pronounce", "policy")
 
 
 def parse_bitrate(text: str) -> int:
@@ -151,6 +151,7 @@ class LLMRoles:
     fit: "LLMConfig"
     export: "LLMConfig"
     pronounce: "LLMConfig"
+    policy: "LLMConfig"
 
     def for_role(self, name: str) -> "LLMConfig":
         if name not in LLM_ROLES:
@@ -199,6 +200,30 @@ class NotifyConfig:
     commands: bool = True  # bot nghe lệnh (/status, /lam...) khi chạy `reup web`
 
 
+POLICY_AI_MODES = ("always", "risky", "off")
+
+
+@dataclass(frozen=True)
+class PolicyConfig:
+    """Chống dính chính sách TikTok — docs/tiktok-policy-plan.md.
+
+    `ai`: "always" = mọi video qua một lượt AI vision; "risky" = chỉ gọi AI khi
+    luật chữ hoặc kiểm cục bộ thấy rủi ro (tiết kiệm token); "off" = chỉ luật.
+    """
+
+    enabled: bool = True
+    ai: str = "always"
+    sample_frames: int = 12  # khung lấy từ thành phẩm để kiểm cục bộ (miễn phí)
+    sheet_frames: int = 6  # khung ghép thành MỘT ảnh gửi AI
+    sheet_width: int = 768  # bề ngang ảnh ghép — nhỏ thì ít token ảnh
+    min_short_side: int = 480  # cạnh ngắn của nguồn dưới mức này: cảnh báo chất lượng thấp
+    block_short_side: int = 360  # dưới mức này: chặn luôn
+    min_duration_s: float = 8.0  # ngắn hơn: cảnh báo "video rất ngắn"
+    block_duration_s: float = 4.0
+    recent_titles: int = 30  # số tiêu đề cũ trong output/ để so trùng khuôn
+    block_on_reject: bool = True  # AI kết luận reject thì dừng job (False: chỉ ghi lại)
+
+
 @dataclass(frozen=True)
 class ReviewConfig:
     auto_approve_b: bool = False
@@ -227,6 +252,7 @@ class Config:
     translate: TranslateConfig = TranslateConfig()
     llm_roles: LLMRoles | None = None
     notify: NotifyConfig = NotifyConfig()
+    policy: PolicyConfig = PolicyConfig()
 
     def llm_for(self, role: str) -> LLMConfig:
         """Cấu hình LLM cho một stage. Không khai riêng thì dùng [llm] chung."""
@@ -290,7 +316,14 @@ def load_config(path: Path) -> Config:
         fetch=fetch,
         translate=translate,
         notify=_notify(raw.get("notify", {})),
+        policy=_policy(raw.get("policy", {})),
     )
+
+
+def _policy(raw: dict) -> PolicyConfig:
+    policy = PolicyConfig(**raw)
+    _one_of("policy.ai", policy.ai, POLICY_AI_MODES)
+    return policy
 
 
 def _notify(raw: dict) -> NotifyConfig:

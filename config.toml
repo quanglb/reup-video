@@ -79,29 +79,35 @@ engine = "whisper"             # "whisper" | "capcut"
 # Chạy AI qua 9router local (OpenAI-compatible) với Gemini 3.7 Flash Medium.
 [llm]
 provider  = "openai"            # "gemini" | "ollama" | "openai" | "cassette"
-model     = "ag/gemini-3.7-flash-medium"
+model     = "ag/gemini-3.8-flash"
 base_url  = "http://localhost:20128/v1"
 timeout_s = 120.0
 
 [llm.translate]
 provider = "openai"
-model    = "ag/gemini-3.7-flash-medium"
+model    = "ag/gemini-3.8-flash"
 
 [llm.pronounce]
 provider = "openai"
-model    = "ag/gemini-3.7-flash-medium"
+model    = "ag/gemini-3.8-flash"
 
 [llm.reconcile]
 provider = "openai"
-model    = "ag/gemini-3.7-flash-medium"
+model    = "ag/gemini-3.8-flash"
 
 [llm.fit]
 provider = "openai"
-model    = "ag/gemini-3.7-flash-medium"
+model    = "ag/gemini-3.8-flash"
 
 [llm.export]
 provider = "openai"
-model    = "ag/gemini-3.7-flash-medium"
+model    = "ag/gemini-3.8-flash"
+
+# AI duyệt chính sách TikTok (stage policy) — model "-low" không suy luận: ~4s,
+# ~2-3k token/video, đọc được ảnh. Đổi sang "ag/gemini-3.8-flash" nếu muốn kỹ hơn.
+[llm.policy]
+provider = "openai"
+model    = "ag/gemini-3.8-flash-low"
 
 # YouTube bắt giải "JS challenge" mới trả link tải. yt-dlp cần một JS runtime
 # (deno, node, hoặc bun) và script giải challenge tải từ GitHub. Thiếu chúng thì
@@ -131,3 +137,20 @@ cookies_from_browser = ""
 query = ""
 limit = 12
 cookies_from_browser = ""
+
+# Chống dính chính sách TikTok — docs/tiktok-policy-plan.md.
+# precheck (sau fetch) chỉ dùng luật, 0 token. policy (trước export) kiểm cục bộ
+# bằng Apple Vision rồi gọi AI MỘT lần/video với ảnh ghép + tiêu đề + nội dung.
+# Bị chặn mà vẫn muốn đăng: `uv run reup policy-allow <job_id>` rồi chạy lại.
+[policy]
+enabled          = true
+ai               = "always"   # "always" | "risky" (chỉ gọi AI khi luật thấy rủi ro) | "off"
+sample_frames    = 12         # khung lấy từ thành phẩm để kiểm cục bộ (miễn phí)
+sheet_frames     = 6          # số khung ghép thành MỘT ảnh gửi AI
+sheet_width      = 768        # bề ngang ảnh ghép — nhỏ thì ít token
+min_short_side   = 480        # nguồn dưới mức này: cảnh báo chất lượng thấp
+block_short_side = 360        # dưới mức này: chặn ngay ở precheck
+min_duration_s   = 8.0
+block_duration_s = 4.0
+recent_titles    = 30         # so tiêu đề mới với chừng này tiêu đề cũ để tránh lặp khuôn
+block_on_reject  = true       # false: AI kết luận vi phạm vẫn xuất, chỉ ghi vào policy.json

@@ -135,7 +135,7 @@ def test_topic_id_is_included_in_send_and_from_config(config_file, monkeypatch):
     assert payload.get("message_thread_id") == 555
 
 
-def test_chat_ids_extracts_topics(monkeypatch):
+def test_chat_ids_extracts_topics(monkeypatch, tmp_path):
     updates = [
         {
             "update_id": 1,
@@ -153,7 +153,7 @@ def test_chat_ids_extracts_topics(monkeypatch):
         },
     ]
     monkeypatch.setattr(notify.TelegramNotifier, "call", lambda self, m, p: updates)
-    targets = notify.chat_ids("dummy_token")
+    targets = notify.chat_ids("dummy_token", jobs_dir=tmp_path)
     assert len(targets) == 2
     topic_tgt = [t for t in targets if t.topic_id == 88][0]
     assert topic_tgt.chat_id == "-100123"

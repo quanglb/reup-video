@@ -103,6 +103,9 @@ class Region:
     h: int
     kind: str
     coverage: float
+    # Chữ hay gặp nhất của vùng — với vùng cố định (tiêu đề cháy sẵn của video
+    # gốc) đây là thứ đem dịch rồi đặt lại, thay vì che thành một ô trống.
+    text: str = ""
 
 
 def cluster_boxes(
@@ -156,6 +159,18 @@ def classify(cluster: Cluster, total_frames: int, width: int, height: int) -> st
     return "scene"
 
 
+def _common_text(texts: list[str]) -> str:
+    """Chữ xuất hiện nhiều nhất; hoà thì lấy bản dài hơn (OCR ít sót chữ hơn)."""
+    if not texts:
+        return ""
+    from collections import Counter
+
+    counts = Counter(t.strip() for t in texts if t.strip())
+    if not counts:
+        return ""
+    return max(counts.items(), key=lambda kv: (kv[1], len(kv[0])))[0]
+
+
 def detect_regions(
     frames: list[list[TextBox]], width: int, height: int, padding: int = PADDING
 ) -> list[Region]:
@@ -178,6 +193,7 @@ def detect_regions(
                 h=min(height - y, c.h + padding * 2),
                 kind=kind,
                 coverage=round(len(c.frames) / total, 4),
+                text=_common_text(c.texts) if kind == "watermark" else "",
             )
         )
     return regions

@@ -11,9 +11,14 @@ Thiết kế: [`docs/superpowers/specs/2026-09-11-reup-video-design.md`](docs/su
 và Douyin — hai nền tảng đó cần cookie và IP Trung Quốc (spec R1).
 
 ```
-discover  fetch  demux  separate  asr  subdetect  ocr
-reconcile  translate  [CHỐT A]  tts  fit  compose  [CHỐT B]  export
+discover  fetch  precheck  demux  separate  asr  subdetect  ocr
+reconcile  translate  [CHỐT A]  pronounce  tts  fit  meta  compose  [CHỐT B]
+policy  export
 ```
+
+`precheck` và `policy` chống dính chính sách TikTok (luật chữ + Apple Vision + một
+lượt AI vision mỗi video) — xem [docs/tiktok-policy-plan.md](docs/tiktok-policy-plan.md).
+Bị chặn mà vẫn muốn xuất: `uv run reup policy-allow <job_id>` rồi chạy lại.
 
 ## Cài đặt
 
@@ -114,7 +119,8 @@ chỗ đáng tối ưu là số lượt gọi chứ không phải độ dài pro
 | `reconcile` | 1, chỉ khi có xung đột cần xử |
 | `translate` | 1 — cả video một lượt |
 | `fit` | tối đa `MAX_REVISIONS` (2) — **một lượt cho cả loạt câu cần viết lại** |
-| `export` | 1 — tiêu đề, mô tả, hashtag |
+| `meta` | 1 — tiêu đề, mô tả, hashtag, dịch chữ cố định (+1 nếu tiêu đề phải sửa) |
+| `policy` | 1 — AI vision duyệt thành phẩm (0 nếu luật đã chặn) |
 
 Tổng: **tối đa 5 request một job**, không phụ thuộc số câu. Trước đây `fit` gọi
 lẻ từng câu nên giá là `3 + 2 × số câu vượt trần` — một clip 4 câu có thể tốn 7

@@ -5,7 +5,7 @@ Tách khỏi `app.py` để test được mà không cần dựng HTTP.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from reup.adapters.crawl import SORTS, order_and_slice
@@ -19,6 +19,7 @@ from reup.translate import syllable_budget
 
 STAGE_LABELS: dict[str, str] = {
     "fetch": "Tải video nguồn",
+    "precheck": "Kiểm nguồn theo chính sách",
     "demux": "Tách luồng âm thanh",
     "separate": "Tách nhạc nền (Demucs)",
     "asr": "Nhận diện giọng nói (Whisper)",
@@ -30,9 +31,12 @@ STAGE_LABELS: dict[str, str] = {
     "pronounce": "Chuẩn hoá phiên âm TTS",
     "tts": "Tạo giọng đọc (CapCut TTS)",
     "fit": "Khớp câu & nhịp độ (LLM Local)",
+    "meta": "Tạo tiêu đề/hashtag & dịch chữ trên hình",
     "compose": "Render video & chèn phụ đề",
+    "frame": "Đặt video vào khung",
     "gate_b": "Chờ duyệt video thành phẩm (Chốt B)",
-    "export": "Tạo tiêu đề/hashtag & xuất bản",
+    "policy": "AI duyệt chính sách TikTok",
+    "export": "Xuất ra thư mục output",
 }
 
 
@@ -64,6 +68,8 @@ class JobRow:
     has_source: bool = False
     has_final: bool = False
     archived: bool = False
+    project: str = ""  # khoá dự án đặc thù trong job.json, vd. "lol"
+    policy: dict = field(default_factory=dict)  # kết quả duyệt chính sách TikTok
     updated_at: float = 0.0
     exists: bool = True  # False khi sổ cái có mà thư mục job đã mất
 
@@ -113,16 +119,48 @@ def job_details(jobs_dir: Path | None, job_id: str) -> dict:
         "has_source": (root / "source.mp4").exists(),
         "has_final": (root / "render" / "final.mp4").exists(),
         "archived": bool(settings.get("archived")),
+        "project": str(settings.get("project") or ""),
+        "policy": policy_summary(root),
+    }
+
+
+def policy_summary(root: Path) -> dict:
+    """Kết quả duyệt chính sách để hiện trên trang job. Rỗng nếu chưa duyệt."""
+    data = _read_json(root / "policy.json")
+    rejected = False
+    if not data:
+        data = _read_json(root / "policy.rejected.json")
+        rejected = bool(data)
+    if not data:
+        return {}
+    ai = data.get("ai") or {}
+    from reup.policy.review import ISSUE_LABELS
+
+    issues = [
+        f"{i.get('code')} {ISSUE_LABELS.get(i.get('code'), '')}"
+        + (f" — {i['note']}" if i.get("note") else "")
+        for i in ai.get("issues") or []
+    ]
+    overrides = _read_json(root / "overrides.json")
+    return {
+        "verdict": "reject" if rejected else data.get("verdict", ""),
+        "blocked": rejected,
+        "allowed": overrides.get("policy") == "allow",
+        "hard": data.get("hard") or [],
+        "notes": data.get("notes") or [],
+        "issues": issues,
+        "changed": data.get("changed") or [],
+        "tokens": (ai.get("usage") or {}).get("total_tokens"),
     }
 
 
 def calculate_progress(
-    status: str, stage: str | None, cfg: Config | None = None
+    status: str, stage: str | None, cfg: Config | None = None, project: str = ""
 ) -> tuple[int, str]:
     """Tính % tiến trình và tên mô tả tiếng Việt cho stage/status hiện tại."""
     from reup.stages import ALL_STAGES, stages_for
 
-    stages = [s.name for s in (stages_for(cfg) if cfg else ALL_STAGES)]
+    stages = [s.name for s in (stages_for(cfg, project) if cfg else ALL_STAGES)]
     total = len(stages) or 12
 
     if status == "done":
@@ -169,8 +207,10 @@ def list_jobs(
     """`archived=None` lấy cả hai; True/False lọc theo cờ lưu trữ trong job.json."""
     rows = []
     for r in store.list_jobs(status):
-        pct, label = calculate_progress(r["status"], r["stage"], cfg)
         details = job_details(jobs_dir, r["id"])
+        pct, label = calculate_progress(
+            r["status"], r["stage"], cfg, details.get("project", "")
+        )
         if archived is not None and bool(details.get("archived")) != archived:
             continue
         details["title"] = details.get("title") or r["id"]
@@ -249,10 +289,11 @@ def get_job_progress(job: Job, row: dict | None, cfg: Config) -> dict:
     """Chi tiết tiến trình và nhật ký cho từng job."""
     from reup.stages import stages_for
 
-    specs = stages_for(cfg)
+    project = str(job.settings.get("project") or "")
+    specs = stages_for(cfg, project)
     status = row["status"] if row else ("done" if job.final_mp4.exists() else "pending")
     stage = row["stage"] if row else None
-    pct, stage_label = calculate_progress(status, stage, cfg)
+    pct, stage_label = calculate_progress(status, stage, cfg, project)
 
     logs = []
     log_map: dict[str, dict] = {}

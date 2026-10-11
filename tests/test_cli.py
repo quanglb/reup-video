@@ -8,8 +8,9 @@ from reup.stages import ALL_STAGES, stages_for
 def test_stage_order(cfg_fixture):
     """translate giữa asr và tts; separate TRƯỚC asr để ASR nghe giọng đã tách."""
     assert [s.name for s in stages_for(cfg_fixture)] == [
-        "fetch", "demux", "separate", "asr", "subdetect", "ocr",
-        "reconcile", "translate", "pronounce", "tts", "fit", "compose", "export",
+        "fetch", "precheck", "demux", "separate", "asr", "subdetect", "ocr",
+        "reconcile", "translate", "pronounce", "tts", "fit", "meta", "compose",
+        "policy", "export",
     ]
 
 
@@ -20,7 +21,7 @@ def test_drop_original_skips_the_heaviest_stage(cfg_fixture):
     cfg = replace(cfg_fixture, audio=replace(cfg_fixture.audio, mode="drop_original"))
     names = [s.name for s in stages_for(cfg)]
     assert "separate" not in names
-    assert names[:3] == ["fetch", "demux", "asr"]
+    assert names[:4] == ["fetch", "precheck", "demux", "asr"]
 
 
 def test_stage_names_are_unique():
@@ -245,7 +246,7 @@ def one_stage(monkeypatch):
         (job.root / "done.txt").write_text(job.id, encoding="utf-8")
 
     spec = StageSpec(name="only", produces=("done.txt",), run=run)
-    monkeypatch.setattr("reup.cli.stages_for", lambda cfg: [spec])
+    monkeypatch.setattr("reup.cli.stages_for", lambda cfg, project=None: [spec])
     return spec
 
 
@@ -319,7 +320,7 @@ def test_run_all_returns_error_when_a_job_fails(
 
     monkeypatch.setattr(
         "reup.cli.stages_for",
-        lambda cfg: [StageSpec(name="only", produces=("done.txt",), run=boom)],
+        lambda cfg, project=None: [StageSpec(name="only", produces=("done.txt",), run=boom)],
     )
     common = _common(tmp_path, config_file)
     main([*common, "add", "https://a/1", "--lang", "zh"])

@@ -106,13 +106,16 @@ def test_old_ocr_without_boxes_falls_back_to_static_regions(tmp_path):
     assert [r["kind"] for r in regions] == ["subtitle", "watermark"]
 
 
-def test_cover_is_blurred_then_whitened_and_time_gated():
+def test_cover_is_blurred_then_plated_and_time_gated():
+    """Nền có hình: blur xoá nét chữ rồi phủ tấm nền tối gần đặc — không còn
+    kính mờ trắng (TikTok đọc ô mờ là che logo)."""
     chain, _ = compose_stage.build_blur_chain([
         {"x": 10, "y": 20, "w": 300, "h": 90, "kind": "subtitle", "start_ms": 1000, "end_ms": 2500},
         {"x": 900, "y": 40, "w": 150, "h": 60, "kind": "watermark"},
     ])
     assert chain.count("boxblur") == 2
-    assert chain.count("color=white@0.1:t=fill") == 2
+    assert "white@" not in chain
+    assert chain.count("color=0x111111@0.82:t=fill") == 2
     assert "overlay=10:20:enable='between(t,1.000,2.500)'" in chain
     assert "overlay=900:40[" in chain  # watermark che suốt
     assert chain.index("boxblur") < chain.index("drawbox")

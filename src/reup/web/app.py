@@ -140,19 +140,29 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
 
     @app.get("/", response_class=HTMLResponse)
     def queue(
-        request: Request, status: str | None = None, view: str = "", platform: str = ""
+        request: Request,
+        status: str | None = None,
+        view: str = "",
+        platform: str = "",
+        project: str = "",
     ):
         """Danh sách dự án. `view=archived` là kho lưu trữ, còn lại là đang làm.
 
         Đếm trước khi lọc, để các nút lọc luôn hiện đủ số. Kết quả chia nhóm
-        theo nền tảng.
+        theo nền tảng. `project=lol` là tab riêng của dự án đó; tab "Dự án"
+        chỉ hiện job thường.
         """
+        from reup import projects
+
+        proj = projects.get(project)
+        project = proj.key if proj else ""
         s = store()
         c = cfg()
         try:
             every = service.list_jobs(s, None, c, app.state.jobs_dir)
         finally:
             s.close()
+        every = [r for r in every if r.project == project]
         archived = view == "archived"
         in_view = [r for r in every if r.archived == archived]
         by_status = [r for r in in_view if not status or r.status == status]
@@ -183,8 +193,11 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "archived_count": sum(1 for r in every if r.archived),
                 "statuses": service.STATUS_LABELS,
                 "running": app.state.runner.live(),
-                "tab": "queue",
-                "title": "Lưu trữ" if archived else "Dự án",
+                "tab": f"project:{project}" if project else "queue",
+                "project": project,
+                "project_label": proj.label if proj else "",
+                "title": ("Lưu trữ" if archived else "Dự án")
+                + (f" {proj.label}" if proj else ""),
             },
         )
 
@@ -273,7 +286,8 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             s.close()
         out = {}
         for r in jobs:
-            pct, label = service.calculate_progress(r["status"], r["stage"], c)
+            project = service.job_details(app.state.jobs_dir, r["id"]).get("project", "")
+            pct, label = service.calculate_progress(r["status"], r["stage"], c, project)
             out[r["id"]] = {
                 "id": r["id"],
                 "status": r["status"],
@@ -286,8 +300,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         return out
 
     @app.post("/jobs")
-    def add_job(url: str = Form(...), lang: str = Form("auto")):
+    def add_job(url: str = Form(...), lang: str = Form("auto"), project: str = Form("")):
         job = create_job(app.state.jobs_dir, url.strip(), lang)
+        set_project(job, project)
         s = store()
         try:
             s.upsert_job(job.id, job.source_url, "pending")
@@ -300,6 +315,14 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     def run(job_id: str):
         """Chạy job tới chốt gần nhất. Bấm lại lúc đang chạy là không làm gì."""
         job_or_404(job_id)
+        app.state.runner.start(job_id)
+        return RedirectResponse(f"/jobs/{job_id}", status_code=303)
+
+    @app.post("/jobs/{job_id}/policy-allow")
+    def policy_allow(job_id: str):
+        """Ép job qua chốt chính sách rồi chạy tiếp — người dùng tự chịu trách nhiệm."""
+        job = job_or_404(job_id)
+        job.set_override("policy", "allow")
         app.state.runner.start(job_id)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
@@ -649,13 +672,29 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         found, error = title_translate.translate(titles, cache, llm)
         return {"translations": found, "error": error}
 
+    def set_project(job, project: str) -> None:
+        """Gắn job vào dự án đặc thù (vd. LOL) — phải trước khi runner chạy compose."""
+        from reup import projects
+
+        if project and projects.get(project) is None:
+            raise HTTPException(status_code=400, detail=f"không có dự án {project!r}")
+        if project:
+            job.update_settings(project=project)
+
     def start_candidate(
-        url: str, lang: str, platform: str, video_id: str, media_url: str, title: str
+        url: str,
+        lang: str,
+        platform: str,
+        video_id: str,
+        media_url: str,
+        title: str,
+        project: str = "",
     ) -> str:
         """Tạo job từ một video đã quét, đánh dấu đã xử lý, bỏ khỏi hàng chờ, chạy."""
         if media_url and not media_url.startswith(("https://", "http://")):
             raise HTTPException(status_code=400, detail="link tải phải là http(s)")
         job = create_job(app.state.jobs_dir, url.strip(), lang)
+        set_project(job, project)
         if media_url:
             from reup.adapters.douyin_export import save_direct
 
@@ -679,6 +718,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         video_id: str = Form(""),
         media_url: str = Form(""),
         title: str = Form(""),
+        project: str = Form(""),
     ):
         """Chọn một video từ tab quét: tạo job, đánh dấu đã xử lý, và chạy luôn.
 
@@ -688,7 +728,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         Chạy luôn vì "chọn video này" nghĩa là "làm video này": tạo job rồi bắt
         người dùng nhảy ra terminal gõ `reup run` là cắt đôi một thao tác duy nhất.
         """
-        job_id = start_candidate(url, lang, platform, video_id, media_url, title)
+        job_id = start_candidate(url, lang, platform, video_id, media_url, title, project)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     # --- hàng chờ ----------------------------------------------------------------
@@ -753,7 +793,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             },
         )
 
-    def run_saved(platform: str, video_id: str, lang: str) -> str:
+    def run_saved(platform: str, video_id: str, lang: str, project: str = "") -> str:
         s = store()
         try:
             found = [v for v in s.saved_videos(platform) if v["video_id"] == video_id]
@@ -763,14 +803,18 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             raise HTTPException(status_code=404, detail="video không còn trong hàng chờ")
         v = found[0]
         return start_candidate(
-            v["url"], lang, platform, video_id, v.get("media_url") or "", v.get("title") or ""
+            v["url"], lang, platform, video_id, v.get("media_url") or "", v.get("title") or "",
+            project,
         )
 
     @app.post("/saved/run")
     def saved_run(
-        platform: str = Form(...), video_id: str = Form(...), lang: str = Form("auto")
+        platform: str = Form(...),
+        video_id: str = Form(...),
+        lang: str = Form("auto"),
+        project: str = Form(""),
     ):
-        job_id = run_saved(platform, video_id, lang)
+        job_id = run_saved(platform, video_id, lang, project)
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/saved/next")
@@ -794,6 +838,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         keys: list[str] = Form(default=[]),
         first: int = Form(0),
         platform: str = Form(""),
+        project: str = Form(""),
     ):
         """Làm hàng loạt: các video đã tick, hoặc `first` video đầu hàng chờ.
 
@@ -812,13 +857,14 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             picked = [v for v in queue if (v["platform"], v["video_id"]) in wanted]
         if not picked:
             raise HTTPException(status_code=400, detail="chưa chọn video nào")
-        run_picked(picked)
-        return RedirectResponse(f"/?batch={len(picked)}", status_code=303)
+        run_picked(picked, project)
+        where = f"project={project}&" if project else ""
+        return RedirectResponse(f"/?{where}batch={len(picked)}", status_code=303)
 
-    def run_picked(picked: list[dict]) -> int:
+    def run_picked(picked: list[dict], project: str = "") -> int:
         for v in picked:
             lang = "zh" if v["platform"] == "douyin" else "auto"
-            run_saved(v["platform"], v["video_id"], lang)
+            run_saved(v["platform"], v["video_id"], lang, project)
         return len(picked)
 
     def run_first_saved(n: int, platform: str = "") -> int:
@@ -928,7 +974,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     @app.post("/jobs/{job_id}/rerender")
     def rerender(job_id: str):
         job = job_or_404(job_id)
-        for path in (job.dub_wav, job.final_mp4, job.sub_ass, job.meta_json):
+        # policy/exported cũng xoá: video dựng lại phải được duyệt chính sách lại.
+        for path in (job.dub_wav, job.final_mp4, job.sub_ass, job.meta_json,
+                     job.policy_json, job.exported_json):
             if path.exists():
                 path.unlink()
         c = cfg()

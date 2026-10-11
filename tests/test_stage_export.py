@@ -109,4 +109,19 @@ def test_missing_final_video_is_an_error(tmp_path: Path, cfg_fixture):
 
 def test_spec_declares_its_artifacts():
     assert export_stage.SPEC.name == "export"
-    assert set(export_stage.SPEC.produces) == {"meta.json"}
+    assert set(export_stage.SPEC.produces) == {"exported.json"}
+
+
+def test_creates_ordered_title_named_files(ready_job, cfg_fixture, tmp_path: Path):
+    out_dir = tmp_path / "output"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    # Giả lập video 01 đã có sẵn trong output
+    (out_dir / "01. Video cũ.mp4").write_bytes(b"dummy")
+    (out_dir / "01. Video cũ.json").write_text("{}", encoding="utf-8")
+
+    export_stage.run_with(ready_job, _cfg(cfg_fixture, tmp_path), MetaLLM(GOOD))
+
+    expected_mp4 = out_dir / "02. Con bò AI trong Minecraft.mp4"
+    expected_json = out_dir / "02. Con bò AI trong Minecraft.json"
+    assert expected_mp4.exists()
+    assert expected_json.exists()

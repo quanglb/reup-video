@@ -141,7 +141,18 @@ def load_style_hint(job: Job) -> str:
     if not path.exists():
         return ""
     data = json.loads(path.read_text(encoding="utf-8"))
-    return style_block(data.get("genre", DEFAULT_GENRE), data.get("context", ""))
+    return (
+        style_block(data.get("genre", DEFAULT_GENRE), data.get("context", ""))
+        + "\n" + _policy_guide(job)
+    )
+
+
+def _policy_guide(job: Job) -> str:
+    """Khối luật an toàn nền tảng, chặt hơn khi precheck thấy nguồn nhạy cảm."""
+    from reup.policy import rules
+    from reup.stages import precheck
+
+    return rules.vocab_guide(precheck.risk_categories(job))
 
 
 def build_prompt(
@@ -195,6 +206,7 @@ def build_prompt(
 
 
 def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> None:
+    from reup.policy.rules import soften
     from reup.text import sanitize_for_tts
 
     transcript = Transcript.load(job.transcript_json)
@@ -212,7 +224,7 @@ def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> None:
     forced = None if forced == AUTO else validate_genre(forced, "overrides.genre")
     chosen = analyze(transcript, info, llm, forced)
     atomic_write(_style_path(job), json.dumps(chosen, ensure_ascii=False, indent=2))
-    style = style_block(chosen["genre"], chosen["context"])
+    style = style_block(chosen["genre"], chosen["context"]) + "\n" + _policy_guide(job)
 
     for i in range(0, len(all_segs), BATCH_SIZE):
         batch_indices = list(range(i, min(i + BATCH_SIZE, len(all_segs))))
@@ -242,7 +254,8 @@ def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> None:
     segments = []
     for seg in transcript.segments:
         raw_text = by_id[seg.id]
-        text = sanitize_for_tts(raw_text) or "..."
+        # Thay từ nhạy cảm TRƯỚC TTS: giọng đọc và phụ đề cùng sạch.
+        text = sanitize_for_tts(soften(raw_text)) or "..."
         budget = budgets[seg.id]
         syllables = count_syllables(text, TARGET_LANG)
         segments.append(

@@ -5,6 +5,7 @@ import json
 import os
 import time
 import traceback
+from collections.abc import Callable
 from pathlib import Path
 
 from reup.config import Config
@@ -146,7 +147,7 @@ def run_jobs(
     jobs: list[Job],
     cfg: Config,
     db_path: Path,
-    stages: list[StageSpec],
+    stages: list[StageSpec] | Callable[[Job], list[StageSpec]],
     workers: int = 1,
 ) -> dict[str, str]:
     """Chạy cả loạt job, tối đa `workers` cùng lúc. Trả {job_id: trạng thái}.
@@ -166,7 +167,8 @@ def run_jobs(
     def one(job: Job) -> tuple[str, str]:
         store = Store(db_path)
         try:
-            return job.id, run_job(job, cfg, store, stages)
+            specs = stages(job) if callable(stages) else stages
+            return job.id, run_job(job, cfg, store, specs)
         finally:
             store.close()
 

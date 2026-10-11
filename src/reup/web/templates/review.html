@@ -102,6 +102,29 @@
   </details>
 </div>
 
+{% set pol = details.policy %}
+{% if pol %}
+<div class="policy-box policy-{{ pol.verdict }}">
+  <div class="policy-head">
+    <b>Duyệt chính sách TikTok:</b>
+    {% if pol.verdict == 'reject' %}<span class="policy-tag bad">⛔ Bị chặn{% if pol.allowed %} — đã ép cho qua{% endif %}</span>
+    {% elif pol.verdict == 'fixed' %}<span class="policy-tag warn">✎ Đã tự sửa tiêu đề</span>
+    {% elif pol.verdict == 'skipped' %}<span class="policy-tag">Tắt</span>
+    {% else %}<span class="policy-tag good">✓ Đạt</span>{% endif %}
+    {% if pol.tokens %}<span class="dim">· {{ pol.tokens }} token</span>{% endif %}
+  </div>
+  {% if pol.hard %}<ul class="policy-list bad">{% for h in pol.hard %}<li>{{ h }}</li>{% endfor %}</ul>{% endif %}
+  {% if pol.issues %}<ul class="policy-list">{% for i in pol.issues %}<li>{{ i }}</li>{% endfor %}</ul>{% endif %}
+  {% for c in pol.changed %}{% if c.title %}<p class="dim">Tiêu đề: <s>{{ c.title[0] }}</s> → <b>{{ c.title[1] }}</b></p>{% endif %}{% endfor %}
+  {% if pol.notes %}<details><summary class="dim">Ghi chú kiểm tự động ({{ pol.notes|length }})</summary><ul class="policy-list">{% for n in pol.notes %}<li>{{ n }}</li>{% endfor %}</ul></details>{% endif %}
+  {% if pol.blocked and not pol.allowed %}
+    <form method="post" action="/jobs/{{ job.id }}/policy-allow" onsubmit="return confirm('Video này có nguy cơ bị TikTok xoá/hạn chế. Vẫn xuất?')">
+      <button class="warn-btn">Vẫn xuất (tự chịu rủi ro)</button>
+    </form>
+  {% endif %}
+</div>
+{% endif %}
+
 <div class="split">
   <section class="player">
     <div class="player-block">

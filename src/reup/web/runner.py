@@ -18,7 +18,7 @@ from reup.config import load_config
 from reup.core.job import load_job
 from reup.core.runner import run_job
 from reup.core.store import Store
-from reup.stages import stages_for
+from reup.stages import stages_for_job
 
 
 class BackgroundRunner:
@@ -88,7 +88,7 @@ class BackgroundRunner:
                 store = Store(self.db_path)
                 store.init_schema()
                 try:
-                    status = run_job(job, cfg, store, stages_for(cfg))
+                    status = run_job(job, cfg, store, stages_for_job(cfg, job))
                 finally:
                     store.close()
         except Exception as exc:  # config hỏng, job bị xoá tay, ...

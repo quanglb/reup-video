@@ -33,12 +33,14 @@
   <label class="check"><input type="checkbox" id="pickAll"> Chọn tất cả</label>
   <span class="batch-count">Đã chọn <b id="pickCount">0</b> / {{ rows|length }}</span>
   <button class="primary" id="runPicked" disabled>▶ Làm các video đã chọn</button>
+  <button class="lol-btn" id="runPickedLol" name="project" value="lol" disabled title="Chỉ tải về, đặt vào khung LOL rồi xuất — giữ tiếng gốc">⚔ LOL các video đã chọn</button>
   <span class="batch-sep"></span>
   <span class="batch-first">
     hoặc làm
     <input type="number" name="first" id="firstN" min="1" max="{{ rows|length }}" value="{{ [3, rows|length]|min }}">
     video đầu
     <button type="submit" id="runFirst" formnovalidate>▶ Làm</button>
+    <button type="submit" id="runFirstLol" class="lol-btn" name="project" value="lol" formnovalidate title="Làm N video đầu theo luồng LOL">⚔ LOL</button>
   </span>
   <span id="translateStatus" class="translate-status"></span>
 </form>
@@ -77,7 +79,8 @@
           <option value="zh" {{ 'selected' if c.platform == 'douyin' }}>Trung</option>
           <option value="en">Anh</option>
         </select>
-        <button class="primary">▶ Làm</button>
+        <button class="primary" title="Làm như dự án thường: dịch, lồng tiếng, phụ đề">▶ Dự án</button>
+        <button name="project" value="lol" class="lol-btn" title="Dự án LOL: chỉ tải về, đặt vào khung LOL rồi xuất — giữ tiếng gốc">⚔ LOL</button>
       </form>
       <form method="post" action="/saved/remove">
         <input type="hidden" name="platform" value="{{ c.platform }}">

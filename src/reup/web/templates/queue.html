@@ -2,10 +2,10 @@
 {% block content %}
 <div class="board-head">
   <div class="board-title">
-    <h1>{{ 'Lưu trữ' if view == 'archived' else 'Dự án' }}</h1>
+    <h1>{{ 'Lưu trữ' if view == 'archived' else 'Dự án' }}{% if project %} {{ project_label }}{% endif %}</h1>
     <nav class="view-switch">
-      <a href="/" class="{{ 'on' if view != 'archived' }}">Đang làm</a>
-      <a href="/?view=archived" class="{{ 'on' if view == 'archived' }}">🗄 Lưu trữ <b>{{ archived_count }}</b></a>
+      <a href="/{% if project %}?project={{ project }}{% endif %}" class="{{ 'on' if view != 'archived' }}">Đang làm</a>
+      <a href="/?view=archived{% if project %}&project={{ project }}{% endif %}" class="{{ 'on' if view == 'archived' }}">🗄 Lưu trữ <b>{{ archived_count }}</b></a>
     </nav>
   </div>
   <div class="board-tools">
@@ -24,8 +24,17 @@
 </div>
 
 {% macro qs(st, pf) -%}
-/?{% if view == 'archived' %}view=archived&{% endif %}{% if st %}status={{ st }}&{% endif %}{% if pf %}platform={{ pf }}{% endif %}
+/?{% if project %}project={{ project }}&{% endif %}{% if view == 'archived' %}view=archived&{% endif %}{% if st %}status={{ st }}&{% endif %}{% if pf %}platform={{ pf }}{% endif %}
 {%- endmacro %}
+{% if project and view != 'archived' %}
+<form class="project-add" method="post" action="/jobs">
+  <input type="hidden" name="project" value="{{ project }}">
+  <input name="url" placeholder="Dán link Douyin — video sẽ được đặt vào khung {{ project_label }}…" required>
+  <input type="hidden" name="lang" value="zh">
+  <button class="primary">⚔ Làm video {{ project_label }}</button>
+  <small>Hoặc ở tab Douyin, bấm “⚔ LOL” trên video muốn làm.</small>
+</form>
+{% endif %}
 <nav class="filters">
   <a href="{{ qs('', platform) }}" class="{{ 'on' if not status }}">Tất cả <b>{{ counts.get('', 0) }}</b></a>
   {% for key, label in statuses.items() %}
@@ -58,7 +67,11 @@
       <p>Không có dự án nào ở trạng thái này.</p>
     {% else %}
       <p>Chưa có job nào.</p>
+      {% if project %}
+      <small>Dán link Douyin ở ô phía trên, hoặc bấm “⚔ LOL” trên video ở tab Douyin.</small>
+      {% else %}
       <small>Dán một link video ở thanh trên, hoặc chọn video từ tab YouTube / TikTok / Douyin.</small>
+      {% endif %}
     {% endif %}
   </div>
 {% else %}
@@ -81,6 +94,8 @@
       {% endif %}
       <span class="thumb-empty">🎬</span>
       <span class="badge status-badge {{ r.status }}">{% if is_running %}<i class="dot"></i>{% endif %}{{ r.status_label }}</span>
+      {% if r.policy and r.policy.blocked and not r.policy.allowed %}<span class="badge status-badge failed" title="Bị chặn vì chính sách TikTok">⛔ Chính sách</span>
+      {% elif r.policy and r.policy.verdict == 'fixed' %}<span class="badge" title="AI đã tự sửa tiêu đề cho an toàn">✎ Đã sửa tiêu đề</span>{% endif %}
       {% if r.platform and not platform %}<span class="badge platform {{ r.platform }}">{{ {"youtube": "▶ YouTube", "tiktok": "♪ TikTok", "douyin": "♪ Douyin", "bilibili": "Bilibili"}.get(r.platform, r.platform) }}</span>{% endif %}
       {% if r.duration_s %}<span class="badge duration">{{ (r.duration_s * 1000)|duration }}</span>{% endif %}
       {% if r.has_final %}<span class="badge final">✓ Thành phẩm</span>{% endif %}

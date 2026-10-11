@@ -29,8 +29,12 @@ def scan(job: Job, fps: float = SAMPLE_FPS):
 
 
 def run(job: Job, cfg: Config) -> None:
+    from reup.labels import find_labels, scan_frames
+
     frames, width, height, step_ms = scan(job)
+    paths = sorted((job.root / "frames").glob("f_*.png"))
     regions = detect_regions(frames, width, height)
+    covered = [{"x": r.x, "y": r.y, "w": r.w, "h": r.h} for r in regions]
     atomic_write(
         job.subrect_json,
         json.dumps(
@@ -40,10 +44,17 @@ def run(job: Job, cfg: Config) -> None:
                 "sample_fps": SAMPLE_FPS,
                 "regions": [
                     {"x": r.x, "y": r.y, "w": r.w, "h": r.h,
-                     "kind": r.kind, "coverage": r.coverage}
+                     "kind": r.kind, "coverage": r.coverage,
+                     **({"text": r.text} if r.text else {})}
                     for r in regions
                 ],
                 "present_ranges": present_ranges(frames, width, height, step_ms),
+                # Nhãn chữ Hán trong cảnh (vd. "黑桃10" cạnh lá bài): meta dịch,
+                # compose che rồi đặt lại — không để chữ gốc sót trên thành phẩm.
+                "labels": find_labels(
+                    scan_frames(paths, width, height, frames, OCR_LANGS),
+                    width, height, step_ms, covered,
+                ),
             },
             ensure_ascii=False,
             indent=2,

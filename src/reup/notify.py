@@ -260,6 +260,15 @@ class TelegramNotifier(Notifier):
 
     def job_failed(self, job, stage: str, error: str) -> None:
         self._finish(job)
+        if stage in ("precheck", "policy"):
+            # Bị chặn vì chính sách: không phải lỗi máy, "chạy lại" vô ích.
+            self.send(
+                f"{self._head(job, '⛔', 'Chặn vì chính sách TikTok')}\n"
+                f"Ở bước: {html.escape(_label(stage))}\n"
+                f"<pre>{html.escape((error or '')[:800])}</pre>\n{self._link(job)}",
+                self._keyboard([[("🗄 Lưu trữ", "archive"), ("🗑 Xoá", "delask")]], job.id),
+            )
+            return
         self.send(
             f"{self._head(job, '❌', 'Lỗi')}\nỞ bước: {html.escape(_label(stage))}\n"
             f"<pre>{html.escape((error or '')[:600])}</pre>\n{self._link(job)}",
