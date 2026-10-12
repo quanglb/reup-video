@@ -37,6 +37,7 @@ STAGE_LABELS: dict[str, str] = {
     "gate_b": "Chờ duyệt video thành phẩm (Chốt B)",
     "policy": "AI duyệt chính sách TikTok",
     "export": "Xuất ra thư mục output",
+    "split": "AI chia video dài thành các phần ~2 phút",
 }
 
 
@@ -70,6 +71,7 @@ class JobRow:
     archived: bool = False
     project: str = ""  # khoá dự án đặc thù trong job.json, vd. "lol"
     policy: dict = field(default_factory=dict)  # kết quả duyệt chính sách TikTok
+    warning: str = ""  # bước tải thấy video dài/nặng
     updated_at: float = 0.0
     exists: bool = True  # False khi sổ cái có mà thư mục job đã mất
 
@@ -121,6 +123,7 @@ def job_details(jobs_dir: Path | None, job_id: str) -> dict:
         "archived": bool(settings.get("archived")),
         "project": str(settings.get("project") or ""),
         "policy": policy_summary(root),
+        "warning": str(settings.get("fetch_warning") or ""),
     }
 
 
@@ -253,9 +256,10 @@ def delete_job(job: Job, store: Store, cfg: Config) -> None:
     """Xoá hẳn thư mục job, file xuất ra `output/`, và dòng trong sổ cái."""
     import shutil
 
-    out = Path(cfg.review.output_dir)
-    for path in (out / f"{job.id}.mp4", out / f"{job.id}.tmp.mp4", out / f"{job.id}.json"):
-        path.unlink(missing_ok=True)
+    out_dirs = {cfg.output_dir_path(), Path(cfg.review.output_dir), Path("output")}
+    for out in out_dirs:
+        for path in (out / f"{job.id}.mp4", out / f"{job.id}.tmp.mp4", out / f"{job.id}.json"):
+            path.unlink(missing_ok=True)
     if job.root.exists():
         shutil.rmtree(job.root)
     store.delete_job(job.id)
@@ -287,10 +291,10 @@ def thumbnail(job: Job) -> Path:
 
 def get_job_progress(job: Job, row: dict | None, cfg: Config) -> dict:
     """Chi tiết tiến trình và nhật ký cho từng job."""
-    from reup.stages import stages_for
+    from reup.stages import stages_for_job
 
     project = str(job.settings.get("project") or "")
-    specs = stages_for(cfg, project)
+    specs = stages_for_job(cfg, job)
     status = row["status"] if row else ("done" if job.final_mp4.exists() else "pending")
     stage = row["stage"] if row else None
     pct, stage_label = calculate_progress(status, stage, cfg, project)
@@ -598,6 +602,15 @@ def view_label(n: int) -> str:
     if n >= 1_000:
         return f"{n / 1_000:.0f}K"
     return str(n or "")
+
+
+def datetime_label(ts: float) -> str:
+    if not ts:
+        return ""
+    import datetime
+    dt = datetime.datetime.fromtimestamp(ts)
+    return dt.strftime("%H:%M %d/%m")
+
 
 
 @dataclass(frozen=True)

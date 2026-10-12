@@ -97,6 +97,43 @@ def test_queue_filters_by_status(client):
     assert "j1" not in c.get("/?status=failed").text
 
 
+def test_queue_groups_by_status_and_sorts_done_by_date(client):
+    c, _, db = client
+    s = Store(db)
+    s.upsert_job("j_pend", "https://douyin.com/v/1", "pending")
+    s.upsert_job("j_run", "https://douyin.com/v/2", "running", stage="demux")
+    s.upsert_job("j_done_old", "https://douyin.com/v/3", "done")
+    s.upsert_job("j_done_new", "https://douyin.com/v/4", "done")
+    # Đặt mốc thời gian rõ ràng: done_new mới hơn done_old
+    s._conn.execute("UPDATE jobs SET updated_at = 1700000100 WHERE id = 'j_done_old'")
+    s._conn.execute("UPDATE jobs SET updated_at = 1700000200 WHERE id = 'j_done_new'")
+    s._conn.commit()
+    s.close()
+
+    body = c.get("/").text
+    assert "Đang làm" in body
+    assert "Đang chờ" in body
+    assert "Đã xong" in body
+
+    # Kiểm tra thứ tự xuất hiện của các nhóm trên trang
+    pos_run_group = body.find("Đang làm")
+    pos_pend_group = body.find("Đang chờ")
+    pos_done_group = body.find("Đang xong") if "Đang xong" in body else body.find("Đã xong")
+    assert pos_run_group < pos_pend_group < pos_done_group
+
+    # Kiểm tra nhóm đã xong sắp xếp mới nhất lên đầu (j_done_new trước j_done_old)
+    pos_new = body.find("j_done_new")
+    pos_old = body.find("j_done_old")
+    assert pos_new != -1 and pos_old != -1
+    assert pos_new < pos_old
+
+    # Kiểm tra hiển thị badge ngày giờ hoàn thành
+    assert "completed-badge" in body
+    assert "✓ Xong:" in body
+
+
+
+
 def test_review_page_shows_segments(client):
     c, jobs, db = client
     job = create_job(jobs, "https://a/1", "zh", job_id="j1")

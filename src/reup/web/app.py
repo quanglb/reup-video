@@ -33,6 +33,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     templates = Jinja2Templates(directory=str(HERE / "templates"))
     templates.env.filters["duration"] = service.duration_label
     templates.env.filters["views"] = service.view_label
+    templates.env.filters["datetime"] = service.datetime_label
     app.mount("/static", StaticFiles(directory=str(HERE / "static")), name="static")
 
     app.state.config_path = Path(config_path)
@@ -167,15 +168,51 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         in_view = [r for r in every if r.archived == archived]
         by_status = [r for r in in_view if not status or r.status == status]
         rows = [r for r in by_status if not platform or r.platform == platform]
-        order = ["youtube", "tiktok", "douyin", "bilibili", ""]
-        groups = [
-            {
-                "key": key or "other",
-                "label": service.PLATFORM_LABELS.get(key, key.capitalize() or "Khác"),
-                "rows": [r for r in rows if r.platform == key],
-            }
-            for key in order + sorted({r.platform for r in rows} - set(order))
-        ]
+        if archived:
+            order = ["youtube", "tiktok", "douyin", "bilibili", ""]
+            groups = [
+                {
+                    "key": key or "other",
+                    "label": service.PLATFORM_LABELS.get(key, key.capitalize() or "Khác"),
+                    "rows": [r for r in rows if r.platform == key],
+                }
+                for key in order + sorted({r.platform for r in rows} - set(order))
+            ]
+        else:
+            status_priority = {"running": 0, "needs_review": 1, "failed": 2}
+            in_prog_rows = sorted(
+                [r for r in rows if r.status in ("running", "needs_review", "failed")],
+                key=lambda r: (status_priority.get(r.status, 9), -r.updated_at),
+            )
+            pend_rows = sorted(
+                [r for r in rows if r.status == "pending"],
+                key=lambda r: -r.updated_at,
+            )
+            done_rows = sorted(
+                [r for r in rows if r.status == "done"],
+                key=lambda r: -r.updated_at,
+            )
+            known_ids = {r.id for g in (in_prog_rows, pend_rows, done_rows) for r in g}
+            other_rows = [r for r in rows if r.id not in known_ids]
+            if other_rows:
+                in_prog_rows.extend(other_rows)
+            groups = [
+                {
+                    "key": "in_progress",
+                    "label": "⚡ Đang làm",
+                    "rows": in_prog_rows,
+                },
+                {
+                    "key": "pending",
+                    "label": "⏳ Đang chờ",
+                    "rows": pend_rows,
+                },
+                {
+                    "key": "done",
+                    "label": "✅ Đã xong",
+                    "rows": done_rows,
+                },
+            ]
         platform_counts = {"": len(by_status)}
         for r in by_status:
             platform_counts[r.platform] = platform_counts.get(r.platform, 0) + 1
@@ -689,12 +726,21 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         media_url: str,
         title: str,
         project: str = "",
+        split: bool = False,
     ) -> str:
-        """Tạo job từ một video đã quét, đánh dấu đã xử lý, bỏ khỏi hàng chờ, chạy."""
+        """Tạo job từ một video đã quét, đánh dấu đã xử lý, bỏ khỏi hàng chờ, chạy.
+
+        `split`: người dùng đồng ý tách video dài thành các phần ~2 phút theo
+        nội dung (xem stage `split`).
+        """
         if media_url and not media_url.startswith(("https://", "http://")):
             raise HTTPException(status_code=400, detail="link tải phải là http(s)")
         job = create_job(app.state.jobs_dir, url.strip(), lang)
         set_project(job, project)
+        if split:
+            from reup.stages.split import DEFAULT_MAX_S
+
+            job.update_settings(split={"max_s": DEFAULT_MAX_S})
         if media_url:
             from reup.adapters.douyin_export import save_direct
 
@@ -710,6 +756,26 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         app.state.runner.start(job.id)
         return job.id
 
+    @app.get("/api/media-size")
+    def media_size(url: str):
+        """Dung lượng file video (HEAD tới CDN) để cảnh báo video nặng trước khi
+        tải. Trình duyệt không tự HEAD được vì CDN chặn CORS và đòi Referer."""
+        if not url.startswith(("https://", "http://")):
+            raise HTTPException(status_code=400, detail="link phải là http(s)")
+        import urllib.request
+
+        from reup.adapters.douyin_export import REFERER, USER_AGENT
+
+        req = urllib.request.Request(
+            url, method="HEAD", headers={"User-Agent": USER_AGENT, "Referer": REFERER}
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=6) as resp:
+                size = int(resp.headers.get("Content-Length") or 0)
+        except Exception:
+            size = 0
+        return {"bytes": size}
+
     @app.post("/discover/pick")
     def pick(
         url: str = Form(...),
@@ -719,6 +785,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         media_url: str = Form(""),
         title: str = Form(""),
         project: str = Form(""),
+        split: int = Form(0),
     ):
         """Chọn một video từ tab quét: tạo job, đánh dấu đã xử lý, và chạy luôn.
 
@@ -728,7 +795,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         Chạy luôn vì "chọn video này" nghĩa là "làm video này": tạo job rồi bắt
         người dùng nhảy ra terminal gõ `reup run` là cắt đôi một thao tác duy nhất.
         """
-        job_id = start_candidate(url, lang, platform, video_id, media_url, title, project)
+        job_id = start_candidate(
+            url, lang, platform, video_id, media_url, title, project, bool(split)
+        )
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     # --- hàng chờ ----------------------------------------------------------------
@@ -793,7 +862,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             },
         )
 
-    def run_saved(platform: str, video_id: str, lang: str, project: str = "") -> str:
+    def run_saved(
+        platform: str, video_id: str, lang: str, project: str = "", split: bool = False
+    ) -> str:
         s = store()
         try:
             found = [v for v in s.saved_videos(platform) if v["video_id"] == video_id]
@@ -804,7 +875,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         v = found[0]
         return start_candidate(
             v["url"], lang, platform, video_id, v.get("media_url") or "", v.get("title") or "",
-            project,
+            project, split,
         )
 
     @app.post("/saved/run")
@@ -813,8 +884,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         video_id: str = Form(...),
         lang: str = Form("auto"),
         project: str = Form(""),
+        split: int = Form(0),
     ):
-        job_id = run_saved(platform, video_id, lang, project)
+        job_id = run_saved(platform, video_id, lang, project, bool(split))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/saved/next")
@@ -839,6 +911,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         first: int = Form(0),
         platform: str = Form(""),
         project: str = Form(""),
+        split: int = Form(0),
     ):
         """Làm hàng loạt: các video đã tick, hoặc `first` video đầu hàng chờ.
 
@@ -857,14 +930,18 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             picked = [v for v in queue if (v["platform"], v["video_id"]) in wanted]
         if not picked:
             raise HTTPException(status_code=400, detail="chưa chọn video nào")
-        run_picked(picked, project)
+        run_picked(picked, project, bool(split))
         where = f"project={project}&" if project else ""
         return RedirectResponse(f"/?{where}batch={len(picked)}", status_code=303)
 
-    def run_picked(picked: list[dict], project: str = "") -> int:
+    def run_picked(picked: list[dict], project: str = "", split: bool = False) -> int:
+        """`split` chỉ áp cho video biết chắc dài hơn 2 phút."""
+        from reup.stages.split import DEFAULT_MAX_S
+
         for v in picked:
             lang = "zh" if v["platform"] == "douyin" else "auto"
-            run_saved(v["platform"], v["video_id"], lang, project)
+            long = (v.get("duration_ms") or 0) > DEFAULT_MAX_S * 1000
+            run_saved(v["platform"], v["video_id"], lang, project, split and long)
         return len(picked)
 
     def run_first_saved(n: int, platform: str = "") -> int:
@@ -980,10 +1057,10 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             if path.exists():
                 path.unlink()
         c = cfg()
-        out_mp4 = Path(c.review.output_dir) / f"{job.id}.mp4"
+        out_mp4 = c.output_dir_path() / f"{job.id}.mp4"
         if out_mp4.exists():
             out_mp4.unlink()
-        out_json = Path(c.review.output_dir) / f"{job.id}.json"
+        out_json = c.output_dir_path() / f"{job.id}.json"
         if out_json.exists():
             out_json.unlink()
         s = store()
@@ -1000,7 +1077,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     def download_video(job_id: str):
         job = job_or_404(job_id)
         c = cfg()
-        out_mp4 = Path(c.review.output_dir) / f"{job.id}.mp4"
+        out_mp4 = c.output_dir_path() / f"{job.id}.mp4"
         target = None
         if out_mp4.exists():
             target = out_mp4
@@ -1014,7 +1091,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
     def reveal(job_id: str):
         job = job_or_404(job_id)
         c = cfg()
-        out_mp4 = Path(c.review.output_dir) / f"{job.id}.mp4"
+        out_mp4 = c.output_dir_path() / f"{job.id}.mp4"
         target = None
         if out_mp4.exists():
             target = out_mp4

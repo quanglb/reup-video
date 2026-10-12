@@ -76,7 +76,7 @@
   </div>
 {% else %}
 {% for g in groups %}
-<section class="platform-group g-{{ g.key }}">
+<section class="status-group platform-group g-{{ g.key }}">
   <h2 class="group-head"><span class="group-dot"></span>{{ g.label }} <b>{{ g.rows|length }}</b></h2>
 <div class="job-grid">
   {% for r in g.rows %}
@@ -96,9 +96,14 @@
       <span class="badge status-badge {{ r.status }}">{% if is_running %}<i class="dot"></i>{% endif %}{{ r.status_label }}</span>
       {% if r.policy and r.policy.blocked and not r.policy.allowed %}<span class="badge status-badge failed" title="Bị chặn vì chính sách TikTok">⛔ Chính sách</span>
       {% elif r.policy and r.policy.verdict == 'fixed' %}<span class="badge" title="AI đã tự sửa tiêu đề cho an toàn">✎ Đã sửa tiêu đề</span>{% endif %}
+      {% if r.warning %}<span class="badge" title="Lúc tải: video {{ r.warning }}">⚠ Dài/nặng</span>{% endif %}
       {% if r.platform and not platform %}<span class="badge platform {{ r.platform }}">{{ {"youtube": "▶ YouTube", "tiktok": "♪ TikTok", "douyin": "♪ Douyin", "bilibili": "Bilibili"}.get(r.platform, r.platform) }}</span>{% endif %}
       {% if r.duration_s %}<span class="badge duration">{{ (r.duration_s * 1000)|duration }}</span>{% endif %}
-      {% if r.has_final %}<span class="badge final">✓ Thành phẩm</span>{% endif %}
+      {% if r.status == 'done' and r.updated_at %}
+        <span class="badge final completed-badge" title="Hoàn thành lúc {{ r.updated_at|datetime }}">✓ Xong: {{ r.updated_at|datetime }}</span>
+      {% elif r.has_final %}
+        <span class="badge final">✓ Thành phẩm</span>
+      {% endif %}
       {% if r.has_source or r.has_final %}<span class="hover-hint">▶ Rê chuột để xem</span>{% endif %}
     </a>
 
@@ -127,6 +132,9 @@
       <p class="meta-line">
         {% if r.uploader %}<span>👤 {{ r.uploader }}</span>{% endif %}
         <span class="job-id">{{ r.id }}</span>
+        {% if r.status == 'done' and r.updated_at %}
+        <span class="completed-meta" title="Hoàn thành lúc {{ r.updated_at|datetime }}">🕒 {{ r.updated_at|datetime }}</span>
+        {% endif %}
       </p>
       <span class="url" hidden>{{ r.url }}</span>
 

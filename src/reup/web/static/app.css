@@ -569,6 +569,20 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .g-tiktok .group-dot { background: #25f4ee; }
 .g-douyin .group-dot { background: #8b5cf6; }
 .g-bilibili .group-dot { background: #00a1d6; }
+.g-in_progress .group-dot { background: #3b82f6; }
+.g-pending .group-dot { background: #f59e0b; }
+.g-done .group-dot { background: #10b981; }
+
+.badge.completed-badge {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
+}
+.meta-line .completed-meta {
+  color: #34d399;
+  font-size: 11px;
+  margin-left: auto;
+}
 @media (max-width: 620px) {
   .job-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
 }
@@ -841,3 +855,8 @@ body.login-page main {
 .policy-list.bad li { color: var(--bad); }
 .policy-box form { margin-top: 8px; }
 .policy-box .dim { color: var(--dim); }
+
+/* Hộp cảnh báo video dài/nặng */
+.long-list { margin: 0 0 12px; padding-left: 18px; font-size: 14px; max-height: 220px; overflow: auto; }
+.long-list li { margin: 4px 0; overflow-wrap: anywhere; }
+.long-list .heavy { color: var(--warn); font-weight: 600; }
