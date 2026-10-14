@@ -243,7 +243,11 @@ class Config:
     tts: TTSConfig = TTSConfig()
 
     def output_dir_path(self) -> Path:
-        return Path(self.review.output_dir)
+        raw = self.review.output_dir
+        if "%" in raw:
+            from datetime import datetime
+            raw = datetime.now().strftime(raw)
+        return Path(raw)
 
     asr: ASRConfig = ASRConfig()
     llm: LLMConfig = LLMConfig()

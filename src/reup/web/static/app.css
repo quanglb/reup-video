@@ -838,11 +838,6 @@ body.login-page main {
   .login-box { max-width: none; margin: 0 16px; }
 }
 
-/* Tab dự án đặc thù (LOL): ô dán link riêng, job tạo ra mang khoá project */
-.project-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 14px; }
-.project-add input[name=url] { flex: 1; min-width: 240px; max-width: 620px; }
-.project-add small { flex-basis: 100%; opacity: .7; }
-.lol-btn { border-color: #b8913a; color: #b8913a; }
 
 /* Duyệt chính sách TikTok (stage policy) */
 .policy-box { border: 1px solid #2c3340; border-radius: 10px; padding: 10px 14px; margin: 0 0 14px; }

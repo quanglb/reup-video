@@ -85,7 +85,7 @@ def fallback_edge_tts_one(text, out_path, voice):
     for v_try in voices:
         async def _run(vt=v_try):
             comm = edge_tts.Communicate(text, vt)
-            await asyncio.wait_for(comm.save(tmp), timeout=5.0)
+            await asyncio.wait_for(comm.save(tmp), timeout=15.0)
         try:
             asyncio.run(_run())
             if os.path.exists(tmp) and os.path.getsize(tmp) > 100:

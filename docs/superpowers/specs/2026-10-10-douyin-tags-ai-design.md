@@ -1,7 +1,7 @@
-# Thiết kế bổ sung Tag Douyin: Game Liên Minh & AI
+# Thiết kế bổ sung Tag Douyin: AI
 
 ## Mục tiêu
-Bổ sung các tag gợi ý về chủ đề Game Liên Minh Huyền Thoại (LOL) và Trí tuệ nhân tạo (AI) cho nền tảng Douyin nhằm hỗ trợ tìm kiếm và cào video nguồn chất lượng cao, đồng thời đảm bảo không làm gián đoạn hay ảnh hưởng đến luồng pipeline và web server đang chạy.
+Bổ sung các tag gợi ý về chủ đề Trí tuệ nhân tạo (AI) cho nền tảng Douyin nhằm hỗ trợ tìm kiếm và cào video nguồn chất lượng cao, đồng thời đảm bảo không làm gián đoạn hay ảnh hưởng đến luồng pipeline và web server đang chạy.
 
 ## Ràng buộc & An toàn hệ thống
 - Tuyệt đối không thay đổi mã nguồn Python (`.py`) hoặc khởi động lại tiến trình server/pipeline.
@@ -13,10 +13,6 @@ Bổ sung các tag gợi ý về chủ đề Game Liên Minh Huyền Thoại (LO
 
 | Tên tiếng Việt (vi) | Từ khoá tìm kiếm (q) | Nhóm (group) | Ngôn ngữ (lang) | Ghi chú |
 |---|---|---|---|---|
-| Liên Minh Huyền Thoại | 英雄联盟 | topic | zh | Chủ đề tổng quan LOL |
-| Highlight Liên Minh | 英雄联盟集锦 | topic | zh | Tuyển tập pha highlight, xử lý kỹ năng cao |
-| LOL Hài hước | 英雄联盟搞笑 | topic | zh | Khoảnh khắc vui nhộn, tấu hài trong game |
-| LOL Tốc Chiến | 英雄联盟手游 | topic | zh | Wild Rift phiên bản di động |
 | Trí tuệ nhân tạo | 人工智能 | topic | zh | Chủ đề tổng quan AI |
 | Video AI | AI视频 | topic | zh | Video được sinh ra bởi AI (Sora, Kling, Runway,...) |
 | Công nghệ AI | AI科技 | topic | zh | Tin tức, công cụ, mô hình AI mới |

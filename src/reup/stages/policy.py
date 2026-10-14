@@ -37,12 +37,6 @@ def _rejected_path(job: Job):
     return job.root / "policy.rejected.json"
 
 
-def _is_frame_project(job: Job) -> bool:
-    from reup import projects
-
-    return projects.get(job.settings.get("project")) is not None
-
-
 def _subtitle_lines(job: Job) -> list[str]:
     if not job.translation_json.exists():
         return []
@@ -81,8 +75,8 @@ def _grouped(hits: list[rules.Hit]) -> list[str]:
     ]
 
 
-def local_findings(rep: local.LocalReport, hits: list[rules.Hit], is_frame: bool,
-                   cfg: Config, precheck: dict, similar: tuple[float, str],
+def local_findings(rep: local.LocalReport, hits: list[rules.Hit], cfg: Config,
+                   precheck: dict, similar: tuple[float, str],
                    subs: list[str] | None = None, job_id: str = "") -> tuple[list[str], list[str]]:
     """(lỗi cứng → chặn không cần AI, ghi chú → đưa vào prompt AI)."""
     hard: list[str] = []
@@ -107,7 +101,7 @@ def local_findings(rep: local.LocalReport, hits: list[rules.Hit], is_frame: bool
             f"chữ Hán còn trên {len(rep.cjk_frames)}/{len(rep.frames)} khung "
             f"(vd. giây {rep.cjk_frames[0][0]:.0f}: “{rep.cjk_frames[0][1]}”)"
         )
-        if not is_frame and rep.cjk_ratio >= CJK_BLOCK_RATIO:
+        if rep.cjk_ratio >= CJK_BLOCK_RATIO:
             hard.append(msg + " — chữ gốc chưa được che/dịch")
         else:
             notes.append(msg)
@@ -138,15 +132,13 @@ def _call_ai(cfg: Config, prompt: str, sheet: bytes) -> tuple[dict, dict]:
 
 
 def _rerender(job: Job, cfg: Config) -> None:
-    from reup.stages import compose, frame
+    from reup.stages import compose
 
-    (frame.run if _is_frame_project(job) else compose.run)(job, cfg)
+    compose.run(job, cfg)
 
 
 def _title_is_burned(job: Job, meta: dict) -> bool:
     """Tiêu đề có in lên hình không — đổi tiêu đề thì phải render lại."""
-    if _is_frame_project(job):
-        return True
     return any(not (h.get("vi") or "").strip() for h in meta.get("headers") or [])
 
 
@@ -160,7 +152,6 @@ def run(job: Job, cfg: Config) -> None:
     if not job.meta_json.exists():
         raise FileNotFoundError(f"chưa có {job.meta_json} — stage meta phải chạy trước")
     meta = json.loads(job.meta_json.read_text(encoding="utf-8"))
-    is_frame = _is_frame_project(job)
     pre = precheck_stage.load(job)
     subs = _subtitle_lines(job)
 
@@ -168,7 +159,7 @@ def run(job: Job, cfg: Config) -> None:
     hits = local.text_hits(meta, " ".join(subs))
     recent = meta_stage.recent_titles(cfg.output_dir_path(), cfg.policy.recent_titles, job.source_url)
     similar = rules.most_similar(meta.get("title", ""), recent)
-    hard, notes = local_findings(rep, hits, is_frame, cfg, pre, similar, subs, job.id)
+    hard, notes = local_findings(rep, hits, cfg, pre, similar, subs, job.id)
 
     result: dict = {
         "local": rep.to_dict(),
@@ -196,8 +187,6 @@ def run(job: Job, cfg: Config) -> None:
             prompt = review.build_prompt(
                 meta, _summary(job), review.excerpt_of(subs), flagged, notes,
                 min(cfg.policy.sheet_frames, len(rep.frames)),
-                "Video giữ tiếng gốc, đặt trong khung trang trí của kênh, tiêu đề tiếng "
-                "Việt ở phần trên là do kênh tự thêm." if is_frame else "",
             )
             sheet = local.contact_sheet(rep.frames, cfg.policy.sheet_frames, cfg.policy.sheet_width)
             answer, usage = _call_ai(cfg, prompt, sheet)

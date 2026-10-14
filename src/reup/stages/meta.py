@@ -1,11 +1,11 @@
 """Sinh tiêu đề / mô tả / hashtag và dịch chữ cố định của video gốc.
 
-Chạy TRƯỚC khi render (compose/frame) vì hai thứ được in lên hình:
+Chạy TRƯỚC khi render (compose) vì hai thứ được in lên hình:
 - chữ cố định cháy sẵn của video gốc (thường là tiêu đề chữ Hán ở nửa trên).
   Trước đây vùng này bị blur suốt video thành một ô kính mờ trống — đúng dấu
   hiệu "che logo" làm TikTok gắn nhãn không nguyên tác. Giờ nó được dịch và đặt
   lại đúng chỗ.
-- tiêu đề tiếng Việt (dự án có khung như LOL in nó lên phần trên khung).
+- tiêu đề tiếng Việt.
 
 Một request LLM cho tất cả. Luật chữ (`reup.policy.rules`) chạy sau đó, miễn
 phí; chỉ khi tiêu đề còn dính từ nhạy cảm hoặc trùng khuôn tiêu đề cũ mới tốn
@@ -269,7 +269,6 @@ def _clean_headers(answer: list, headers: list[dict]) -> list[dict]:
 def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> dict:
     from reup.stages import precheck
 
-    # Dự án có khung (LOL) không dịch: chỉ có tiêu đề gốc để LLM viết mô tả.
     transcript = (
         Transcript.load(job.translation_json)
         if job.translation_json.exists()
@@ -304,6 +303,12 @@ def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> dict:
             )
             repaired = True
 
+    # Job con của video dài đã tách: đánh số phần để người xem tìm phần tiếp.
+    settings = job.settings
+    if settings.get("part") and settings.get("parts"):
+        suffix = f" (Phần {settings['part']}/{settings['parts']})"
+        title = title[: MAX_TITLE_CHARS - len(suffix)].rstrip() + suffix
+
     meta = {
         "title": title,
         "description": description,
@@ -313,6 +318,13 @@ def run_with(job: Job, cfg: Config, llm: LLMAdapter) -> dict:
     }
     if headers:
         meta["headers"] = _clean_headers(answer.get("headers"), headers)
+        part = settings.get("part")
+        if part:
+            part_tag = f" # Phần {part}"
+            valid = [h for h in meta["headers"] if (h.get("vi") or "").strip()]
+            if valid and not any(f"Phần {part}" in h["vi"] for h in valid):
+                best = max(valid, key=lambda h: len(h["vi"]))
+                best["vi"] = f"{best['vi']}{part_tag}"
     if labels:
         vi = {t["src"]: t["vi"] for t in _clean_headers(
             answer.get("labels"), [{"src": t} for t in label_texts])}

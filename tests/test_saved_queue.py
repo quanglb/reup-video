@@ -128,34 +128,14 @@ def test_batch_with_nothing_picked_is_refused(client):
     assert c.post("/saved/run-batch", data={}).status_code == 400
 
 
-def test_batch_lol_creates_lol_jobs_and_goes_to_lol_tab(tmp_path, config_file):
+def test_batch_split_only_marks_videos_longer_than_two_minutes(client, tmp_path):
     import json
 
-    from fastapi.testclient import TestClient
+    c, _ = client
+    c.post("/saved", json={"video": video("long", duration_ms=395_000)})
+    c.post("/saved", json={"video": video("short", duration_ms=60_000)})
 
-    from reup.core.store import Store
-    from reup.web.app import create_app
-
-    jobs = tmp_path / "jobs"
-    jobs.mkdir()
-    db = tmp_path / "reup.db"
-    Store(db).init_schema()
-    app = create_app(config_file, jobs, db)
-
-    class Runner:
-        def start(self, job_id): return True
-        def is_running(self, job_id): return False
-        def live(self): return set()
-
-    app.state.runner = Runner()
-    s = Store(db)
-    for i in range(3):
-        s.save_video("douyin", f"v{i}", {"url": f"https://www.douyin.com/video/v{i}"})
-    s.close()
-    c = TestClient(app)
-    assert 'id="runPickedLol"' in c.get("/saved").text
-
-    r = c.post("/saved/run-batch", data={"first": 2, "project": "lol"}, follow_redirects=False)
-    assert r.headers["location"] == "/?project=lol&batch=2"
-    made = [json.loads(p.read_text()) for p in jobs.glob("*/job.json")]
-    assert len(made) == 2 and all(m.get("project") == "lol" for m in made)
+    c.post("/saved/run-batch", data={"keys": ["youtube:long", "youtube:short"], "split": "1"})
+    settings = [json.loads(p.read_text()) for p in (tmp_path / "jobs").glob("*/job.json")]
+    split = {s["source_url"].rsplit("/", 1)[-1]: s.get("split") for s in settings}
+    assert split == {"long": {"max_s": 120}, "short": None}

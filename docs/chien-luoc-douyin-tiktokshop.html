@@ -1,0 +1,637 @@
+<title>Kế hoạch kênh Nhà Nhỏ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: báo cáo một cột đọc dọc, mục lục dính bên trái trên màn rộng; nhãn giá hình thẻ treo là chi tiết riêng của chủ đề */
+:root {
+  --bg: #F4F7F6;
+  --surface: #FFFFFF;
+  --ink: #15201D;
+  --muted: #55635E;
+  --line: #D8E0DC;
+  --accent: #0D6A5D;
+  --accent-soft: #E0EFEB;
+  --tag: #F2C24E;
+  --tag-ink: #3B2C00;
+  --good: #1D774B;
+  --good-bg: #E2F2E9;
+  --warn: #8F5B00;
+  --warn-bg: #FAEFD7;
+  --bad: #AE3528;
+  --bad-bg: #FAE3DF;
+  --f-display: "Bricolage Grotesque", "Be Vietnam Pro", system-ui, sans-serif;
+  --f-body: "Be Vietnam Pro", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E1513; --surface: #151E1C; --ink: #E3EAE7; --muted: #9AA8A2; --line: #283532;
+    --accent: #5BC3B0; --accent-soft: #17302A; --tag: #E1B445; --tag-ink: #291F00;
+    --good: #6CD29A; --good-bg: #15302A; --warn: #E8B55A; --warn-bg: #33291A; --bad: #EF897D; --bad-bg: #3A1F1B;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E1513; --surface: #151E1C; --ink: #E3EAE7; --muted: #9AA8A2; --line: #283532;
+  --accent: #5BC3B0; --accent-soft: #17302A; --tag: #E1B445; --tag-ink: #291F00;
+  --good: #6CD29A; --good-bg: #15302A; --warn: #E8B55A; --warn-bg: #33291A; --bad: #EF897D; --bad-bg: #3A1F1B;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 1rem;
+  line-height: 1.65;
+  padding-inline: 16px;
+  padding-block: 0 64px;
+}
+a { color: var(--accent); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(1.9rem, 4.6vw, 3rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: clamp(1.4rem, 2.8vw, 1.85rem); font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 1.2rem; font-weight: 700; }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 1.2em; }
+li + li { margin-top: 0.35em; }
+.eyebrow { font-family: var(--f-mono); font-size: 0.78rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.unv { font-size: 0.85em; color: var(--warn); white-space: nowrap; }
+code, .mono { font-family: var(--f-mono); font-size: 0.86em; }
+code { background: var(--accent-soft); padding: 0.05em 0.35em; border-radius: 4px; overflow-wrap: anywhere; }
+
+.page { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 1fr; gap: 32px; }
+.toc { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2; background: var(--bg); padding-block: 10px; border-bottom: 1px solid var(--line); }
+.toc ol { list-style: none; padding: 0; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: thin; }
+.toc li + li { margin-top: 0; }
+.toc a { display: block; white-space: nowrap; text-decoration: none; color: var(--muted); font-size: 0.88rem; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); }
+.toc a:hover { color: var(--ink); border-color: var(--accent); }
+main { min-width: 0; display: grid; gap: 56px; }
+section { display: grid; gap: 20px; scroll-margin-top: 64px; }
+.prose { max-width: 68ch; display: grid; gap: 12px; }
+
+@media (min-width: 1000px) {
+  .page { grid-template-columns: 210px minmax(0, 1fr); gap: 48px; }
+  .toc { top: calc(env(safe-area-inset-top, 0px) + 24px); align-self: start; border-bottom: 0; padding-block: 0; margin-top: 40px; }
+  .toc ol { flex-direction: column; gap: 2px; overflow: visible; }
+  .toc a { border: 0; background: none; border-radius: 6px; padding: 6px 10px; }
+  .toc a:hover { background: var(--accent-soft); }
+  section { scroll-margin-top: 24px; }
+}
+
+/* Hero */
+header.hero { display: grid; gap: 16px; padding-top: 40px; }
+header.hero .lead { font-size: 1.12rem; max-width: 62ch; color: var(--muted); }
+.verdicts { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; margin-top: 12px; }
+.verdict { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.verdict .big { font-family: var(--f-display); font-weight: 800; font-size: 1.7rem; line-height: 1.1; color: var(--accent); }
+.verdict p { font-size: 0.95rem; }
+
+/* Tables */
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.93rem; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--f-mono); font-weight: 500; font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--bg); white-space: nowrap; }
+tbody tr:last-child td { border-bottom: 0; }
+td.num, th.num { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+tr.pick td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+.rank { font-family: var(--f-mono); color: var(--muted); }
+
+.pill { display: inline-block; font-size: 0.8rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.p-hi { background: var(--good-bg); color: var(--good); }
+.p-md { background: var(--accent-soft); color: var(--muted); }
+.r-lo { background: var(--good-bg); color: var(--good); }
+.r-md { background: var(--warn-bg); color: var(--warn); }
+.r-hi { background: var(--bad-bg); color: var(--bad); }
+
+/* Rule checklist */
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.rule { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 10px; align-content: start; min-width: 0; }
+.rule h3 { font-size: 1.02rem; }
+.rule ul { list-style: none; padding: 0; }
+.rule li { padding-left: 1.4em; position: relative; font-size: 0.95rem; }
+.rule li::before { position: absolute; left: 0; top: 0; font-weight: 700; }
+.rule li.do::before { content: "✓"; color: var(--good); }
+.rule li.dont::before { content: "✕"; color: var(--bad); }
+
+/* Niche cards */
+.niche { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: clamp(18px, 3vw, 28px); display: grid; gap: 20px; min-width: 0; }
+.niche-head { display: grid; gap: 6px; }
+.niche-head .role { font-family: var(--f-mono); font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.niche-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px 28px; }
+.block { display: grid; gap: 8px; align-content: start; min-width: 0; }
+.block h4 { margin: 0; font-family: var(--f-mono); font-weight: 500; font-size: 0.75rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--muted); }
+.series { list-style: none; padding: 0; counter-reset: s; }
+.series li { counter-increment: s; padding-left: 1.9em; position: relative; }
+.series li::before { content: counter(s); position: absolute; left: 0; top: 0.15em; width: 1.35em; height: 1.35em; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 0.78rem; font-weight: 700; display: grid; place-items: center; }
+.hook { border-left: 3px solid var(--tag); padding: 6px 12px; background: var(--bg); border-radius: 0 6px 6px 0; font-style: italic; font-size: 0.95rem; }
+.hooks { display: grid; gap: 8px; }
+
+/* Price tags: thẻ giá treo, chi tiết riêng của đồ gia dụng giá rẻ */
+.tags { display: flex; flex-wrap: wrap; gap: 8px; }
+.ptag { display: inline-flex; align-items: center; gap: 8px; background: var(--surface); border: 1px solid var(--line); border-radius: 6px 14px 14px 6px; padding: 4px 12px 4px 8px; font-size: 0.88rem; }
+.ptag .price { background: var(--tag); color: var(--tag-ink); font-family: var(--f-mono); font-weight: 500; font-size: 0.82rem; padding: 1px 7px 1px 14px; border-radius: 3px; position: relative; font-variant-numeric: tabular-nums; }
+.ptag .price::before { content: ""; position: absolute; left: 5px; top: 50%; width: 5px; height: 5px; margin-top: -2.5px; border-radius: 50%; background: var(--surface); }
+
+.kws { display: flex; flex-wrap: wrap; gap: 6px; }
+.kw { font-family: var(--f-body); font-size: 0.92rem; border: 1px dashed var(--line); background: var(--bg); color: var(--ink); padding: 3px 10px; border-radius: 6px; cursor: pointer; }
+.kw:hover { border-color: var(--accent); border-style: solid; }
+.kw.copied { background: var(--good-bg); color: var(--good); border-color: var(--good); border-style: solid; }
+.hint { font-size: 0.82rem; color: var(--muted); }
+
+.note { background: var(--warn-bg); color: var(--ink); border-radius: 8px; padding: 12px 16px; font-size: 0.93rem; }
+.note strong { color: var(--warn); }
+.side { border: 1px dashed var(--line); border-radius: 12px; padding: 18px; display: grid; gap: 10px; }
+
+/* Roadmap */
+.phases { display: grid; gap: 0; }
+.phase { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 16px; }
+.phase .rail { display: grid; justify-items: center; grid-template-rows: auto 1fr; }
+.phase .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--surface); border: 3px solid var(--accent); margin-top: 6px; }
+.phase .bar { width: 2px; background: var(--line); margin-top: 4px; }
+.phase:last-child .bar { background: transparent; }
+.phase-body { padding-bottom: 28px; display: grid; gap: 10px; min-width: 0; }
+.phase-body .when { font-family: var(--f-mono); font-size: 0.78rem; color: var(--muted); letter-spacing: 0.04em; }
+.kpi { display: flex; flex-wrap: wrap; gap: 6px; }
+.kpi span { font-size: 0.82rem; background: var(--accent-soft); color: var(--ink); padding: 2px 9px; border-radius: 999px; }
+
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px 20px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.panel ul li { font-size: 0.95rem; }
+
+.pipeline { counter-reset: p; list-style: none; padding: 0; display: grid; gap: 10px; }
+.pipeline li { counter-increment: p; display: grid; grid-template-columns: 2.2em minmax(0, 1fr); gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px 16px; margin: 0; }
+.pipeline li::before { content: counter(p); font-family: var(--f-display); font-weight: 800; font-size: 1.3rem; color: var(--accent); line-height: 1.2; }
+.pipeline li div { display: grid; gap: 4px; min-width: 0; }
+.pipeline strong { font-weight: 600; }
+.pipeline p { font-size: 0.93rem; color: var(--muted); }
+
+footer { max-width: 1180px; margin: 56px auto 0; padding-top: 20px; border-top: 1px solid var(--line); font-size: 0.88rem; color: var(--muted); display: grid; gap: 8px; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .kw, .toc a { transition: background-color .15s, border-color .15s, color .15s; }
+}
+</style>
+
+<div class="page">
+  <nav class="toc" aria-label="Mục lục">
+    <ol>
+      <li><a href="#ket-luan">Kết luận</a></li>
+      <li><a href="#xep-hang">Xếp hạng mảng</a></li>
+      <li><a href="#bien-doi">Luật biến đổi</a></li>
+      <li><a href="#mang-chon">Mảng chọn</a></li>
+      <li><a href="#lo-trinh">Lộ trình</a></li>
+      <li><a href="#kinh-te">Tiền thực tế</a></li>
+      <li><a href="#rui-ro">Rủi ro &amp; luật</a></li>
+      <li><a href="#tranh">Mảng nên tránh</a></li>
+      <li><a href="#pipeline">Pipeline</a></li>
+      <li><a href="#nguon">Cách làm</a></li>
+    </ol>
+  </nav>
+
+  <main>
+    <header class="hero" id="ket-luan">
+      <span class="eyebrow">Báo cáo nghiên cứu · 11/10/2026</span>
+      <h1>Kênh Nhà Nhỏ: ý tưởng từ Douyin, bán trên TikTok Shop VN</h1>
+      <p class="lead">Lấy video Douyin đăng TikTok VN rồi gắn giỏ thì chọn mảng nào, có cần đợi 10k follower không. Kết luận dưới đây tổng hợp từ 5 hướng nghiên cứu và 3 vòng phản biện.</p>
+      <div class="verdicts">
+        <div class="verdict">
+          <span class="big">1.000 follower</span>
+          <p>Đủ để mở tài khoản affiliate đầy đủ. <strong>Không cần đợi 10k</strong> mới gắn giỏ. <a href="https://seller-vn.tiktok.com/university/essay?knowledge_id=104015979497218&amp;lang=en">Nguồn TikTok Shop VN</a></p>
+        </div>
+        <div class="verdict">
+          <span class="big">0 khung hình Douyin</span>
+          <p>trong video gắn giỏ. Video phải do bạn tự quay đúng món mua từ listing đó. Douyin dùng để săn sản phẩm và lấy ý tưởng.</p>
+        </div>
+        <div class="verdict">
+          <span class="big">Nhà nhỏ / phòng trọ</span>
+          <p>Hai trụ: đồ sắp xếp không cần khoan tường và đồ bếp không dùng điện. Dự phòng: câu lure giá rẻ.</p>
+        </div>
+        <div class="verdict">
+          <span class="big">0,5–1 triệu/tháng</span>
+          <p>Kịch bản cơ sở ở mốc khoảng 10k follower. Tiền đến từ video hit lặp lại và sản phẩm 50–150k, không đến từ số follower.</p>
+        </div>
+      </div>
+      <div class="prose" style="margin-top:8px">
+        <p>Ngành Nhà cửa &amp; Đời sống tăng nhanh nhất TikTok Shop VN năm 2025, +94% GMV theo số TikTok tự công bố (<a href="https://tapchicongthuong.vn/tiktok-shop-cong-bo-tang-truong-66--nam-2025-537378.htm">Tạp chí Công Thương</a>). Hàng giá rẻ, dễ mua bốc đồng, quay được chỉ bằng tay.</p>
+        <p>Cách "nuôi kênh bằng reup + TTS rồi mới bán" không trụ được với tài khoản đã có tiền sử "nội dung không nguyên bản". Chính sách nội dung TikTok Shop áp dụng cho mọi video của tài khoản, kể cả video không gắn giỏ (<a href="https://seller-vn.tiktok.com/university/essay?knowledge_id=6837773789480706&amp;lang=en">chính sách nội dung</a>).</p>
+      </div>
+    </header>
+
+    <section id="xep-hang">
+      <h2>Xếp hạng mảng</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>#</th><th>Mảng</th><th>Viral</th><th>Khả năng bán</th><th>Rủi ro chính sách</th><th>Ghi chú</th></tr>
+          </thead>
+          <tbody>
+            <tr class="pick"><td class="rank">1</td><td><strong>Phòng trọ gọn đẹp</strong><br><span class="muted">sắp xếp, không khoan tường</span></td><td><span class="pill p-hi">TB–cao</span></td><td><span class="pill p-hi">Cao</span></td><td><span class="pill r-lo">Thấp</span></td><td>Trụ chính. Tệp nữ 20–35 tuổi ở trọ</td></tr>
+            <tr class="pick"><td class="rank">2</td><td><strong>Bếp nhỏ</strong><br><span class="muted">đồ không dùng điện</span></td><td><span class="pill p-hi">Cao</span></td><td><span class="pill p-hi">Cao</span></td><td><span class="pill r-md">Thấp–TB</span></td><td>Cẩn thận dao, claim sức khỏe, đồ tiếp xúc thực phẩm</td></tr>
+            <tr><td class="rank">3</td><td><strong>Câu lure giá rẻ</strong></td><td><span class="pill p-hi">TB–cao</span></td><td><span class="pill p-hi">Cao</span></td><td><span class="pill r-md">Thấp–TB</span></td><td>Phương án thay thế cho tệp nam. Hàng tiêu hao, khách mua lại</td></tr>
+            <tr><td class="rank">4</td><td><strong>Vệ sinh</strong><br><span class="muted">chỉ bán dụng cụ</span></td><td><span class="pill p-hi">Cao</span></td><td><span class="pill p-md">TB</span></td><td><span class="pill r-md">TB</span></td><td>Series phụ, dồn vào dịp dọn nhà Tết</td></tr>
+            <tr><td class="rank">5</td><td><strong>Kit DIY thủ công</strong></td><td><span class="pill p-hi">TB–cao</span></td><td><span class="pill p-md">TB</span></td><td><span class="pill r-lo">Thấp</span></td><td>BEYOU DIY đứng top 7 shop VN</td></tr>
+            <tr><td class="rank">6</td><td><strong>Đồ cho người nuôi mèo</strong></td><td><span class="pill p-md">TB</span></td><td><span class="pill p-md">TB, giá thấp</span></td><td><span class="pill r-lo">Thấp</span></td><td>Không làm mèo hài</td></tr>
+            <tr><td class="rank">7</td><td><strong>Gia dụng điện mini</strong></td><td><span class="pill p-hi">TB–cao</span></td><td><span class="pill p-md">TB</span></td><td><span class="pill r-hi">TB–cao</span></td><td>Cần hợp quy, đổi trả nhiều, Shopee nắm 73% ngành</td></tr>
+            <tr><td class="rank">8</td><td><strong>Phụ kiện xe máy</strong></td><td><span class="pill p-md">TB</span></td><td><span class="pill p-md">TB</span></td><td><span class="pill r-md">TB</span></td><td>Nguồn Douyin chủ yếu là xe điện Trung Quốc</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="bien-doi">
+      <h2>Lớp biến đổi bắt buộc cho mọi video</h2>
+      <div class="rules">
+        <div class="rule">
+          <h3>Video gắn giỏ</h3>
+          <ul>
+            <li class="do">100% hình do bạn quay, đúng món mua từ đúng listing đang gắn.</li>
+            <li class="do">Giọng thật, nói tên sản phẩm và cầm lên trước camera.</li>
+            <li class="dont">Không có khung hình Douyin nào. TikTok Shop cấm ghép nội dung của người khác (<a href="https://seller-vn.tiktok.com/university/essay?knowledge_id=6837791128880898&amp;lang=en">S7</a>).</li>
+          </ul>
+        </div>
+        <div class="rule">
+          <h3>Video có dùng clip Douyin</h3>
+          <ul>
+            <li class="do">Ưu tiên xin phép creator bằng văn bản, kèm file sạch không watermark. Không có phép thì chỉ lấy ý tưởng rồi tự quay lại.</li>
+            <li class="dont">Không che hay làm mờ watermark, không lật/zoom/đổi tốc độ, không khung kẹp, không ghép "Top 3" từ nhiều nguồn.</li>
+            <li class="dont">Không đặt thẻ "Giá VN xx k / Có bán ở VN / Đáng mua" lên clip Douyin. Đó là quảng cáo sản phẩm bạn chưa dùng.</li>
+            <li class="do">Ghi credit là phép lịch sự, không thay được giấy phép.</li>
+          </ul>
+        </div>
+        <div class="rule">
+          <h3>Giọng, nhận diện, nhịp video</h3>
+          <ul>
+            <li class="do">Giọng thật cho phần bình luận. TTS chỉ để trích lời người gốc. Lời nói phủ 30–50% thời lượng.</li>
+            <li class="do">Cùng một đôi tay, cùng bối cảnh phòng, cùng câu mở. Đánh số tập, cover tiếng Việt riêng.</li>
+            <li class="do">Video một món 15–30 giây. Chỉ làm 45–75 giây khi có mạch kể nhiều tập.</li>
+            <li class="do">Khung đầu là kết quả hoặc cảnh thất bại. Chữ 5–7 từ, có từ khóa hay tìm: phòng trọ, không cần khoan, giá úp bát.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="mang-chon">
+      <h2>Các mảng chọn</h2>
+      <p class="hint">Bấm vào từ khóa tiếng Trung để chép, rồi dán vào ô tìm kiếm Douyin.</p>
+
+      <article class="niche">
+        <div class="niche-head">
+          <span class="role">Trụ chính · sắp xếp</span>
+          <h3>A. "Phòng Trọ Thật"</h3>
+          <p class="muted">Một phòng trọ VN thật, ngân sách có giới hạn. Mỗi video giải quyết một nỗi khổ khi ở trọ (cấm khoan tường, bị trừ cọc, nồm ẩm, nóng) bằng đồ 50–150k.</p>
+        </div>
+        <div class="niche-grid">
+          <div class="block">
+            <h4>Series</h4>
+            <ol class="series">
+              <li><strong>"Phòng trọ 2,5 triệu, cải tạo với 300k – Tập N"</strong>: mỗi tập một góc, người xem bình chọn góc làm tập sau.</li>
+              <li><strong>"Bên Trung viral – về VN test"</strong>: kể món đang hot trên Douyin, quay màn hình tìm nó trên TikTok Shop VN, tự mua, tự thử, chốt có nên mua. Bản gắn giỏ bỏ hết hình Douyin.</li>
+              <li><strong>"Bạn hỏi – mình thử"</strong>: trả lời bình luận bằng video.</li>
+            </ol>
+          </div>
+          <div class="block">
+            <h4>Hook mẫu</h4>
+            <div class="hooks">
+              <p class="hook">"Chủ trọ cấm khoan tường? Treo kệ thế này không cần một mũi khoan."</p>
+              <p class="hook">"Trả phòng bị trừ 500k vì vết keo. Dán kiểu này thì không."</p>
+              <p class="hook">"@x hỏi móc dán này treo được 5kg không, test luôn."</p>
+            </div>
+          </div>
+          <div class="block">
+            <h4>Sản phẩm gắn giỏ</h4>
+            <div class="tags">
+              <span class="ptag"><span class="price">58k</span>Móc dán tường</span>
+              <span class="ptag"><span class="price">55k</span>Kệ để bàn chải · đã bán 253K</span>
+              <span class="ptag"><span class="price">80–150k</span>Combo ưu tiên</span>
+            </div>
+            <p style="font-size:0.93rem">Kệ dán không khoan, hộp chia ngăn kéo, giá treo sau cửa, túi hút chân không, chân kê máy giặt chống rung. Món 14–25k chỉ làm phụ. Giá theo <a href="https://findniche.com/tiktok/trending-home-supplies-products-vn">FindNiche</a>.</p>
+            <p style="font-size:0.93rem"><strong>Hoa hồng:</strong> seller tự đặt từ 1% đến 80% (<a href="https://ads.tiktok.com/help/article/about-setting-different-affiliate-commission-rates-for-tiktok-shop-ads?lang=en">TikTok, trang toàn cầu</a>), blog ghi 5–15%. <span class="unv">(chưa xác minh)</span></p>
+          </div>
+          <div class="block">
+            <h4>Từ khóa Douyin</h4>
+            <div class="kws">
+              <button class="kw" type="button">收纳神器</button><button class="kw" type="button">出租屋改造</button><button class="kw" type="button">租房好物</button><button class="kw" type="button">小户型收纳</button><button class="kw" type="button">免打孔</button><button class="kw" type="button">衣柜收纳</button><button class="kw" type="button">门后收纳</button><button class="kw" type="button">床底收纳</button><button class="kw" type="button">宿舍改造</button>
+            </div>
+            <h4 style="margin-top:8px">Biến đổi riêng</h4>
+            <p style="font-size:0.93rem">Quay phòng VN thật: gác lửng, nền gạch, WC chung. Đừng gọi căn hộ thuê bên Trung là "phòng trọ", người xem nhận ra ngay. Bảng tổng chi phí bằng VNĐ chỉ ghi món bạn đã mua thật.</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="niche">
+        <div class="niche-head">
+          <span class="role">Trụ chính · bếp</span>
+          <h3>B. "Bếp Trọ 1 Người"</h3>
+          <p class="muted">Bếp trọ chỉ có một bếp điện, dùng đồ bếp rẻ mà vẫn nấu được, có thử nghiệm và kết luận thật.</p>
+        </div>
+        <div class="niche-grid">
+          <div class="block">
+            <h4>Series</h4>
+            <ol class="series">
+              <li><strong>"Dùng thử 7 ngày"</strong>: thử một món rồi chốt, kể cả chê.</li>
+              <li><strong>"9.900đ vs 99k"</strong>: so sánh hai món cạnh nhau, gắn giỏ một trong hai.</li>
+              <li><strong>"Bếp trọ chỉ 1 bếp điện"</strong>: tự quay nấu bằng nguyên liệu VN, dùng gadget đã mua.</li>
+            </ol>
+          </div>
+          <div class="block">
+            <h4>Hook mẫu</h4>
+            <div class="hooks">
+              <p class="hook">"Màng bọc 9.900đ rách sau 2 lần, nhưng dùng đúng cách thì khác."</p>
+              <p class="hook">"Bên Trung 3 tệ, về VN bán 59k. Mua thử xem có bị hớ không."</p>
+              <p class="hook">"Bếp trọ chỉ có 1 bếp điện mà vẫn nấu được bữa này."</p>
+            </div>
+          </div>
+          <div class="block">
+            <h4>Sản phẩm gắn giỏ</h4>
+            <div class="tags">
+              <span class="ptag"><span class="price">80–300k</span>Combo kệ, hộp gia vị, giá úp bát</span>
+              <span class="ptag"><span class="price">9,9k</span>Màng bọc · chỉ để kéo người xem</span>
+            </div>
+            <p style="font-size:0.93rem">Hàng chủ lực: kệ và hộp gia vị, giá úp bát, kẹp miệng túi, khay đá silicon, bộ hộp đựng. Màng bọc 9,9k bán 18K đơn trong 7 ngày (<a href="https://findniche.com/tiktok/trending-kitchenware-products-vn">FindNiche</a>) nhưng mỗi đơn chỉ được khoảng 1k. Phí sàn với đồ bếp là 12,5–15% (<a href="https://www.bigseller.com/blog/articleDetails/4736/tiktok-shop-tang-phi-hoa-hong-ban-hang-viet-nam.htm">BigSeller</a>). Bỏ nồi lẩu mini và quạt mini khỏi trụ chính vì vướng hợp quy.</p>
+          </div>
+          <div class="block">
+            <h4>Từ khóa Douyin</h4>
+            <div class="kws">
+              <button class="kw" type="button">厨房好物</button><button class="kw" type="button">厨房神器</button><button class="kw" type="button">厨房小工具</button><button class="kw" type="button">懒人神器</button><button class="kw" type="button">一人食</button><button class="kw" type="button">宿舍神器</button><button class="kw" type="button">厨房收纳</button>
+            </div>
+            <h4 style="margin-top:8px">Biến đổi riêng và lưu ý</h4>
+            <ul style="font-size:0.93rem">
+              <li>Không quay cận lưỡi dao, không claim sức khỏe, không bán thực phẩm.</li>
+              <li>Đồ tiếp xúc thực phẩm chỉ lấy từ shop có bản tự công bố (NĐ 15/2018) <span class="unv">(chưa xác minh chi tiết)</span>.</li>
+              <li>Bỏ hẳn dạng "Đừng dại mà mua" làm từ clip Douyin. Video 6,4M view của @chanh.chanh01 là từ 8/2024; video gần đây của kênh đó chỉ 0,5–7K view.</li>
+              <li>Bỏ reup mẹo 邪修做饭.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+
+      <div class="side">
+        <h3>Series phụ "Sạch đã mắt"</h3>
+        <ul>
+          <li>Chỉ bán dụng cụ (bàn chải khe, cây lau, khăn), tự quay, ít lời.</li>
+          <li>Dồn vào đợt dọn nhà tháng 1/2027 (Tết rơi vào 06/02/2027) và loạt "Dọn phòng trả cọc".</li>
+        </ul>
+        <p class="note"><strong>Không bán chất tẩy quảng cáo "diệt khuẩn".</strong> Nhóm chế phẩm diệt khuẩn gia dụng phải đăng ký và xin xác nhận nội dung quảng cáo (<a href="https://hethongphapluat.com/nghi-dinh-342-2025-nd-cp-huong-dan-luat-quang-cao/dieu-7">NĐ 342/2025 Điều 7</a>, <a href="https://luatminhkhue.vn/quang-cao-hoa-chat-che-pham-diet-con-trung-diet-khuan-dung-trong-gia-dung-va-y-te.aspx">Luật Minh Khuê</a>). Cẩn thận cả bột tẩy lồng giặt và "miếng lau sàn khử khuẩn".</p>
+      </div>
+
+      <article class="niche">
+        <div class="niche-head">
+          <span class="role">Dự phòng · thay thế, không chạy song song</span>
+          <h3>C. "Câu Lure Giá Rẻ"</h3>
+          <p class="muted">Chỉ dùng khi đã tự quay đúng cách khoảng 40–60 video mà mảng nhà cửa vẫn yếu. Đổi mảng mà vẫn giữ kiểu reup + TTS thì sẽ thất bại lần nữa.</p>
+        </div>
+        <div class="niche-grid">
+          <div class="block">
+            <h4>Series</h4>
+            <ol class="series">
+              <li><strong>"Mồi 20k vs mồi 200k"</strong></li>
+              <li><strong>"Buộc lưỡi, khui đồ nghề tại nhà"</strong></li>
+              <li><strong>"Người mới cần 5 món"</strong></li>
+            </ol>
+          </div>
+          <div class="block">
+            <h4>Hook mẫu</h4>
+            <div class="hooks">
+              <p class="hook">"Mồi giả 15k này bơi trong thau có giống cá thật không?"</p>
+              <p class="hook">"Người mới đi câu lure chỉ cần 5 món này."</p>
+              <p class="hook">"Dây 29k hay dây 110k: kéo thử xem dây nào đứt trước."</p>
+            </div>
+          </div>
+          <div class="block">
+            <h4>Sản phẩm gắn giỏ</h4>
+            <div class="tags">
+              <span class="ptag"><span class="price">29k</span>Dây câu · đã bán 165,77K</span>
+              <span class="ptag"><span class="price">110k</span>Dây dù lure X8 · 6,45K đơn/7 ngày</span>
+            </div>
+            <p style="font-size:0.93rem">Mồi, lưỡi, hộp mồi, combo cần + máy. Phần lớn là hàng tiêu hao nên khách mua lại. Số liệu theo <a href="https://findniche.com/tiktok/trending-sports-and-outdoor-products-vn">FindNiche</a>.</p>
+          </div>
+          <div class="block">
+            <h4>Từ khóa Douyin</h4>
+            <div class="kws">
+              <button class="kw" type="button">路亚</button><button class="kw" type="button">野钓</button><button class="kw" type="button">渔具测评</button><button class="kw" type="button">钓鱼小技巧</button><button class="kw" type="button">钓鱼装备</button><button class="kw" type="button">黑鱼路亚</button>
+            </div>
+            <p class="hint">Loại các clip 电鱼 (câu bằng điện).</p>
+            <h4 style="margin-top:8px">Biến đổi bắt buộc</h4>
+            <ul style="font-size:0.93rem">
+              <li>Chỉ tự quay. Clip Douyin hay nói phương ngữ, lộ mặt, quay sông hồ Trung Quốc.</li>
+              <li>Claim kiểu "mồi này dính cá" phải có cảnh câu thật.</li>
+              <li>Tránh khu bảo tồn, loài được bảo vệ, câu giải có thưởng.</li>
+            </ul>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <section id="lo-trinh">
+      <h2>Lộ trình</h2>
+      <div class="phases">
+        <div class="phase">
+          <div class="rail"><span class="dot"></span><span class="bar"></span></div>
+          <div class="phase-body">
+            <span class="when">GIAI ĐOẠN 0 · 2 TUẦN · CUỐI THÁNG 10/2026</span>
+            <h3>Chuẩn bị tài khoản và mẫu quay</h3>
+            <ul>
+              <li>Nếu mở tài khoản mới chuyên mảng thì kênh cũ phải ngừng đăng reup. Không mở kênh mới để né hạn chế, Tiêu chuẩn cộng đồng cấm việc này (<a href="https://www.tiktok.com/community-guidelines/en/fyf-standards">CG</a>). Không chạy song song một kênh nội dung và một kênh bán.</li>
+              <li>Vi phạm cũ có ảnh hưởng điều kiện affiliate trên cùng CCCD hay không <span class="unv">(chưa xác minh)</span>.</li>
+              <li>Xác thực CCCD gắn chip qua NFC và mã số thuế. Thiếu thông tin thuế có thể bị khấu trừ ở mức cao nhất (<a href="https://seller-vn.tiktok.com/university/essay?knowledge_id=8831988245645057&amp;lang=en">S5</a>).</li>
+              <li>Mua 10–15 món dưới 200k trên TikTok Shop VN, giữ hóa đơn.</li>
+              <li>Sửa pipeline ít nhất mục 1–3 ở phần Pipeline.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="phase">
+          <div class="rail"><span class="dot"></span><span class="bar"></span></div>
+          <div class="phase-body">
+            <span class="when">GIAI ĐOẠN 1 · 0 → 1K · 6–8 TUẦN, KỊP 12.12</span>
+            <h3>Tìm trụ nội dung, chưa gắn link</h3>
+            <ul>
+              <li>1–2 video mỗi ngày. 20 video đầu ít nhất 60% tự quay.</li>
+              <li>Sau đó clip Douyin tối đa 1/3 tổng số video và tối đa 1 video/ngày, luôn có lời bình giọng thật.</li>
+              <li>Chưa gắn link. Tài khoản Link-Share Only không có hoa hồng từ video.</li>
+            </ul>
+            <div class="kpi"><span>Giữ chân giây thứ 3</span><span>% thời lượng xem</span><span>Lưu + chia sẻ / 1k view</span><span>Follow / 1k view</span><span>≥ 3 video vượt 50k view</span><span>0 vi phạm</span></div>
+            <p class="hint">Ngưỡng tự đặt, không phải chuẩn của TikTok. So video tự quay với video Douyin trong cùng mảng. Trụ nào đều đặn có bình luận "mua ở đâu" thì đó là trụ bán.</p>
+          </div>
+        </div>
+        <div class="phase">
+          <div class="rail"><span class="dot"></span><span class="bar"></span></div>
+          <div class="phase-body">
+            <span class="when">GIAI ĐOẠN 2 · 1K → 10K</span>
+            <h3>Gắn giỏ ngay khi tài khoản tự nâng cấp</h3>
+            <ul>
+              <li>Chỉ gắn trên video tự quay sản phẩm đã dùng thật. Bật nhãn nội dung thương mại và nói "quảng cáo" ở đầu video.</li>
+              <li>Tối đa khoảng 1 video giỏ mỗi ngày. Có từ 5 video giỏ "không tương tác" trong 7 ngày thì bị giới hạn 7 video giỏ cho 7 ngày sau (<a href="https://seller-vn.tiktok.com/university/essay?knowledge_id=5393782430680848">S11</a>).</li>
+              <li>Xin mẫu được từ mốc 1k. Nhận từ 5 mẫu mà không đăng video có thể bị chặn xin tiếp (<a href="https://seller-vn.tiktok.com/university/essay?knowledge_id=4242906912278289">S6</a>).</li>
+              <li>Mỗi video giỏ cần khoảng 10–20 đơn để hòa tiền mẫu. Mục tiêu hòa vốn mẫu vào tháng 3–4.</li>
+              <li>Lịch mùa: 11.11, 12.12, dọn nhà Tết tháng 1, mùa nồm tháng 2–4, đợt chuyển trọ sau Tết.</li>
+            </ul>
+            <div class="kpi"><span>Đơn / 1k view thật</span><span>Tỷ lệ bấm giỏ</span><span>Thực nhận ≥ 5k/đơn</span><span>CHR ≥ 180</span></div>
+          </div>
+        </div>
+        <div class="phase">
+          <div class="rail"><span class="dot"></span><span class="bar"></span></div>
+          <div class="phase-body">
+            <span class="when">GIAI ĐOẠN 3 · TỪ 10K</span>
+            <h3>Mở rộng thu nhập</h3>
+            <ul>
+              <li>10k không phải điều kiện gắn giỏ. Mốc này giúp đàm phán hoa hồng riêng, xin mẫu dễ hơn, vào chiến dịch.</li>
+              <li>Nhận thêm hoa hồng quảng cáo khi seller chạy quảng cáo trên video của bạn.</li>
+              <li>LIVE bằng giọng thật (LIVE cấm giọng AI).</li>
+              <li>Bán combo giá cao hơn.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="kinh-te">
+      <h2>Tiền thực tế</h2>
+      <div class="prose">
+        <p class="muted">Giả định: khoảng 25 video giỏ mỗi tháng. Tổng view video giỏ mỗi tháng: bi quan 50k, cơ sở 250k, lạc quan 1,5M. Thực nhận = giá × % hoa hồng × 0,85 (trừ hoàn/hủy) × 0,9 (khấu trừ thuế khoảng 10%). Hoa hồng 5–10% <span class="unv">(chưa xác minh)</span>.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Mảng</th><th class="num">Giá sản phẩm</th><th class="num">Thực nhận/đơn</th><th class="num">Bi quan</th><th class="num">Cơ sở</th><th class="num">Lạc quan</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Phòng trọ</td><td class="num">25–80k</td><td class="num">2,5–7k</td><td class="num">~0,05M</td><td class="num"><strong>~0,5M</strong></td><td class="num">~8M</td></tr>
+            <tr><td>Bếp</td><td class="num">10–150k</td><td class="num">1–10k</td><td class="num">~0,05M</td><td class="num"><strong>~0,7M</strong></td><td class="num">~9M</td></tr>
+            <tr><td>Vệ sinh (tự quay)</td><td class="num">59–139k</td><td class="num">4–10k</td><td class="num">~0,05M</td><td class="num"><strong>~0,6M</strong></td><td class="num">~8M</td></tr>
+            <tr><td>Câu lure</td><td class="num">29–200k</td><td class="num">2,5–12k</td><td class="num">~0,05M</td><td class="num"><strong>~0,75M</strong></td><td class="num">~12M</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="hint">Đơn vị: triệu đồng mỗi tháng.</p>
+      <div class="two">
+        <div class="panel">
+          <h3>Chi phí và phí sàn</h3>
+          <ul>
+            <li>Mẫu: 25 món × 30–100k = 0,75–2,5 triệu mỗi tháng, nên 2–4 tháng đầu dễ âm tiền.</li>
+            <li>Từ 9/5/2026 sàn thu seller khoảng 22–26% trước khi trả hoa hồng affiliate (<a href="https://vcci.com.vn/tin-tuc/tu-9-5-tiktok-shop-tiep-tuc-tang-bieu-phi-voi-nha-ban-hang">VCCI</a>), nên hàng rẻ thường có % hoa hồng thấp.</li>
+            <li>Ngưỡng chọn sản phẩm: thực nhận từ 5k/đơn, tức giá từ 50k ở mức hoa hồng từ 10%.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Đọc số cho đúng</h3>
+          <ul>
+            <li>90% sản phẩm tăng trưởng có ít nhất 1 video trên 1M view (<a href="https://www.sapo.vn/blog/bao-cao-tiktok-shop-viet-nam-q2-2026">Sapo × Kalodata</a>). Doanh số dồn vào video hit.</li>
+            <li>Các kênh tự quay 1–4K follower có video giỏ 100–550K view là ví dụ đã được chọn vì thành công, đừng lấy làm kỳ vọng.</li>
+            <li>Con số 10–20 triệu/tháng của Ecomobi là blog của bên bán dịch vụ.</li>
+            <li>Clip Douyin không tạo tiền trực tiếp: Creator Rewards có lẽ không có ở VN <span class="unv">(chưa xác minh)</span>.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section id="rui-ro">
+      <h2>Rủi ro và luật chơi bắt buộc</h2>
+      <div class="two">
+        <div class="panel">
+          <h3>TikTok và TikTok Shop</h3>
+          <ul>
+            <li><strong>Video phải khớp đúng sản phẩm gắn giỏ.</strong> Phải nói tên hoặc cầm sản phẩm lên, chỉ ghi chữ thì không đủ (từ 10/10/2025). Giá, thương hiệu, chất liệu, xuất xứ khớp listing (<a href="https://seller-vn.tiktok.com/university/essay?knowledge_id=6837791128323842&amp;lang=en">S9</a>). Listing ghi hàng Trung thì nói thật là hàng Trung.</li>
+            <li><strong>Không nguyên bản:</strong> clip còn watermark người khác không lên trang Dành cho bạn. Che/làm mờ watermark, khung kẹp, ghép nội dung người khác đều là vi phạm có tên trong chính sách.</li>
+            <li><strong>Lạm dụng TTS, đăng hàng loạt video na ná nhau, một video lên nhiều tài khoản:</strong> bị bóp đề xuất, nặng thì mất quyền e-commerce (<a href="https://seller-vn.tiktok.com/university/essay?knowledge_id=804038757336849&amp;lang=en">S10</a>).</li>
+            <li><strong>Điểm CHR</strong> bắt đầu 200. Từ 150 trở xuống bị chặn video giỏ, LIVE và showcase 3 ngày. Cờ bạc bị trừ tới 20 điểm. Điểm trừ hết hiệu lực sau 90 ngày (<a href="https://seller-vn.tiktok.com/university/essay?knowledge_id=5320538579699457">CHR</a>).</li>
+            <li><strong>Link Shopee ở bio:</strong> chưa thấy văn bản cấm riêng, nhưng nội dung dẫn người xem ra ngoài nền tảng bị cấm. Đừng trộn hai kênh bán.</li>
+          </ul>
+        </div>
+        <div class="panel">
+          <h3>Luật Việt Nam</h3>
+          <ul>
+            <li><strong>Luật Quảng cáo sửa đổi 75/2025, Điều 15a</strong> (hiệu lực 01/01/2026): không giới thiệu sản phẩm chưa dùng hoặc chưa hiểu rõ, phải kiểm tra nhà quảng cáo và giấy tờ sản phẩm, phải công khai là quảng cáo (<a href="https://lsvn.vn/tu-2026-nguoi-co-anh-huong-khong-duoc-quang-cao-khi-chua-hieu-ro-san-pham-a159875.html">LSVN</a>). Có thể áp dụng ngay khi đủ điều kiện affiliate, bất kể số follower <span class="unv">(chưa xác minh văn bản gốc)</span>.</li>
+            <li><strong>NĐ 342/2025:</strong> quảng cáo vi phạm phải gỡ trong 24 giờ khi cơ quan chức năng yêu cầu.</li>
+            <li><strong>Hàng nhập giá rẻ:</strong> cần nhãn phụ tiếng Việt, đồ điện có hợp quy, đồ tiếp xúc thực phẩm có bản tự công bố <span class="unv">(chưa xác minh chi tiết)</span>.</li>
+            <li><strong>Luật AI 134/2025</strong> (hiệu lực 01/03/2026): không nhân bản giọng người thật. Giọng TTS chung có lẽ không cần gắn nhãn (<a href="https://luatlongphan.vn/?p=90894">Luật Long Phan</a>).</li>
+            <li><strong>Luật TMĐT 122/2025:</strong> affiliate phải xác thực danh tính, không đưa thông tin sai lệch.</li>
+            <li><strong>Bản quyền:</strong> VN và Trung Quốc đều trong Công ước Berne. Ai cũng có thể báo vi phạm, vi phạm lặp lại có thể bị khóa tài khoản.</li>
+            <li><strong>Tiền lệ:</strong> vụ kẹo Kera, 3 KOL lãnh 2 năm tù vì claim sai sự thật (<a href="https://voh.com.vn/xa-hoi/tuyen-an-2-nam-tu-voi-thuy-tien-quang-linh-hang-du-muc-638116.html">VOH</a>).</li>
+          </ul>
+        </div>
+      </div>
+      <p class="note"><strong>Với mỗi video giỏ:</strong> lưu bộ chứng từ gồm hóa đơn, cảnh quay đang dùng sản phẩm, giấy tờ của seller. Không quay trẻ em trong video sản phẩm.</p>
+    </section>
+
+    <section id="tranh">
+      <h2>Mảng nên tránh</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Mảng</th><th>Lý do</th></tr></thead>
+          <tbody>
+            <tr><td>Ảo thuật bài (赌神/千术), mạt chược, 赌石, blind box, đá gà</td><td>Đã bị xóa video. Cờ bạc bị trừ điểm CHR</td></tr>
+            <tr><td>Clip LOL, AI ASMR, phim ngắn 短剧, phim, show</td><td>Bị coi là không nguyên bản, dính bản quyền, không có lời để dịch, không có sản phẩm để bán</td></tr>
+            <tr><td>Làm đẹp; sức khỏe, thực phẩm chức năng, giảm cân, 养生/中医; mẹ và bé; thực phẩm</td><td>Rủi ro claim cao, luật quảng cáo chặt</td></tr>
+            <tr><td>Dao, ná, cung; mạo hiểm, thí nghiệm hóa học, độ xe trái phép; động vật hoang dã, 电鱼</td><td>Vi phạm chính sách vũ khí, hành vi nguy hiểm, động vật hoang dã</td></tr>
+            <tr><td>Bản đồ đường lưỡi bò, cờ Trung Quốc, quân sự, Đài Loan/Hồng Kông</td><td>Rất nhạy cảm và trái pháp luật VN</td></tr>
+            <tr><td>Người nói trước camera; sản phẩm thương hiệu chỉ bán ở Trung Quốc</td><td>Lệch khẩu hình, lộ rõ là reup. Không gắn giỏ được đúng sản phẩm</td></tr>
+            <tr><td>Mèo hài</td><td>Viral nhưng không ra đơn: top thú cưng VN chỉ có 2 món cho chó mèo, giá 7k và 3,9k</td></tr>
+            <tr><td>Giá mồi, voucher giả, "Mua 1 tặng 1" giả, "cam kết 100%", "diệt 99%"</td><td>Bị cấm</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="pipeline">
+      <h2>Pipeline cần bổ sung</h2>
+      <p class="muted">Xếp theo tác động, việc đầu tiên quan trọng nhất.</p>
+      <ol class="pipeline">
+        <li><div><strong>Tắt <code>auto_approve</code> ở cả 3 chốt</strong><p><code>config.toml</code> dòng 40–42. Tự duyệt hook và kịch bản.</p></div></li>
+        <li><div><strong>Bỏ che watermark</strong><p>Tắt nhóm "watermark" trong <code>subdetect.detect_regions()</code>, tắt lớp blur và tấm phủ <code>0x111111</code> trong <code>stages/compose.py</code>. Chỉ giữ việc thay dải phụ đề Trung bằng phụ đề Việt. Clip còn watermark thì bỏ, hoặc xin file sạch.</p></div></li>
+        <li><div><strong>Thêm stage <code>vo_import</code> nạp giọng thật</strong><p>Xuất kịch bản kèm mốc thời gian để tự đọc, rồi nạp file thu âm thay TTS. Giảm quy tắc lấp âm tiết trong <code>BASE_RULES</code> (<code>translate_styles.py</code>) từ 70–100% xuống 30–50%. Bỏ dùng giọng <code>BV074_streaming</code> cho mọi video.</p></div></li>
+        <li><div><strong>Quản lý nguồn</strong><p>Trường giấy phép cho từng nguồn, chặn export khi thiếu. Giới hạn số clip mỗi creator. Điền cột phash. Kiểm tra "đã có kênh VN nào đăng clip này chưa".</p></div></li>
+        <li><div><strong>Cổng lọc trước khi xử lý</strong><p>Loại người nói trước camera, mật độ lời nói, chữ Trung hoặc bao bì làm trọng tâm khung hình, bản đồ/cờ/quân sự trong khâu vision.</p></div></li>
+        <li><div><strong>Chặn chủ đề thay vì thay từ</strong><p>Bỏ kiểu thay "thần bài" → "cao thủ ảo thuật" trong <code>SAFE_REPLACEMENTS</code>. Xóa tag 短剧, ảo thuật, LOL, AI ASMR trong <code>tags.json</code>.</p></div></li>
+        <li><div><strong>Sửa văn phong và meta</strong><p>Style <code>review_ban_hang</code> đang giữ giá bằng "tệ" và đẩy các từ "xịn / đỉnh / đáng tiền". Bỏ câu mở "bạn có biết". Tiêu đề viết theo từ khóa tìm kiếm, ví dụ "kệ dán tường không khoan".</p></div></li>
+        <li><div><strong>Biến tab Douyin thành công cụ săn sản phẩm</strong><p>Từ clip trend, tạo từ khóa tìm trên TikTok Shop VN rồi xem đã có bán chưa, giá bao nhiêu, bao nhiêu affiliate đang bán. Sửa dữ liệu export (share = 0, thời lượng 60 giây giả, item lạ lẫn từ feed). Ưu tiên clip 5k–50k like hoặc evergreen.</p></div></li>
+        <li><div><strong>Hoàn thiện đầu ra và vòng phản hồi</strong><p>Cắt video còn 15–30 giây. Intro/outro theo series, cover tiếng Việt. Trạng thái "đã đăng" và nhập lại số liệu TikTok để biết trụ nào ra đơn.</p></div></li>
+        <li><div><strong>Nhật ký chứng từ cho từng video giỏ</strong><p>Link listing, hóa đơn, ngày dùng thử.</p></div></li>
+      </ol>
+    </section>
+
+    <section id="nguon">
+      <h2>Cách làm báo cáo này</h2>
+      <div class="prose">
+        <p>10 agent chạy ngày 11/10/2026. Năm agent nghiên cứu song song: chính sách TikTok và TikTok Shop VN, thị trường TikTok Shop VN, nguồn nội dung Douyin, các kênh Việt đã làm mô hình này, và năng lực pipeline hiện tại. Một agent chấm điểm 12–16 mảng theo 8 tiêu chí, nhân đôi trọng số cho "người xem có mua không" và "sản phẩm bán được không". Ba agent phản biện theo ba góc chính sách, ra tiền và viral rồi sửa hoặc loại các đề xuất yếu.</p>
+        <p>Mốc 1.000 follower và phạm vi áp dụng của chính sách nội dung TikTok Shop đã được hai agent mở trực tiếp trang chính thức để kiểm. Những chỗ ghi <span class="unv">(chưa xác minh)</span> là chưa tìm được văn bản gốc, chủ yếu là % hoa hồng thực tế theo ngành và chi tiết thủ tục hàng nhập.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <p>Bản Markdown của báo cáo: <code>docs/chien-luoc-douyin-tiktokshop.md</code> trong dự án reup-video.</p>
+  <p>Chính sách và phí sàn TikTok Shop thay đổi thường xuyên. Kiểm lại trang chính thức trước khi ra quyết định lớn.</p>
+</footer>
+
+<script>
+document.querySelectorAll('.kw').forEach(function (btn) {
+  btn.addEventListener('click', function () {
+    var text = btn.textContent;
+    var done = function () {
+      btn.classList.add('copied');
+      btn.setAttribute('aria-label', 'Đã chép ' + text);
+      setTimeout(function () { btn.classList.remove('copied'); btn.removeAttribute('aria-label'); }, 1400);
+    };
+    var fallback = function () {
+      try {
+        var range = document.createRange();
+        range.selectNodeContents(btn);
+        var sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } catch (e) {}
+    };
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, fallback);
+      } else { fallback(); }
+    } catch (e) { fallback(); }
+  });
+});
+</script>

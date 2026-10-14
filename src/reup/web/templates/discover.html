@@ -102,7 +102,7 @@
       {% if douyin_trend.trending %}
       <div class="dy-channels">
         {% for v in douyin_trend.trending %}
-        <div class="dy-channel dy-trend-hot">
+        <div class="dy-channel dy-trend-hot" data-duration-ms="{{ v.duration_ms or 0 }}" data-title="{{ v.title }}">
           <div class="dy-ch-info">
             <b title="{{ v.title }}">{{ v.title }}</b>
             <small>{{ v.uploader }} · {{ v.age_days }} ngày trước</small>
@@ -123,7 +123,6 @@
                 <input type="hidden" name="title" value="{{ v.title }}">
               {% endif %}
               <button class="btn primary">Chọn và chạy</button>
-              <button class="btn" name="project" value="lol" title="Làm video Liên Minh: đặt vào khung LOL">⚔ LOL</button>
             </form>
             <a class="icon-btn" href="{{ v.url }}" target="_blank" rel="noopener" title="Mở trên Douyin">↗</a>
           </div>
@@ -139,7 +138,7 @@
       {% if douyin_trend.evergreen %}
       <div class="dy-channels">
         {% for v in douyin_trend.evergreen %}
-        <div class="dy-channel dy-trend-ever">
+        <div class="dy-channel dy-trend-ever" data-duration-ms="{{ v.duration_ms or 0 }}" data-title="{{ v.title }}">
           <div class="dy-ch-info">
             <b title="{{ v.title }}">{{ v.title }}</b>
             <small>{{ v.uploader }} · {{ (v.age_days / 365) | round(1) }} năm trước</small>
@@ -159,7 +158,6 @@
                 <input type="hidden" name="title" value="{{ v.title }}">
               {% endif %}
               <button class="btn primary">Chọn và chạy</button>
-              <button class="btn" name="project" value="lol" title="Làm video Liên Minh: đặt vào khung LOL">⚔ LOL</button>
             </form>
             <a class="icon-btn" href="{{ v.url }}" target="_blank" rel="noopener" title="Mở trên Douyin">↗</a>
           </div>
@@ -317,7 +315,6 @@
             <option value="en">Anh</option>
           </select>
           <button class="primary">Chọn và chạy</button>
-          <button name="project" value="lol" title="Làm video Liên Minh: đặt vào khung LOL">⚔ LOL</button>
         </form>
       {% endif %}
       <a class="ext" href="{{ c.url }}" target="_blank" rel="noopener" title="Mở trang gốc">↗</a>

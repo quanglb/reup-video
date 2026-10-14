@@ -11,7 +11,7 @@ from reup.dotenv import load_dotenv
 from reup.core.job import create_job, load_job
 from reup.core.runner import run_job, run_jobs
 from reup.core.store import Store
-from reup.stages import stages_for
+from reup.stages import stages_for_job
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -163,7 +163,7 @@ def _cmd_run_all(args, store: Store) -> int:
 
     workers = cfg.profile.concurrency
     print(f"chạy {len(jobs)} job, {workers} luồng")
-    results = run_jobs(jobs, cfg, args.db, lambda j: stages_for(cfg, j.settings.get("project")), workers)
+    results = run_jobs(jobs, cfg, args.db, lambda j: stages_for_job(cfg, j), workers)
 
     for job_id, status in results.items():
         print(f"{status:<13} {job_id}")
@@ -189,7 +189,7 @@ def _cmd_run(args, store: Store) -> int:
         print(str(exc), file=sys.stderr)
         return 1
     cfg = load_config(args.config)
-    status = run_job(job, cfg, store, stages_for(cfg, job.settings.get("project")))
+    status = run_job(job, cfg, store, stages_for_job(cfg, job))
     if status == "failed":
         row = store.get_job(job.id)
         print(f"job {job.id} hỏng ở stage {row['stage']}: {row['error']}", file=sys.stderr)
@@ -211,7 +211,7 @@ def _cmd_redo(args, store: Store) -> int:
     except FileNotFoundError as exc:
         print(str(exc), file=sys.stderr)
         return 1
-    stages = stages_for(load_config(args.config), job.settings.get("project"))
+    stages = stages_for_job(load_config(args.config), job)
     names = [s.name for s in stages]
     if args.from_stage not in names:
         print(

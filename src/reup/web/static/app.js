@@ -874,6 +874,97 @@ function reupFetch(url, options) {
   });
 })();
 
+// Video dài > 2 phút hoặc nặng: cảnh báo trước khi tải, và hỏi có tách thành
+// các phần ~2 phút không. AI chia theo nội dung (9 cách → 3 phần × 3 cách).
+(function () {
+  const LONG_MS = 120000;
+  const HEAVY_BYTES = 100 * 1024 * 1024;
+  const fmt = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, '0')}`;
+  const esc = (t) => String(t || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+  async function mediaSize(url) {
+    if (!url) return 0;
+    try {
+      const r = await fetch('/api/media-size?url=' + encodeURIComponent(url));
+      return r.ok ? ((await r.json()).bytes || 0) : 0;
+    } catch (_) { return 0; }
+  }
+
+  // items: [{title, ms, mediaUrl}]. Trả 'split' | 'whole' | null (huỷ).
+  function ask(items) {
+    const long = items.filter((v) => v.ms > LONG_MS);
+    const dlg = document.createElement('dialog');
+    dlg.className = 'modal';
+    const parts = long.reduce((n, v) => n + Math.ceil(v.ms / LONG_MS), 0);
+    dlg.innerHTML = `
+      <h2>⚠ Video dài / nặng</h2>
+      <ul class="long-list">${items.map((v, i) => `<li><b>${esc(v.title || 'Video')}</b> — ${v.ms ? fmt(v.ms) : '?'}
+        · <span data-size="${i}">${v.mediaUrl ? 'đang đo dung lượng…' : 'dung lượng chưa rõ'}</span></li>`).join('')}</ul>
+      <p>Video dài/nặng tải và xử lý lâu (Demucs, nhận diện giọng, render). TikTok chuộng video khoảng 2 phút.</p>
+      ${long.length ? `<p>Tách thành các phần ~2 phút? AI đọc nội dung rồi chia trọn ý — vd. "9 cách làm X" thành 3 video, mỗi video 3 cách (Phần 1, 2, 3).</p>` : ''}
+      <div class="modal-actions">
+        ${long.length ? `<button class="primary" value="split">✂ Tách thành ~${parts} phần</button>` : ''}
+        <button value="whole">${long.length ? 'Giữ nguyên, không tách' : 'Vẫn tải'}</button>
+        <button value="">Huỷ</button>
+      </div>`;
+    document.body.appendChild(dlg);
+    items.forEach((v, i) => {
+      if (!v.mediaUrl) return;
+      mediaSize(v.mediaUrl).then((b) => {
+        const el = dlg.querySelector(`[data-size="${i}"]`);
+        if (!el) return;
+        el.textContent = b ? `${(b / 1024 / 1024).toFixed(0)} MB` : 'dung lượng chưa rõ';
+        if (b > HEAVY_BYTES) el.classList.add('heavy');
+      });
+    });
+    return new Promise((resolve) => {
+      dlg.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        dlg.close();
+        resolve(btn.value || null);
+      });
+      dlg.addEventListener('cancel', () => resolve(null));
+      dlg.addEventListener('close', () => dlg.remove());
+      dlg.showModal();
+    });
+  }
+
+  function hidden(form, name, value) {
+    const el = document.createElement('input');
+    el.type = 'hidden'; el.name = name; el.value = value;
+    form.appendChild(el);
+  }
+
+  window.reupAskLong = { ask, hidden, LONG_MS };
+
+  // Chọn một video (tab quét, trend, hàng chờ).
+  document.addEventListener('submit', (e) => {
+    const form = e.target;
+    const path = new URL(form.action, location.href).pathname;
+    if (path !== '/discover/pick' && path !== '/saved/run') return;
+    const host = form.closest('[data-duration-ms], [data-video]');
+    let video = {};
+    try { video = JSON.parse((host && host.dataset.video) || '{}'); } catch (_) { /* bỏ qua */ }
+    const ms = parseInt((host && host.dataset.durationMs) || video.duration_ms || 0, 10) || 0;
+    if (ms <= LONG_MS) return;
+    e.preventDefault();
+    const media = form.querySelector('input[name="media_url"]');
+    const item = {
+      title: (host && host.dataset.title) || video.title || '',
+      ms,
+      mediaUrl: (media && media.value) || video.media_url || (host && host.dataset.mediaUrl) || '',
+    };
+    const sub = e.submitter;
+    ask([item]).then((choice) => {
+      if (!choice) return;
+      hidden(form, 'split', choice === 'split' ? '1' : '0');
+      if (sub && sub.name) hidden(form, sub.name, sub.value);
+      form.submit();
+    });
+  });
+})();
+
 // Hàng chờ: tick nhiều video rồi làm hàng loạt.
 (function () {
   const form = document.getElementById('batchForm');
@@ -882,7 +973,6 @@ function reupFetch(url, options) {
   const all = document.getElementById('pickAll');
   const count = document.getElementById('pickCount');
   const runPicked = document.getElementById('runPicked');
-  const runPickedLol = document.getElementById('runPickedLol');
   const firstN = document.getElementById('firstN');
 
   function refresh() {
@@ -890,8 +980,6 @@ function reupFetch(url, options) {
     count.textContent = n;
     runPicked.disabled = n === 0;
     runPicked.textContent = n ? `▶ Làm ${n} video đã chọn` : '▶ Làm các video đã chọn';
-    runPickedLol.disabled = n === 0;
-    runPickedLol.textContent = n ? `⚔ LOL ${n} video đã chọn` : '⚔ LOL các video đã chọn';
     all.checked = n > 0 && n === boxes.length;
     all.indeterminate = n > 0 && n < boxes.length;
     boxes.forEach((b) => b.closest('.card').classList.toggle('picked', b.checked));
@@ -903,17 +991,37 @@ function reupFetch(url, options) {
   });
 
   // Các nút cùng một form: nút "Làm N video đầu" gửi `first`, nút kia bỏ `first`
-  // để server lấy theo các ô đã tick. Nút ⚔ LOL gửi thêm `project=lol`.
+  // để server lấy theo các ô đã tick.
   form.addEventListener('submit', (e) => {
     const id = (e.submitter && e.submitter.id) || '';
     const byFirst = id.startsWith('runFirst');
-    const lol = id.endsWith('Lol');
     const n = byFirst ? parseInt(firstN.value, 10) || 0 : boxes.filter((b) => b.checked).length;
     if (!n) { e.preventDefault(); return; }
-    const what = lol ? `${n} video LOL (chỉ đặt khung, không lồng tiếng)` : `${n} job`;
+    const what = `${n} job`;
+    const lockInputs = () => {
+      firstN.disabled = !byFirst;
+      if (byFirst) boxes.forEach((b) => { b.disabled = true; });
+    };
+    // Có video dài > 2 phút trong lượt này: cảnh báo và hỏi tách thay cho confirm.
+    const chosen = (byFirst ? boxes.slice(0, n) : boxes.filter((b) => b.checked)).map((b) => b.closest('.card'));
+    const ask = window.reupAskLong;
+    const long = ask ? chosen.filter((c) => parseInt(c.dataset.durationMs || '0', 10) > ask.LONG_MS) : [];
+    if (long.length) {
+      e.preventDefault();
+      const sub = e.submitter;
+      ask.ask(long.map((c) => ({
+        title: c.dataset.title, ms: parseInt(c.dataset.durationMs, 10), mediaUrl: c.dataset.mediaUrl || '',
+      }))).then((choice) => {
+        if (!choice) return;
+        ask.hidden(form, 'split', choice === 'split' ? '1' : '0');
+        if (sub && sub.name) ask.hidden(form, sub.name, sub.value);
+        lockInputs();
+        form.submit();
+      });
+      return;
+    }
     if (!confirm(`Tạo và chạy ${what}?`)) { e.preventDefault(); return; }
-    firstN.disabled = !byFirst;
-    if (byFirst) boxes.forEach((b) => { b.disabled = true; });
+    lockInputs();
   });
   refresh();
 })();

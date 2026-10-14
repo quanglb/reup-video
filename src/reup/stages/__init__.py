@@ -10,7 +10,6 @@ from reup.stages import (
     export,
     fetch,
     fit,
-    frame,
     meta,
     ocr,
     policy,
@@ -18,6 +17,7 @@ from reup.stages import (
     pronounce,
     reconcile,
     separate,
+    split,
     subdetect,
     translate,
     tts,
@@ -51,28 +51,31 @@ ALL_STAGES: list[StageSpec] = [
 ]
 
 
-# Dự án có ảnh khung (vd. LOL): chỉ tải về, đặt vào khung rồi xuất — không
-# dịch, không lồng tiếng.
-FRAME_STAGES: list[StageSpec] = [
-    fetch.SPEC, precheck.SPEC, meta.SPEC, frame.SPEC, policy.SPEC, export.SPEC,
-]
-
-
-def stages_for(cfg: Config, project: str | None = None) -> list[StageSpec]:
-    """Chuỗi stage cho một cấu hình (và dự án của job, nếu có).
+def stages_for(cfg: Config) -> list[StageSpec]:
+    """Chuỗi stage cho một cấu hình.
 
     `audio.mode = "drop_original"` bỏ hẳn `separate` — mất nhạc nền nhưng cắt
     được stage nặng nhất. Đây là nút thoát hiểm khi máy quá ì (spec §9).
     """
-    from reup import projects
-
-    if projects.get(project) is not None:
-        return list(FRAME_STAGES)
     stages = list(ALL_STAGES)
     if cfg.audio.mode == "drop_original":
         stages = [s for s in stages if s.name != "separate"]
     return stages
 
 
+# Job cha của video dài được yêu cầu tách: chỉ tải, nghe (bỏ Demucs — nghe
+# tiếng gốc là đủ để AI hiểu nội dung) rồi cắt thành các job con.
+SPLIT_STAGES: list[StageSpec] = [
+    fetch.SPEC, precheck.SPEC, demux.SPEC, asr.SPEC, split.SPEC,
+]
+
+
 def stages_for_job(cfg: Config, job) -> list[StageSpec]:
-    return stages_for(cfg, job.settings.get("project"))
+    settings = job.settings
+    if settings.get("split"):
+        done = split.plan(job)
+        # split.json có mà không có phần nào = video không đủ dài để tách → chạy
+        # như video thường.
+        if done is None or done.get("parts"):
+            return list(SPLIT_STAGES)
+    return stages_for(cfg)

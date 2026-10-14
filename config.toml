@@ -40,6 +40,7 @@ position = "bottom"
 auto_approve   = true   # Tự động 100%: bỏ qua các bước duyệt thủ công, chạy thẳng ra file xuất bản
 auto_approve_a = true   # Tự động duyệt bản dịch (chốt A)
 auto_approve_b = true   # Tự động duyệt thành phẩm (chốt B)
+output_dir     = "output/%Y-%m-%d"
 
 # Bot Telegram báo cáo tình hình khi làm video. Token để trong .env:
 #   TELEGRAM_BOT_TOKEN=...   (lấy ở @BotFather)

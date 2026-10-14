@@ -69,7 +69,6 @@ class JobRow:
     has_source: bool = False
     has_final: bool = False
     archived: bool = False
-    project: str = ""  # khoá dự án đặc thù trong job.json, vd. "lol"
     policy: dict = field(default_factory=dict)  # kết quả duyệt chính sách TikTok
     warning: str = ""  # bước tải thấy video dài/nặng
     updated_at: float = 0.0
@@ -121,7 +120,6 @@ def job_details(jobs_dir: Path | None, job_id: str) -> dict:
         "has_source": (root / "source.mp4").exists(),
         "has_final": (root / "render" / "final.mp4").exists(),
         "archived": bool(settings.get("archived")),
-        "project": str(settings.get("project") or ""),
         "policy": policy_summary(root),
         "warning": str(settings.get("fetch_warning") or ""),
     }
@@ -158,12 +156,12 @@ def policy_summary(root: Path) -> dict:
 
 
 def calculate_progress(
-    status: str, stage: str | None, cfg: Config | None = None, project: str = ""
+    status: str, stage: str | None, cfg: Config | None = None
 ) -> tuple[int, str]:
     """Tính % tiến trình và tên mô tả tiếng Việt cho stage/status hiện tại."""
     from reup.stages import ALL_STAGES, stages_for
 
-    stages = [s.name for s in (stages_for(cfg, project) if cfg else ALL_STAGES)]
+    stages = [s.name for s in (stages_for(cfg) if cfg else ALL_STAGES)]
     total = len(stages) or 12
 
     if status == "done":
@@ -211,9 +209,7 @@ def list_jobs(
     rows = []
     for r in store.list_jobs(status):
         details = job_details(jobs_dir, r["id"])
-        pct, label = calculate_progress(
-            r["status"], r["stage"], cfg, details.get("project", "")
-        )
+        pct, label = calculate_progress(r["status"], r["stage"], cfg)
         if archived is not None and bool(details.get("archived")) != archived:
             continue
         details["title"] = details.get("title") or r["id"]
@@ -293,11 +289,10 @@ def get_job_progress(job: Job, row: dict | None, cfg: Config) -> dict:
     """Chi tiết tiến trình và nhật ký cho từng job."""
     from reup.stages import stages_for_job
 
-    project = str(job.settings.get("project") or "")
     specs = stages_for_job(cfg, job)
     status = row["status"] if row else ("done" if job.final_mp4.exists() else "pending")
     stage = row["stage"] if row else None
-    pct, stage_label = calculate_progress(status, stage, cfg, project)
+    pct, stage_label = calculate_progress(status, stage, cfg)
 
     logs = []
     log_map: dict[str, dict] = {}

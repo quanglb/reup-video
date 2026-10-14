@@ -658,38 +658,6 @@
    "lang": "zh"
   },
   {
-   "id": "t46b228bc",
-   "platform": "douyin",
-   "group": "topic",
-   "vi": "Liên Minh Huyền Thoại",
-   "q": "英雄联盟",
-   "lang": "zh"
-  },
-  {
-   "id": "t593a6080",
-   "platform": "douyin",
-   "group": "topic",
-   "vi": "Highlight Liên Minh",
-   "q": "英雄联盟集锦",
-   "lang": "zh"
-  },
-  {
-   "id": "t20e9f538",
-   "platform": "douyin",
-   "group": "topic",
-   "vi": "LOL Hài hước",
-   "q": "英雄联盟搞笑",
-   "lang": "zh"
-  },
-  {
-   "id": "ta3a29edd",
-   "platform": "douyin",
-   "group": "topic",
-   "vi": "LOL Tốc Chiến",
-   "q": "英雄联盟手游",
-   "lang": "zh"
-  },
-  {
    "id": "t7465acf9",
    "platform": "douyin",
    "group": "topic",
@@ -719,6 +687,14 @@
    "group": "topic",
    "vi": "Hiệu ứng AI",
    "q": "AI特效",
+   "lang": "zh"
+  },
+  {
+   "id": "t417c95e1",
+   "platform": "douyin",
+   "group": "topic",
+   "vi": "Phòng trọ gọn đẹp",
+   "q": "出租屋布置",
    "lang": "zh"
   }
  ]

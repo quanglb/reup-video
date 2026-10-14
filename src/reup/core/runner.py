@@ -139,7 +139,7 @@ def run_job(
 
     store.upsert_job(job.id, job.source_url, "done", stage=None)
     if ran:
-        notifier.job_done(job, cfg.review.output_dir)
+        notifier.job_done(job, str(cfg.output_dir_path()))
     return "done"
 
 

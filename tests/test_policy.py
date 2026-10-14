@@ -12,7 +12,6 @@ from reup.models import Segment, Transcript
 from reup.policy import PolicyBlocked, local, review, rules
 from reup.stages import compose as compose_stage
 from reup.stages import export as export_stage
-from reup.stages import frame as frame_stage
 from reup.stages import meta as meta_stage
 from reup.stages import policy as policy_stage
 from reup.stages import precheck as precheck_stage
@@ -38,8 +37,8 @@ def test_promoting_gambling_is_a_hard_block():
 
 
 def test_game_slang_is_not_flagged():
-    """Dòng LOL nói thế suốt — không được bắt nhầm."""
-    assert rules.scan_text("Khi Shaco vào tay Pink Ward: Đỉnh cao hack não, bom tấn mãn nhãn") == []
+    """Video game nói thế suốt — không được bắt nhầm."""
+    assert rules.scan_text("Khi sát thủ vào tay cao thủ: Đỉnh cao hack não, bom tấn mãn nhãn") == []
 
 
 def test_word_boundaries_hold():
@@ -68,8 +67,8 @@ def test_cross_platform_tags_are_removed_from_text():
 
 
 def test_templated_titles_are_similar_and_distinct_ones_are_not():
-    old = ["Đẳng cấp Thách Đấu Hàn: Những pha xử lý xứng đáng gọi là nghệ thuật"]
-    same, _ = rules.most_similar("Đẳng cấp Thách Đấu Hàn: Những pha xử lý đỉnh cao khiến bạn mê", old)
+    old = ["Đỉnh cao ẩm thực đường phố: Những món ăn xứng đáng gọi là nghệ thuật"]
+    same, _ = rules.most_similar("Đỉnh cao ẩm thực đường phố: Những món ăn đỉnh cao khiến bạn mê", old)
     other, _ = rules.most_similar("Mẹo ảo thuật giải Rubik trong chớp mắt", old)
     assert same >= rules.SIMILAR_TITLE_RATIO > other
 
@@ -231,18 +230,18 @@ def test_meta_asks_for_a_different_title_than_recent_ones(tmp_path, cfg_fixture)
     cfg = _cfg(cfg_fixture, tmp_path)
     out = cfg.output_dir_path()
     out.mkdir(parents=True)
-    (out / "01. Đẳng cấp Thách Đấu Hàn Những pha xử lý xứng đáng.json").write_text(
-        json.dumps({"title": "Đẳng cấp Thách Đấu Hàn: Những pha xử lý xứng đáng gọi là nghệ thuật",
+    (out / "01. Đỉnh cao ẩm thực đường phố Những món ăn xứng đáng.json").write_text(
+        json.dumps({"title": "Đỉnh cao ẩm thực đường phố: Những món ăn xứng đáng gọi là nghệ thuật",
                     "source_url": "https://other"}), encoding="utf-8")
-    job = _job_with_translation(tmp_path, "lol")
+    job = _job_with_translation(tmp_path, "ẩm thực")
     llm = ScriptedLLM(
-        {"title": "Đẳng cấp Thách Đấu Hàn: Những pha xử lý đỉnh cao khiến bạn mê", "description": "d",
-         "hashtags": ["lol"]},
-        {"title": "Faker né chiêu trong gang tấc", "description": "d"},
+        {"title": "Đỉnh cao ẩm thực đường phố: Những món ăn đỉnh cao khiến bạn mê", "description": "d",
+         "hashtags": ["amthuc"]},
+        {"title": "Bát phở 30 năm giữ nguyên vị", "description": "d"},
     )
     meta = meta_stage.run_with(job, cfg, llm)
-    assert "Đẳng cấp Thách Đấu Hàn" in llm.prompts[0]  # tiêu đề cũ có trong prompt
-    assert meta["title"] == "Faker né chiêu trong gang tấc"
+    assert "Đỉnh cao ẩm thực đường phố" in llm.prompts[0]  # tiêu đề cũ có trong prompt
+    assert meta["title"] == "Bát phở 30 năm giữ nguyên vị"
 
 
 def test_meta_translates_burned_in_static_text(tmp_path, cfg_fixture):
@@ -423,36 +422,13 @@ def test_exported_json_has_a_ready_caption_and_no_internal_fields():
     assert out["policy"]["verdict"] == "pass"
 
 
-def test_frame_chain_no_longer_blurs_the_fill():
-    chain = frame_stage.build_frame_chain((0, 546, 1080, 824), 1, 586, 576)
-    assert "boxblur" not in chain
-    assert f"color={frame_stage.FILL_COLOR}" in chain
-
-
-def test_frame_chain_crops_when_the_shape_is_close():
-    chain = frame_stage.build_frame_chain((0, 546, 1080, 824), 1, 1024, 768)
-    assert "crop=1080:824" in chain and "boxblur" not in chain
-
-
-def test_frame_title_is_drawn_above_the_video(tmp_path):
-    from reup import projects
-    from reup.subtitle import find_font
-
-    png = tmp_path / "frame.png"
-    rect = projects.render_frame(projects.PROJECTS["lol"].frame, png, 1080, 1920)
-    before = Image.open(png).convert("RGB").crop((0, 0, 1080, rect[1])).tobytes()
-    assert frame_stage.draw_title(png, rect, "Faker né chiêu trong gang tấc", find_font("Be Vietnam Pro"))
-    after = Image.open(png).convert("RGB").crop((0, 0, 1080, rect[1])).tobytes()
-    assert before != after
-
-
 def test_pervasive_gambling_subtitles_block_but_a_scam_story_does_not(cfg_fixture):
     rep = local.LocalReport(width=1080, height=1920, duration_s=60)
     gamble = ["Kéo bài kiểu Thần Bài", "Thần Bài đổi bài", "Phi Thần Bài", "câu thường"]
-    hard, _ = policy_stage.local_findings(rep, [], False, cfg_fixture, {}, (0, ""), gamble, "j")
+    hard, _ = policy_stage.local_findings(rep, [], cfg_fixture, {}, (0, ""), gamble, "j")
     assert hard and "thần bài" in hard[0]
     story = ["Hắn là kẻ lừa đảo", "Đừng tin tên lừa đảo", "Lừa đảo cả làng", "Hắn rút súng"]
-    hard, _ = policy_stage.local_findings(rep, [], False, cfg_fixture, {}, (0, ""), story, "j")
+    hard, _ = policy_stage.local_findings(rep, [], cfg_fixture, {}, (0, ""), story, "j")
     assert hard == []
 
 

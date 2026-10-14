@@ -145,25 +145,18 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         status: str | None = None,
         view: str = "",
         platform: str = "",
-        project: str = "",
     ):
         """Danh sách dự án. `view=archived` là kho lưu trữ, còn lại là đang làm.
 
         Đếm trước khi lọc, để các nút lọc luôn hiện đủ số. Kết quả chia nhóm
-        theo nền tảng. `project=lol` là tab riêng của dự án đó; tab "Dự án"
-        chỉ hiện job thường.
+        theo nền tảng.
         """
-        from reup import projects
-
-        proj = projects.get(project)
-        project = proj.key if proj else ""
         s = store()
         c = cfg()
         try:
             every = service.list_jobs(s, None, c, app.state.jobs_dir)
         finally:
             s.close()
-        every = [r for r in every if r.project == project]
         archived = view == "archived"
         in_view = [r for r in every if r.archived == archived]
         by_status = [r for r in in_view if not status or r.status == status]
@@ -230,11 +223,8 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 "archived_count": sum(1 for r in every if r.archived),
                 "statuses": service.STATUS_LABELS,
                 "running": app.state.runner.live(),
-                "tab": f"project:{project}" if project else "queue",
-                "project": project,
-                "project_label": proj.label if proj else "",
-                "title": ("Lưu trữ" if archived else "Dự án")
-                + (f" {proj.label}" if proj else ""),
+                "tab": "queue",
+                "title": "Lưu trữ" if archived else "Dự án",
             },
         )
 
@@ -323,8 +313,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             s.close()
         out = {}
         for r in jobs:
-            project = service.job_details(app.state.jobs_dir, r["id"]).get("project", "")
-            pct, label = service.calculate_progress(r["status"], r["stage"], c, project)
+            pct, label = service.calculate_progress(r["status"], r["stage"], c)
             out[r["id"]] = {
                 "id": r["id"],
                 "status": r["status"],
@@ -337,9 +326,8 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         return out
 
     @app.post("/jobs")
-    def add_job(url: str = Form(...), lang: str = Form("auto"), project: str = Form("")):
+    def add_job(url: str = Form(...), lang: str = Form("auto")):
         job = create_job(app.state.jobs_dir, url.strip(), lang)
-        set_project(job, project)
         s = store()
         try:
             s.upsert_job(job.id, job.source_url, "pending")
@@ -709,15 +697,6 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         found, error = title_translate.translate(titles, cache, llm)
         return {"translations": found, "error": error}
 
-    def set_project(job, project: str) -> None:
-        """Gắn job vào dự án đặc thù (vd. LOL) — phải trước khi runner chạy compose."""
-        from reup import projects
-
-        if project and projects.get(project) is None:
-            raise HTTPException(status_code=400, detail=f"không có dự án {project!r}")
-        if project:
-            job.update_settings(project=project)
-
     def start_candidate(
         url: str,
         lang: str,
@@ -725,7 +704,6 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         video_id: str,
         media_url: str,
         title: str,
-        project: str = "",
         split: bool = False,
     ) -> str:
         """Tạo job từ một video đã quét, đánh dấu đã xử lý, bỏ khỏi hàng chờ, chạy.
@@ -736,7 +714,6 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         if media_url and not media_url.startswith(("https://", "http://")):
             raise HTTPException(status_code=400, detail="link tải phải là http(s)")
         job = create_job(app.state.jobs_dir, url.strip(), lang)
-        set_project(job, project)
         if split:
             from reup.stages.split import DEFAULT_MAX_S
 
@@ -784,7 +761,6 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         video_id: str = Form(""),
         media_url: str = Form(""),
         title: str = Form(""),
-        project: str = Form(""),
         split: int = Form(0),
     ):
         """Chọn một video từ tab quét: tạo job, đánh dấu đã xử lý, và chạy luôn.
@@ -796,7 +772,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         người dùng nhảy ra terminal gõ `reup run` là cắt đôi một thao tác duy nhất.
         """
         job_id = start_candidate(
-            url, lang, platform, video_id, media_url, title, project, bool(split)
+            url, lang, platform, video_id, media_url, title, bool(split)
         )
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
@@ -863,7 +839,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         )
 
     def run_saved(
-        platform: str, video_id: str, lang: str, project: str = "", split: bool = False
+        platform: str, video_id: str, lang: str, split: bool = False
     ) -> str:
         s = store()
         try:
@@ -875,7 +851,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         v = found[0]
         return start_candidate(
             v["url"], lang, platform, video_id, v.get("media_url") or "", v.get("title") or "",
-            project, split,
+            split,
         )
 
     @app.post("/saved/run")
@@ -883,10 +859,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         platform: str = Form(...),
         video_id: str = Form(...),
         lang: str = Form("auto"),
-        project: str = Form(""),
         split: int = Form(0),
     ):
-        job_id = run_saved(platform, video_id, lang, project, bool(split))
+        job_id = run_saved(platform, video_id, lang, bool(split))
         return RedirectResponse(f"/jobs/{job_id}", status_code=303)
 
     @app.post("/saved/next")
@@ -910,7 +885,6 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         keys: list[str] = Form(default=[]),
         first: int = Form(0),
         platform: str = Form(""),
-        project: str = Form(""),
         split: int = Form(0),
     ):
         """Làm hàng loạt: các video đã tick, hoặc `first` video đầu hàng chờ.
@@ -930,18 +904,17 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
             picked = [v for v in queue if (v["platform"], v["video_id"]) in wanted]
         if not picked:
             raise HTTPException(status_code=400, detail="chưa chọn video nào")
-        run_picked(picked, project, bool(split))
-        where = f"project={project}&" if project else ""
-        return RedirectResponse(f"/?{where}batch={len(picked)}", status_code=303)
+        run_picked(picked, bool(split))
+        return RedirectResponse(f"/?batch={len(picked)}", status_code=303)
 
-    def run_picked(picked: list[dict], project: str = "", split: bool = False) -> int:
+    def run_picked(picked: list[dict], split: bool = False) -> int:
         """`split` chỉ áp cho video biết chắc dài hơn 2 phút."""
         from reup.stages.split import DEFAULT_MAX_S
 
         for v in picked:
             lang = "zh" if v["platform"] == "douyin" else "auto"
             long = (v.get("duration_ms") or 0) > DEFAULT_MAX_S * 1000
-            run_saved(v["platform"], v["video_id"], lang, project, split and long)
+            run_saved(v["platform"], v["video_id"], lang, split and long)
         return len(picked)
 
     def run_first_saved(n: int, platform: str = "") -> int:

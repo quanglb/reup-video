@@ -246,7 +246,7 @@ def one_stage(monkeypatch):
         (job.root / "done.txt").write_text(job.id, encoding="utf-8")
 
     spec = StageSpec(name="only", produces=("done.txt",), run=run)
-    monkeypatch.setattr("reup.cli.stages_for", lambda cfg, project=None: [spec])
+    monkeypatch.setattr("reup.cli.stages_for_job", lambda cfg, job: [spec])
     return spec
 
 
@@ -319,8 +319,8 @@ def test_run_all_returns_error_when_a_job_fails(
         raise RuntimeError("hỏng")
 
     monkeypatch.setattr(
-        "reup.cli.stages_for",
-        lambda cfg, project=None: [StageSpec(name="only", produces=("done.txt",), run=boom)],
+        "reup.cli.stages_for_job",
+        lambda cfg, job: [StageSpec(name="only", produces=("done.txt",), run=boom)],
     )
     common = _common(tmp_path, config_file)
     main([*common, "add", "https://a/1", "--lang", "zh"])

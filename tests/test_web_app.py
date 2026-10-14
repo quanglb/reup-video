@@ -677,25 +677,3 @@ def test_autouse_fixture_clears_web_auth_env_vars(tmp_path: Path, config_file: P
     monkeypatch.setenv("REUP_WEB_PASSWORD", "test_password")
     app2 = create_app(config_file, jobs, db)
     assert app2.state.password == "test_password"  # test override thành công
-
-
-def test_lol_tab_only_lists_lol_jobs(client):
-    c, jobs, db = client
-    r = c.post("/jobs", data={"url": "https://douyin.com/video/1", "lang": "zh",
-                              "project": "lol"}, follow_redirects=False)
-    lol_id = r.headers["location"].rsplit("/", 1)[-1]
-    assert json.loads((jobs / lol_id / "job.json").read_text())["project"] == "lol"
-    r = c.post("/jobs", data={"url": "https://douyin.com/video/2", "lang": "zh"},
-               follow_redirects=False)
-    plain_id = r.headers["location"].rsplit("/", 1)[-1]
-
-    lol_page = c.get("/?project=lol").text
-    assert lol_id in lol_page and plain_id not in lol_page
-    main_page = c.get("/").text
-    assert plain_id in main_page and lol_id not in main_page
-
-
-def test_unknown_project_is_rejected(client):
-    c, _, _ = client
-    r = c.post("/jobs", data={"url": "https://a/1", "project": "nope"})
-    assert r.status_code == 400

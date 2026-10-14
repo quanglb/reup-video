@@ -295,7 +295,25 @@ def annotate_fills(job: Job, regions: list[dict], video_w: int = 0) -> list[dict
         if fill["mode"] == cover.PLATE and r.get("kind") == "subtitle" and video_w:
             r["x"], r["w"] = 0, video_w
         out.append(r)
+    if band_all and video_w:
+        sub_items = [
+            r for r in out
+            if r.get("kind") == "subtitle" and (r.get("fill") or {}).get("mode") == cover.PLATE
+        ]
+        if len(sub_items) > 1:
+            y0 = min(r["y"] for r in sub_items)
+            y1 = max(r["y"] + r["h"] for r in sub_items)
+            single_band = {
+                "x": 0,
+                "y": y0,
+                "w": video_w,
+                "h": y1 - y0,
+                "kind": "subtitle",
+                "fill": {"mode": cover.PLATE},
+            }
+            out = [r for r in out if r.get("kind") != "subtitle"] + [single_band]
     return out
+
 
 
 # Bề ngang tối thiểu dành cho một câu phụ đề Việt, so với bề ngang khung.
@@ -327,6 +345,13 @@ def header_overlays(job: Job, cfg: Config, regions: list[dict], duration_ms: int
     headers = meta.get("headers") or []
     if not headers:
         return []
+    part = job.settings.get("part")
+    if part:
+        part_tag = f" # Phần {part}"
+        valid = [h for h in headers if (h.get("vi") or "").strip()]
+        if valid and not any(f"Phần {part}" in h["vi"] for h in valid):
+            best = max(valid, key=lambda h: len(h["vi"]))
+            best["vi"] = f"{best['vi']}{part_tag}"
     from reup.textcolor import colors_from_frame
 
     frames = sorted((job.root / "frames").glob("f_*.png"))
@@ -334,7 +359,7 @@ def header_overlays(job: Job, cfg: Config, regions: list[dict], duration_ms: int
     font = find_font(cfg.subtitle.font)
     out_dir = job.root / "subs"
     out_dir.mkdir(parents=True, exist_ok=True)
-    overlays = []
+    items = []
     for i, h in enumerate(headers):
         region = next((r for r in regions if _same_box(r, h)), None)
         mode = ((region or {}).get("fill") or {}).get("mode", cover.PLATE)
@@ -355,13 +380,38 @@ def header_overlays(job: Job, cfg: Config, regions: list[dict], duration_ms: int
         w, hh, _ = render_fitted(
             text, png, font, box["w"], box["h"],
             cfg.subtitle.outline / max(1, cfg.subtitle.size),
-            max_size=round(line_h / 0.9),
+            max_size=round(line_h * 0.85),
             fill=from_hex(colors["color"]) if colors.get("color") else None,
             stroke=from_hex(colors["outline"], BLACK) if colors.get("outline") else None,
         )
         x, y = place_in_box(w, hh, box, video_w, video_h)
-        overlays.append(Overlay(path=png, start_ms=0, end_ms=duration_ms, x=x, y=y))
-    return overlays
+        items.append({"path": png, "w": w, "h": hh, "x": x, "y": y, "box": box})
+
+    # Chống đè chữ: nếu các dòng tiêu đề bị va chạm hoặc đè lên nhau, căn chỉnh lại thành khối xếp tầng
+    if len(items) > 1:
+        items.sort(key=lambda it: it["y"])
+        has_overlap = any(
+            items[j]["y"] + items[j]["h"] + 4 > items[j + 1]["y"]
+            for j in range(len(items) - 1)
+        )
+        if has_overlap:
+            gap = 6
+            orig_y0 = min(it["box"]["y"] for it in items)
+            orig_y1 = max(it["box"]["y"] + it["box"]["h"] for it in items)
+            orig_cy = (orig_y0 + orig_y1) / 2
+            total_h = sum(it["h"] for it in items) + (len(items) - 1) * gap
+            start_y = round(orig_cy - total_h / 2)
+            start_y = max(0, min(video_h - total_h, start_y))
+
+            curr_y = start_y
+            for it in items:
+                it["y"] = curr_y
+                curr_y += it["h"] + gap
+
+    return [
+        Overlay(path=it["path"], start_ms=0, end_ms=duration_ms, x=it["x"], y=it["y"])
+        for it in items
+    ]
 
 
 def label_regions(job: Job) -> list[dict]:

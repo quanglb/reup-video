@@ -19,9 +19,8 @@ from dataclasses import dataclass, field
 from reup.media.ocr import TextBox
 
 # Hai hộp coi là cùng một vùng nếu tâm lệch không quá ngần này so với chiều cao
-# khung. 0.03 chứ không phải 0.06: trên video thật, hai dòng cách nhau 120px
-# (bảng điểm và phụ đề) bị gộp làm một ở mức 0.06.
-CLUSTER_TOLERANCE = 0.03
+# khung. 0.02 để phân biệt được các dòng tiêu đề/phụ đề cách nhau ~50-60px.
+CLUSTER_TOLERANCE = 0.02
 # Phụ đề nằm ở phần dưới khung. 0.55 chứ không phải 0.66: nhiều video đặt sub
 # hơi cao hơn 1/3 dưới để chừa chỗ cho thanh tương tác của nền tảng.
 SUBTITLE_TOP = 0.55
@@ -119,6 +118,8 @@ def cluster_boxes(
             match = None
             best = limit
             for c in clusters:
+                if index in c.frames:
+                    continue  # Hai hộp trong cùng một khung không bao giờ là cùng một cụm
                 dy = abs(c.anchor_cy - box.cy)
                 dx = abs(c.anchor_cx - box.cx)
                 # Dọc chặt, ngang lỏng: phụ đề đứng yên theo chiều dọc nhưng

@@ -182,9 +182,10 @@ class CapCutTTS:
             "1" if self.allow_edge_fallback else "0",
         ])
 
-        # Buffer: bù cho request POST tts-new và tải N file mp3
-        buffer = 10.0 + len(non_empty_indices) * 2.0
-        outer_timeout = self.max_polls * self.poll_interval + buffer
+        # Buffer: bù cho request POST tts-new, tải N file mp3, và thời gian chạy fallback edge-tts nếu CapCut lỗi
+        fallback_allowance = len(non_empty_indices) * 15.0 if self.allow_edge_fallback else len(non_empty_indices) * 2.0
+        buffer = 20.0 + fallback_allowance
+        outer_timeout = max(60.0, self.max_polls * self.poll_interval + buffer)
 
         last = ""
         batch_success = False
@@ -293,8 +294,9 @@ class CapCutTTS:
             "1" if self.allow_edge_fallback else "0",
         ]
 
-        buffer = 10.0 + 1 * 2.0
-        outer_timeout = self.max_polls * self.poll_interval + buffer
+        fallback_allowance = 20.0 if self.allow_edge_fallback else 2.0
+        buffer = 15.0 + fallback_allowance
+        outer_timeout = max(50.0, self.max_polls * self.poll_interval + buffer)
 
         last = ""
         for attempt in range(self.retries):

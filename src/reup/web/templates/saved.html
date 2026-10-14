@@ -33,14 +33,12 @@
   <label class="check"><input type="checkbox" id="pickAll"> Chọn tất cả</label>
   <span class="batch-count">Đã chọn <b id="pickCount">0</b> / {{ rows|length }}</span>
   <button class="primary" id="runPicked" disabled>▶ Làm các video đã chọn</button>
-  <button class="lol-btn" id="runPickedLol" name="project" value="lol" disabled title="Chỉ tải về, đặt vào khung LOL rồi xuất — giữ tiếng gốc">⚔ LOL các video đã chọn</button>
   <span class="batch-sep"></span>
   <span class="batch-first">
     hoặc làm
     <input type="number" name="first" id="firstN" min="1" max="{{ rows|length }}" value="{{ [3, rows|length]|min }}">
     video đầu
     <button type="submit" id="runFirst" formnovalidate>▶ Làm</button>
-    <button type="submit" id="runFirstLol" class="lol-btn" name="project" value="lol" formnovalidate title="Làm N video đầu theo luồng LOL">⚔ LOL</button>
   </span>
   <span id="translateStatus" class="translate-status"></span>
 </form>
@@ -48,7 +46,7 @@
 <div class="cards">
   {% for c in rows %}
   {% set d = (c.published_at or '')|replace('-', '') %}
-  <article class="card" data-title="{{ c.title }}">
+  <article class="card" data-title="{{ c.title }}" data-duration-ms="{{ c.duration_ms or 0 }}" data-media-url="{{ c.media_url or '' }}">
     <div class="frame" data-embed="{{ c.embed_url or '' }}">
       {% if c.thumbnail %}<img src="{{ c.thumbnail }}" alt="" loading="lazy" referrerpolicy="no-referrer">{% endif %}
       <button class="play-embed" {{ 'disabled' if not c.embed_url }} title="Xem ngay tại đây">▶</button>
@@ -80,7 +78,6 @@
           <option value="en">Anh</option>
         </select>
         <button class="primary" title="Làm như dự án thường: dịch, lồng tiếng, phụ đề">▶ Dự án</button>
-        <button name="project" value="lol" class="lol-btn" title="Dự án LOL: chỉ tải về, đặt vào khung LOL rồi xuất — giữ tiếng gốc">⚔ LOL</button>
       </form>
       <form method="post" action="/saved/remove">
         <input type="hidden" name="platform" value="{{ c.platform }}">

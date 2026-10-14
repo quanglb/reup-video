@@ -220,3 +220,15 @@ def test_anchor_does_not_drift_as_the_box_grows():
     for cl in cluster_boxes(frames, H):
         assert cl.anchor_cy == 1520  # tâm hộp đầu tiên, không đổi
         break
+
+
+def test_two_adjacent_header_lines_in_same_frame_do_not_merge():
+    """Hai dòng tiêu đề trên cùng một khung (cách nhau ~60px) không được gộp làm một."""
+    frames = [
+        [TextBox("Dòng 1", 1.0, 386, 383, 305, 50), TextBox("Dòng 2", 1.0, 314, 448, 451, 47)],
+        [TextBox("Dòng 1", 1.0, 386, 383, 305, 50), TextBox("Dòng 2", 1.0, 314, 448, 451, 47)],
+    ]
+    clusters = cluster_boxes(frames, 2142)
+    assert len(clusters) == 2
+    assert {c.texts[0] for c in clusters} == {"Dòng 1", "Dòng 2"}
+

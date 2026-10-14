@@ -43,8 +43,7 @@ hết những dấu hiệu đã biết và chặn video rủi ro **trước khi*
   đúng chỗ, cùng màu. Phát hiện nhờ stage policy chặn video 17 khi làm lại.
 - Che trên nền có hình: dải phụ đề tối kéo hết bề ngang (đồng nhất cả video nếu ≥30% câu cần),
   chữ Việt được rộng tới 80% khung để không bé và xuống dòng.
-- **LOL**: bỏ nền blur hai bên (thay bằng màu tối của khung), in tiêu đề tiếng Việt lên phần
-  trên của khung → có chỉnh sửa sáng tạo.
+- **LOL**: đã gỡ hẳn dòng này (2026-10-14) — không làm video LOL nữa.
 
 ### Tầng 2. Luật chữ miễn phí (sửa C, E, F) — `reup/policy/rules.py`
 
@@ -78,7 +77,7 @@ Thứ tự kiểm, rẻ trước đắt sau:
    quả kiểm cục bộ. AI trả JSON ngắn: `verdict` (pass/fix/reject), danh sách lỗi theo mã,
    và tiêu đề/mô tả/hashtag đã sửa nếu cần.
 4. `fix` → áp tiêu đề mới (kiểm lại bằng luật, không gọi AI lần 2); nếu tiêu đề đã in lên
-   hình (LOL, tiêu đề dịch) thì render lại một lần.
+   hình (tiêu đề dịch) thì render lại một lần.
 5. `reject` → job dừng ở bước `policy`, báo Telegram kèm lý do. Muốn đăng vẫn được:
    `reup policy-allow <job_id>` rồi chạy lại.
 
@@ -106,7 +105,6 @@ Video vi phạm cứng (vd. phụ đề lặp “Thần Bài”) bị chặn b�
 ```
 fetch → precheck → demux → separate → asr → subdetect → ocr → reconcile → translate
       → pronounce → tts → fit → meta → compose → policy → export
-LOL:   fetch → precheck → meta → frame → policy → export
 ```
 
 `meta` (tiêu đề + dịch chữ cố định) chạy TRƯỚC khi render để chữ Việt in được lên hình;

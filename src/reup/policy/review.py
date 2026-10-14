@@ -63,7 +63,6 @@ def build_prompt(
     flagged_lines: list[str],
     local_notes: list[str],
     frames_in_sheet: int,
-    project_note: str = "",
 ) -> str:
     codes = "\n".join(f"{k} {v}" for k, v in ISSUE_LABELS.items())
     parts = [
@@ -73,8 +72,6 @@ def build_prompt(
         f"Ảnh: lưới {frames_in_sheet} khung rải đều của thành phẩm, đánh số trái→phải, "
         "trên→dưới. Phụ đề và chữ tiếng Việt trên hình là do kênh tự làm — hợp lệ.",
     ]
-    if project_note:
-        parts.append(project_note)
     parts += [
         f"TIÊU ĐỀ: {meta.get('title', '')}",
         f"MÔ TẢ: {meta.get('description', '')}",

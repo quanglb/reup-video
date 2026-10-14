@@ -8,7 +8,7 @@ Hai mức:
 - `risky`: chưa chắc vi phạm nhưng đã gây ra lần xoá video "Thần Bài" — cần viết
   lại hoặc để AI xét ngữ cảnh.
 
-Không đưa từ bạo lực của game ("giết", "chém", "hạ gục") vào đây: dòng LOL nói
+Không đưa từ bạo lực của game ("giết", "chém", "hạ gục") vào đây: video game nói
 thế suốt và TikTok không phạt chuyện đó. AI xét ngữ cảnh bạo lực thật.
 """
 from __future__ import annotations
@@ -96,8 +96,8 @@ GENERIC_TAGS = frozenset({
 MAX_HASHTAGS = 5
 
 # Tiêu đề giống tiêu đề cũ tới mức này (so theo TỪ) thì coi là lặp khuôn.
-# Đo trên 15 tiêu đề LOL đã xuất: các cặp "Đẳng cấp Thách Đấu Hàn: Những pha xử
-# lý…" ra 0.5-0.6, hai tiêu đề khác chủ đề ra dưới 0.3.
+# Đo trên 15 tiêu đề đã xuất: các cặp cùng khuôn ra 0.5-0.6, hai tiêu đề khác
+# chủ đề ra dưới 0.3.
 SIMILAR_TITLE_RATIO = 0.5
 
 _CJK = re.compile(r"[㐀-䶿一-鿿豈-﫿]")

@@ -131,10 +131,30 @@ def _download(job: Job, cfg: Config) -> None:
         ) from exc
 
 
+# Ngưỡng cảnh báo video dài/nặng: TikTok chuộng ~2 phút, và file lớn kéo dài
+# mọi stage sau (Demucs, Whisper, render).
+LONG_MS = 120_000
+HEAVY_BYTES = 100 * 1024 * 1024
+
+
+def size_warning(duration_ms: int, size_bytes: int) -> str:
+    notes = []
+    if duration_ms > LONG_MS:
+        notes.append(f"dài {duration_ms // 60000}:{duration_ms // 1000 % 60:02d} (> 2 phút)")
+    if size_bytes > HEAVY_BYTES:
+        notes.append(f"nặng {size_bytes / 1024 / 1024:.0f} MB")
+    return ", ".join(notes)
+
+
 def run(job: Job, cfg: Config) -> None:
     _download(job, cfg)
 
     info = probe(job.source_video)
+    warning = size_warning(info.duration_ms, job.source_video.stat().st_size)
+    if warning:
+        hint = "" if job.settings.get("split") else " — cân nhắc tách thành các phần 2 phút"
+        print(f"  [cảnh báo] video {job.id} {warning}{hint}")
+        job.update_settings(fetch_warning=warning)
     if not info.has_audio:
         raise ValueError(
             f"video {job.source_url} không có audio — pipeline này cần tiếng nói để dịch"

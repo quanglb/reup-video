@@ -18,7 +18,7 @@ from reup.config import load_config
 from reup.core.job import load_job
 from reup.core.runner import run_job
 from reup.core.store import Store
-from reup.stages import stages_for_job
+from reup.stages import split, stages_for_job
 
 
 class BackgroundRunner:
@@ -81,6 +81,7 @@ class BackgroundRunner:
 
     def _run(self, job_id: str) -> None:
         status = "failed"
+        children: list[str] = []
         try:
             with self._semaphore():
                 cfg = load_config(self.config_path)
@@ -89,6 +90,11 @@ class BackgroundRunner:
                 store.init_schema()
                 try:
                     status = run_job(job, cfg, store, stages_for_job(cfg, job))
+                    if status == "done" and split.requested(job):
+                        children = split.register_children(job, store)
+                        if not (split.plan(job) or {}).get("parts"):
+                            # Hoá ra không cần tách: chạy tiếp pipeline đầy đủ.
+                            status = run_job(job, cfg, store, stages_for_job(cfg, job))
                 finally:
                     store.close()
         except Exception as exc:  # config hỏng, job bị xoá tay, ...
@@ -99,6 +105,10 @@ class BackgroundRunner:
         finally:
             with self._lock:
                 self._live.discard(job_id)
+            # Job con của video vừa tách: chạy luôn, runner tự xếp lượt.
+            for child in children:
+                self.start(child)
+            with self._lock:
                 self._round[status] = self._round.get(status, 0) + 1
                 finished_round = dict(self._round) if not self._live else None
                 if finished_round is not None:
