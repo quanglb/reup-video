@@ -38,7 +38,11 @@ def pick_thumbnail(raw: dict) -> str:
 
 
 def dump_flat(
-    url: str, limit: int, extra_args: list[str] | None = None, timeout: float = 120.0
+    url: str,
+    limit: int,
+    extra_args: list[str] | None = None,
+    timeout: float = 120.0,
+    flat: bool = True,
 ) -> list[dict]:
     """Trả danh sách entry thô. Ném DiscoverError khi yt-dlp không ra gì.
 
@@ -49,7 +53,8 @@ def dump_flat(
         raise ValueError(f"limit phải dương, nhận {limit}")
     cmd = [
         "yt-dlp",
-        "--flat-playlist",
+        # flat=False: mở từng video để có tiêu đề/ảnh — chậm hơn nhiều.
+        *(["--flat-playlist"] if flat else ["--skip-download"]),
         "--dump-json",
         "--ignore-errors",
         "--playlist-end",

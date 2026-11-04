@@ -5,7 +5,7 @@
   <input type="hidden" name="run" value="1">
   <input name="q" id="scanQueryInput" value="{{ q }}" placeholder="{{ 'file .json đã nạp, sec_uid hoặc URL kênh' if platform == 'douyin' else 'hashtag, @tên, từ khóa hot hoặc URL' }}" list="suggest-list" autocomplete="off">
   <datalist id="suggest-list">
-    {% if platform in ('youtube', 'tiktok') %}
+    {% if platform in ('youtube', 'tiktok', 'bilibili') %}
       {% for t in tags_all %}
       <option value="{{ t.q }}">{{ t.vi }}</option>
       {% endfor %}
@@ -29,7 +29,7 @@
 </form>
 
 <div class="suggest-box">
-  {% if platform in ('youtube', 'tiktok') %}
+  {% if platform in ('youtube', 'tiktok', 'bilibili') %}
     {% if tags_topic %}
     <div class="suggest-section">
       <div class="suggest-title">🔥 <b>Gợi ý chủ đề (bấm để quét ngay):</b> <a class="suggest-edit" href="/tags?platform={{ platform }}">✎ sửa tag</a></div>
@@ -238,6 +238,8 @@
     Ô trên hiểu 4 kiểu: từ khóa (tự lọc dưới 4 phút), <code>#shorts</code> (hashtag), <code>@tên</code> (tab Shorts của kênh), hoặc dán link trực tiếp.
   {% elif platform == 'tiktok' %}
     Hashtag hoặc <code>@tên</code>. TikTok thường đòi cookie — xem <code>[discover.tiktok]</code>.
+  {% elif platform == 'bilibili' %}
+    Từ khoá (nên gõ tiếng Trung), <code>@uid</code> / uid số (kênh <code>space.bilibili.com/…</code>), hoặc dán link. Bilibili chặn khách (lỗi 412) — đặt cookie ở <code>[discover.bilibili]</code>.
   {% else %}
     Đường dẫn file <code>.json</code> đã nạp (ưu tiên), hoặc id người dùng / URL — hai kiểu sau đi qua yt-dlp, cần cookie và IP ra được Trung Quốc.
   {% endif %}
@@ -311,7 +313,7 @@
           {% endif %}
           <select name="lang" title="Ngôn ngữ gốc">
             <option value="auto">tự nhận</option>
-            <option value="zh" {{ 'selected' if c.platform == 'douyin' }}>Trung</option>
+            <option value="zh" {{ 'selected' if c.platform in ('douyin', 'bilibili') }}>Trung</option>
             <option value="en">Anh</option>
           </select>
           <button class="primary">Chọn và chạy</button>

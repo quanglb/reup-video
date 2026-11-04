@@ -140,6 +140,12 @@ limit = 12
 cookies_from_browser = ""
 
 # Chống dính chính sách TikTok — docs/tiktok-policy-plan.md.
+# Bilibili: từ khoá (tiếng Trung), @uid kênh, hoặc URL. Không cookie thì bị 412.
+[discover.bilibili]
+query = "搞笑"
+limit = 12
+cookies_from_browser = "chrome"
+
 # precheck (sau fetch) chỉ dùng luật, 0 token. policy (trước export) kiểm cục bộ
 # bằng Apple Vision rồi gọi AI MỘT lần/video với ảnh ghép + tiêu đề + nội dung.
 # Bị chặn mà vẫn muốn đăng: `uv run reup policy-allow <job_id>` rồi chạy lại.

@@ -211,3 +211,29 @@ def test_discover_failure_returns_error_code(
     fake_ytdlp(monkeypatch, "", code=1, stderr="gãy")
     assert main([*_args(tmp_path, config_file), "discover"]) == 1
     assert "reup add" in capsys.readouterr().err
+
+
+def test_bilibili_feed_url_and_entry():
+    from reup.adapters import bilibili
+
+    assert bilibili.feed_url("猫咪", 5) == "bilisearch10:猫咪"
+    assert bilibili.feed_url("@946974") == "https://space.bilibili.com/946974/video"
+    assert bilibili.feed_url("946974") == "https://space.bilibili.com/946974/video"
+    assert bilibili.feed_url("https://b23.tv/x") == "https://b23.tv/x"
+    c = bilibili.parse_entry({"id": "BV1xx411c7mD", "title": "t", "duration": 60})
+    assert c.url == "https://www.bilibili.com/video/BV1xx411c7mD"
+    assert "bvid=BV1xx411c7mD" in c.embed_url
+    assert bilibili.parse_entry({"id": "BV1", "duration": 999}) is None
+
+
+def test_bilibili_search_item():
+    from reup.adapters import bilibili
+
+    c = bilibili.parse_search_item({
+        "bvid": "BV1gw4T6uEdB", "duration": "2:08", "play": 481, "like": 37,
+        "author": "a", "pubdate": 0, "pic": "//i1.hdslb.com/x.jpg",
+        "title": '即将到达<em class="keyword">旅行</em> &amp; B',
+    })
+    assert (c.duration_ms, c.title, c.thumbnail) == (128_000, "即将到达旅行 & B", "https://i1.hdslb.com/x.jpg")
+    assert bilibili.parse_search_item({"bvid": "BV1", "duration": "7:53"}) is None  # > 3 phút
+    assert bilibili._clock_s("1:02:03") == 3723

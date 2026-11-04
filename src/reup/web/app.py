@@ -875,7 +875,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         if not queue:
             raise HTTPException(status_code=404, detail="hàng chờ trống")
         v = queue[0]
-        lang = "zh" if v["platform"] == "douyin" else "auto"
+        lang = "zh" if v["platform"] in ("douyin", "bilibili") else "auto"
         run_saved(v["platform"], v["video_id"], lang)
         back = f"/saved?platform={platform}" if platform else "/saved"
         return RedirectResponse(back, status_code=303)
@@ -912,7 +912,7 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         from reup.stages.split import DEFAULT_MAX_S
 
         for v in picked:
-            lang = "zh" if v["platform"] == "douyin" else "auto"
+            lang = "zh" if v["platform"] in ("douyin", "bilibili") else "auto"
             long = (v.get("duration_ms") or 0) > DEFAULT_MAX_S * 1000
             run_saved(v["platform"], v["video_id"], lang, split and long)
         return len(picked)

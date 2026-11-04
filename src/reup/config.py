@@ -9,7 +9,7 @@ AUDIO_MODES = ("separate", "drop_original")
 TTS_ENGINES = ("capcut", "stub")
 ASR_ENGINES = ("whisper", "capcut")
 LLM_PROVIDERS = ("gemini", "ollama", "cassette", "openai")
-PLATFORMS = ("youtube", "tiktok", "douyin")
+PLATFORMS = ("youtube", "tiktok", "douyin", "bilibili")
 # Năm stage gọi LLM. Mỗi cái chịu được một model khác nhau: chỉ `translate`
 # thật sự cần model giỏi, bốn cái còn lại không phải suy luận gì nhiều.
 LLM_ROLES = ("reconcile", "translate", "fit", "export", "pronounce", "policy")
@@ -181,6 +181,7 @@ class DiscoverConfig:
     tiktok: PlatformDiscoverConfig = PlatformDiscoverConfig(query="xuhuong")
     douyin: PlatformDiscoverConfig = PlatformDiscoverConfig()
 
+    bilibili: PlatformDiscoverConfig = PlatformDiscoverConfig(query="搞笑")
     def for_platform(self, name: str) -> PlatformDiscoverConfig:
         if name not in PLATFORMS:
             raise ValueError(

@@ -12,7 +12,7 @@ import uuid
 from pathlib import Path
 from typing import Callable
 
-PLATFORMS = ("youtube", "tiktok", "douyin")
+PLATFORMS = ("youtube", "tiktok", "douyin", "bilibili")
 GROUPS = {"topic": "Chủ đề", "hashtag": "Hashtag"}
 LANGS = {"en": "Tiếng Anh", "zh": "Tiếng Trung"}
 DEFAULTS = Path(__file__).with_name("default_tags.json")
@@ -22,7 +22,7 @@ SCHEMA = {"type": "object", "properties": {"q": {"type": "string"}}, "required":
 
 def default_lang(platform: str) -> str:
     # Tìm trên Douyin bằng tiếng Anh gần như không ra gì.
-    return "zh" if platform == "douyin" else "en"
+    return "zh" if platform in ("douyin", "bilibili") else "en"
 
 
 def _read(path: Path) -> list:

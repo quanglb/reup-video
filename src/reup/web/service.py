@@ -558,6 +558,7 @@ PLATFORM_LABELS = {
     "youtube": "YouTube Shorts",
     "tiktok": "TikTok",
     "douyin": "Douyin",
+    "bilibili": "Bilibili",
 }
 
 
