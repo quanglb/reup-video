@@ -1,0 +1,1361 @@
+{
+  "series": {
+    "nau_an": {
+      "id": "nau_an",
+      "name": "Nấu ăn gia đình - 臧小厨家常菜",
+      "created_at": "2026-10-14T23:27:26.093134",
+      "videos": {
+        "7696430257011772687": {
+          "video_id": "7696430257011772687",
+          "title": "Thèm chân gà thử ngay cách xào tỏi đậm đà thơm nức mũi",
+          "original_title": "以后要是想吃鸡爪，你一定要试试这个蒜香鸡爪的做法。蒜香浓郁 入味又好吃！#蒜香鸡爪",
+          "url": "https://www.douyin.com/video/7696430257011772687",
+          "status": "done",
+          "output_file": "output/2026-10-14/05. Thèm chân gà thử ngay cách xào tỏi đậm đà thơm nức mũi.mp4",
+          "updated_at": "2026-10-14T23:27:26.093143",
+          "created_at": "2026-10-14T23:27:26.093143"
+        },
+        "7696059696729345331": {
+          "video_id": "7696059696729345331",
+          "title": "Canh cà chua đậu hũ thanh mát bổ dưỡng bé nào cũng mê",
+          "original_title": "家里有小朋友的，您一定要试试这道番茄豆腐汤。汤酸开胃 营养又好喝！#番茄豆腐汤",
+          "url": "https://www.douyin.com/video/7696059696729345331",
+          "status": "done",
+          "output_file": "output/2026-10-14/nau_an/01. Canh cà chua đậu hũ thanh mát bổ dưỡng bé nào cũng mê.mp4",
+          "updated_at": "2026-10-14T23:36:19.244374",
+          "created_at": "2026-10-14T23:27:26.094841"
+        },
+        "7695688079784316175": {
+          "video_id": "7695688079784316175",
+          "title": "Bí quyết xào nấm sò với giăm bông thơm nức, cực kỳ hao cơm",
+          "original_title": "今天分享一道简单又好吃的家常菜，鲜香入味特别下饭！#青椒火腿炒平菇",
+          "url": "https://www.douyin.com/video/7695688079784316175",
+          "status": "done",
+          "output_file": "output/2026-10-14/nau_an/02. Bí quyết xào nấm sò với giăm bông thơm nức, cực kỳ hao cơm.mp4",
+          "updated_at": "2026-10-14T23:37:02.241518",
+          "created_at": "2026-10-14T23:27:26.095020"
+        },
+        "7694574823279824138": {
+          "video_id": "7694574823279824138",
+          "title": "Thử ngay cách hầm nạm bò với cà chua mềm rục, nước sốt sánh mịn",
+          "original_title": "以后要是想吃番茄土豆炖牛腩，你就试试像我这样做。软烂入味 汤汁浓郁！#番茄土豆炖牛腩",
+          "url": "https://www.douyin.com/video/7694574823279824138",
+          "status": "done",
+          "output_file": "output/2026-10-14/nau_an/03. Thử ngay cách hầm nạm bò với cà chua mềm rục, nước sốt sánh mịn.mp4",
+          "updated_at": "2026-10-14T23:41:51.272650",
+          "created_at": "2026-10-14T23:27:26.095188"
+        },
+        "7694203788227398921": {
+          "video_id": "7694203788227398921",
+          "title": "Đùi gà kết hợp với nấm mỡ xào kiểu này mềm mọng thấm vị cực trôi cơm",
+          "original_title": "以后把鸡腿买回家，你一定要试试这个口蘑炒鸡腿肉的做法。滑嫩又入味 特别好吃！#口蘑炒鸡腿肉",
+          "url": "https://www.douyin.com/video/7694203788227398921",
+          "status": "done",
+          "output_file": "output/2026-10-14/nau_an/04. Đùi gà kết hợp với nấm mỡ xào kiểu này mềm mọng thấm vị cực trôi cơm.mp4",
+          "updated_at": "2026-10-14T23:48:02.775945",
+          "created_at": "2026-10-14T23:27:26.095334"
+        },
+        "7690866737965923035": {
+          "video_id": "7690866737965923035",
+          "title": "Bắp cải xào miến muốn tơi sợi không bị dính nát thì nhớ mẹo này",
+          "original_title": "以后要是想吃包菜炒粉丝，你就按我这个方法做。不沾不碎 又入味！#包菜炒粉丝",
+          "url": "https://www.douyin.com/video/7690866737965923035",
+          "status": "done",
+          "output_file": "output/2026-10-14/nau_an/05. Bắp cải xào miến muốn tơi sợi không bị dính nát thì nhớ mẹo này.mp4",
+          "updated_at": "2026-10-14T23:54:01.588035",
+          "created_at": "2026-10-14T23:27:26.095496"
+        },
+        "7690492840745141926": {
+          "video_id": "7690492840745141926",
+          "title": "Bữa tối ấm bụng với nồi cải thảo om đậu hũ tôm nấm ngọt thanh",
+          "original_title": "今天分享一个简单又好吃的白菜豆腐煲。味道鲜美 好吃又下饭！#白菜豆腐煲",
+          "url": "https://www.douyin.com/video/7690492840745141926",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/01. Bữa tối ấm bụng với nồi cải thảo om đậu hũ tôm nấm ngọt thanh.mp4",
+          "updated_at": "2026-10-15T00:00:08.389274",
+          "created_at": "2026-10-14T23:27:26.095643"
+        },
+        "7688638060128374050": {
+          "video_id": "7688638060128374050",
+          "title": "Khách đến nhà làm ngay đĩa cá vược hấp xì dầu ngọt mềm đậm đà",
+          "original_title": "中秋节快要到了家里来客，你就像我这样做个清蒸鲈鱼。肉质鲜嫩 做法简单又好吃！#清蒸鲈鱼",
+          "url": "https://www.douyin.com/video/7688638060128374050",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/02. Khách đến nhà làm ngay đĩa cá vược hấp xì dầu ngọt mềm đậm đà.mp4",
+          "updated_at": "2026-10-15T00:04:55.512702",
+          "created_at": "2026-10-14T23:27:26.095794"
+        },
+        "7688267337979448622": {
+          "video_id": "7688267337979448622",
+          "title": "Tôm miến sốt tỏi tự làm ở nhà cực dễ, miến đẫm sốt ăn là mê",
+          "original_title": "以后要是想吃蒜蓉粉丝虾，你就像我这样自己在家做。蒜香浓郁 虾肉Q弹又入味!#蒜蓉粉丝虾",
+          "url": "https://www.douyin.com/video/7688267337979448622",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/03. Tôm miến sốt tỏi tự làm ở nhà cực dễ, miến đẫm sốt ăn là mê.mp4",
+          "updated_at": "2026-10-15T00:12:17.069785",
+          "created_at": "2026-10-14T23:27:26.095980"
+        },
+        "7687896894118432042": {
+          "video_id": "7687896894118432042",
+          "title": "Mẹo xào thịt bò với nấm mỡ mềm mọng nước, bé kén ăn cũng vét sạch nồi",
+          "original_title": "今天分享一道小朋友爱吃的口蘑炒牛肉，味道鲜美，牛肉又滑又嫩 特别好吃！#口蘑炒牛肉",
+          "url": "https://www.douyin.com/video/7687896894118432042",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/06. Mẹo xào thịt bò với nấm mỡ mềm mọng nước, bé kén ăn cũng vét sạch nồi.mp4",
+          "updated_at": "2026-10-15T01:38:51.418741",
+          "created_at": "2026-10-14T23:27:26.096142"
+        },
+        "7686784881371680035": {
+          "video_id": "7686784881371680035",
+          "title": "Cách làm sườn chiên tỏi giòn xém ngoài mọng mềm trong cực bén cơm",
+          "original_title": "今天做了我们家孩子爱吃的蒜香排骨，外焦里嫩 一口一个越吃越香！#蒜香排骨",
+          "url": "https://www.douyin.com/video/7686784881371680035",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/07. Cách làm sườn chiên tỏi giòn xém ngoài mọng mềm trong cực bén cơm.mp4",
+          "updated_at": "2026-10-15T01:39:03.013945",
+          "created_at": "2026-10-14T23:27:26.096358"
+        },
+        "7686410945509264655": {
+          "video_id": "7686410945509264655",
+          "title": "Đổi vị với đùi gà sốt coca thêm táo lạ miệng, thịt mềm mọng nước",
+          "original_title": "以后把鸡腿买回家，你就像我这样做个可乐鸡排。鲜嫩多汁 做法简单又好吃！#可乐鸡排",
+          "url": "https://www.douyin.com/video/7686410945509264655",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/04. Đổi vị với đùi gà sốt coca thêm táo lạ miệng, thịt mềm mọng nước.mp4",
+          "updated_at": "2026-10-15T00:27:08.200636",
+          "created_at": "2026-10-14T23:27:26.096551"
+        },
+        "7686042975067032884": {
+          "video_id": "7686042975067032884",
+          "title": "Nồi bò om cà chua chua ngọt mềm tan, tuần nấu hai lần bé vẫn mê",
+          "original_title": "我每周都会给孩子做两次牛肉，尤其是这个番茄牛肉煲。肉片滑嫩又入味 孩子们特别爱吃！#番茄牛肉煲",
+          "url": "https://www.douyin.com/video/7686042975067032884",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/08. Nồi bò om cà chua chua ngọt mềm tan, tuần nấu hai lần bé vẫn mê.mp4",
+          "updated_at": "2026-10-15T01:41:21.403607",
+          "created_at": "2026-10-14T23:27:26.096752"
+        },
+        "7685668859235372338": {
+          "video_id": "7685668859235372338",
+          "title": "Thử ngay kiểu tôm xóc cay giòn rụm này, ăn cả vỏ vẫn cuốn",
+          "original_title": "以后大虾买回家，您一定要试试这个香辣脆脆虾的做法。焦香酥脆 越吃越香！#香辣脆脆虾",
+          "url": "https://www.douyin.com/video/7685668859235372338",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/09. Thử ngay kiểu tôm xóc cay giòn rụm này, ăn cả vỏ vẫn cuốn.mp4",
+          "updated_at": "2026-10-15T01:46:24.894746",
+          "created_at": "2026-10-14T23:27:26.096964"
+        },
+        "7685297759187930383": {
+          "video_id": "7685297759187930383",
+          "title": "Ai bảo nạc dăm chỉ để kho, đem xào tiêu tỏi mềm mọng thế này mới đỉnh",
+          "original_title": "以后把梅花肉买回家，您一定要试试这个蒜香黑椒梅肉粒。鲜嫩多汁 一口一个越吃越香！#蒜香黑椒梅肉粒",
+          "url": "https://www.douyin.com/video/7685297759187930383",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/10. Ai bảo nạc dăm chỉ để kho, đem xào tiêu tỏi mềm mọng thế này mới đỉnh.mp4",
+          "updated_at": "2026-10-15T01:51:34.201085",
+          "created_at": "2026-10-14T23:27:26.097174"
+        },
+        "7684184437432618259": {
+          "video_id": "7684184437432618259",
+          "title": "Đem mực xào cùng tôm theo kiểu chảo khô, cay tê thơm lừng cực đã",
+          "original_title": "以后把鱿鱼买回家，你就像我这样做。鲜香入味 特别好吃又下饭！#干锅鱿鱼虾",
+          "url": "https://www.douyin.com/video/7684184437432618259",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/11. Đem mực xào cùng tôm theo kiểu chảo khô, cay tê thơm lừng cực đã.mp4",
+          "updated_at": "2026-10-15T01:53:55.564683",
+          "created_at": "2026-10-14T23:27:26.097382"
+        },
+        "7683816337260530971": {
+          "video_id": "7683816337260530971",
+          "title": "Thịt thăn trượt dưa chua mềm mượt, chan nước canh chua dịu cực trôi cơm",
+          "original_title": "以后要是想吃酸菜滑肉，你就试试像我这样在家做。汤酸开胃 肉片滑嫩 ！#酸菜滑肉",
+          "url": "https://www.douyin.com/video/7683816337260530971",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/12. Thịt thăn trượt dưa chua mềm mượt, chan nước canh chua dịu cực trôi cơm.mp4",
+          "updated_at": "2026-10-15T01:59:12.501062",
+          "created_at": "2026-10-14T23:27:26.097658"
+        },
+        "7683442533841587471": {
+          "video_id": "7683442533841587471",
+          "title": "Đổi bữa với đùi gà xào ớt cay thơm mềm mọng, cả nhà gắp không ngừng đũa",
+          "original_title": "今天分享一道好吃又下饭的家常菜，香辣过瘾 滑嫩又入味。做法还简单！#青椒鸡腿肉",
+          "url": "https://www.douyin.com/video/7683442533841587471",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/13. Đổi bữa với đùi gà xào ớt cay thơm mềm mọng, cả nhà gắp không ngừng đũa.mp4",
+          "updated_at": "2026-10-15T02:03:35.266437",
+          "created_at": "2026-10-14T23:27:26.097893"
+        },
+        "7683071293381496099": {
+          "video_id": "7683071293381496099",
+          "title": "Tôm nõn xào chung thịt bò mềm mọng, đĩa xào đậm vị vừa ngon vừa lạ",
+          "original_title": "以后把大虾和牛肉买回家，你一定要试试我这个做法。鲜香滑嫩，特别好吃！#虾仁炒牛肉",
+          "url": "https://www.douyin.com/video/7683071293381496099",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/14. Tôm nõn xào chung thịt bò mềm mọng, đĩa xào đậm vị vừa ngon vừa lạ.mp4",
+          "updated_at": "2026-10-15T02:08:54.554454",
+          "created_at": "2026-10-14T23:27:26.098143"
+        },
+        "7682700052162235657": {
+          "video_id": "7682700052162235657",
+          "title": "Mẹo đổ nước sôi hấp trứng mềm mịn như pudding không lo bị rỗ",
+          "original_title": "以后孩子要是想吃蒸鸡蛋，你就试试我这个方法。鲜香滑嫩 孩子们特别爱吃！#蒸鸡蛋",
+          "url": "https://www.douyin.com/video/7682700052162235657",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/15. Mẹo đổ nước sôi hấp trứng mềm mịn như pudding không lo bị rỗ.mp4",
+          "updated_at": "2026-10-15T02:12:44.548008",
+          "created_at": "2026-10-14T23:27:26.098385"
+        },
+        "7681215923847548187": {
+          "video_id": "7681215923847548187",
+          "title": "Bí kíp ướp thịt thăn xào ớt xanh giữ trọn độ ẩm mềm mọng",
+          "original_title": "今天分享一道简单又好吃的青椒炒肉丝，鲜香入味 又滑又嫩 全家都爱吃!#青椒炒肉丝",
+          "url": "https://www.douyin.com/video/7681215923847548187",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/16. Bí kíp ướp thịt thăn xào ớt xanh giữ trọn độ ẩm mềm mọng.mp4",
+          "updated_at": "2026-10-15T02:18:07.919293",
+          "created_at": "2026-10-14T23:27:26.098619"
+        },
+        "7680844701125119278": {
+          "video_id": "7680844701125119278",
+          "title": "Kết hợp thịt bò với cà chua trứng mềm mọng, các bé vét sạch đĩa cơm",
+          "original_title": "今天做了我们家两个孩子，都爱吃的番茄牛肉炒鸡蛋。鲜香滑嫩 营养又好吃！#番茄鸡蛋炒牛肉",
+          "url": "https://www.douyin.com/video/7680844701125119278",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/17. Kết hợp thịt bò với cà chua trứng mềm mọng, các bé vét sạch đĩa cơm.mp4",
+          "updated_at": "2026-10-15T02:23:42.056916",
+          "created_at": "2026-10-14T23:27:26.098859"
+        },
+        "7680473595574832435": {
+          "video_id": "7680473595574832435",
+          "title": "Canh sườn hầm củ sen ngọt thanh bổ dưỡng cả nhà đều mê",
+          "original_title": "秋藕最养人，立秋后一定要多给家人做几次这个莲藕排骨汤。鲜甜滋润，营养又美味！#莲藕排骨汤",
+          "url": "https://www.douyin.com/video/7680473595574832435",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/18. Canh sườn hầm củ sen ngọt thanh bổ dưỡng cả nhà đều mê.mp4",
+          "updated_at": "2026-10-15T02:26:27.337795",
+          "created_at": "2026-10-14T23:27:26.099114"
+        },
+        "7680102597218405686": {
+          "video_id": "7680102597218405686",
+          "title": "Ức gà làm theo cách này chiên lên giòn tan, bên trong vẫn mọng nước",
+          "original_title": "以后孩子要是想吃炸鸡排，你就像我这样自己在家做。外酥里嫩 好吃到停不下来！ #炸鸡排",
+          "url": "https://www.douyin.com/video/7680102597218405686",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/19. Ức gà làm theo cách này chiên lên giòn tan, bên trong vẫn mọng nước.mp4",
+          "updated_at": "2026-10-15T02:31:00.133177",
+          "created_at": "2026-10-14T23:27:26.099382"
+        },
+        "7677875998007872814": {
+          "video_id": "7677875998007872814",
+          "title": "Thịt ba chỉ kho đỏ au mềm rục không ngấy, tụi nhỏ chan cơm ăn sạch",
+          "original_title": "今天做了一道孩子们都爱吃的红烧肉，吃起来软糯入味 肥而不腻 ！#红烧肉",
+          "url": "https://www.douyin.com/video/7677875998007872814",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/20. Thịt ba chỉ kho đỏ au mềm rục không ngấy, tụi nhỏ chan cơm ăn sạch.mp4",
+          "updated_at": "2026-10-15T02:36:34.762295",
+          "created_at": "2026-10-14T23:27:26.099698"
+        },
+        "7676391694288584942": {
+          "video_id": "7676391694288584942",
+          "title": "Tôm đảo vỏ giòn rụm rồi rim tỏi ớt, hương vị đậm đà hao cơm cực kỳ",
+          "original_title": "以后把大虾买回家，你一定要试试这个蒜蓉大虾的做法。香辣入味 蒜香浓郁！#蒜蓉大虾",
+          "url": "https://www.douyin.com/video/7676391694288584942",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/21. Tôm đảo vỏ giòn rụm rồi rim tỏi ớt, hương vị đậm đà hao cơm cực kỳ.mp4",
+          "updated_at": "2026-10-15T02:40:03.247471",
+          "created_at": "2026-10-14T23:27:26.100086"
+        },
+        "7674907485450341638": {
+          "video_id": "7674907485450341638",
+          "title": "Thêm một bước chần giấm, đĩa khoai tây xào giòn sần sật bắt vị",
+          "original_title": "以后要是想吃酸辣土豆丝，你就像我这样自己在家做。酸辣脆爽 开胃又好吃！#酸辣土豆丝",
+          "url": "https://www.douyin.com/video/7674907485450341638",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/22. Thêm một bước chần giấm, đĩa khoai tây xào giòn sần sật bắt vị.mp4",
+          "updated_at": "2026-10-15T02:45:16.400532",
+          "created_at": "2026-10-14T23:27:26.100406"
+        },
+        "7673794042295061794": {
+          "video_id": "7673794042295061794",
+          "title": "Tự pha sốt làm đĩa thịt xào vị cá chua ngọt mềm mướt cực cuốn",
+          "original_title": "以后要是想吃鱼香肉丝，你就像我这样自己在家做。酸甜可口 肉丝又滑又嫩！#鱼香肉丝",
+          "url": "https://www.douyin.com/video/7673794042295061794",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/23. Tự pha sốt làm đĩa thịt xào vị cá chua ngọt mềm mướt cực cuốn.mp4",
+          "updated_at": "2026-10-15T02:52:09.607185",
+          "created_at": "2026-10-14T23:27:26.100769"
+        },
+        "7673422976594808104": {
+          "video_id": "7673422976594808104",
+          "title": "Thịt thăn áo bột ngâm kiểu này chiên lên giòn rụm đẫm sốt chua ngọt",
+          "original_title": "以后要是想吃锅包肉，你就像我这样自己在家做。酸甜可口 做法简单又好吃！#锅包肉",
+          "url": "https://www.douyin.com/video/7673422976594808104",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/24. Thịt thăn áo bột ngâm kiểu này chiên lên giòn rụm đẫm sốt chua ngọt.mp4",
+          "updated_at": "2026-10-15T02:59:51.290207",
+          "created_at": "2026-10-14T23:27:26.101127"
+        },
+        "7673055125149109542": {
+          "video_id": "7673055125149109542",
+          "title": "Bí quyết làm thịt nạc vai sốt tỏi thơm nức, ngoài giòn trong mềm mọng",
+          "original_title": "今天做了一道孩子特别爱吃的蒜香猪，蒜香浓郁 鲜嫩多汁。做法简单又好吃！#蒜香猪排",
+          "url": "https://www.douyin.com/video/7673055125149109542",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/05. Bí quyết làm thịt nạc vai sốt tỏi thơm nức, ngoài giòn trong mềm mọng.mp4",
+          "updated_at": "2026-10-15T03:00:07.641443",
+          "created_at": "2026-10-14T23:27:26.101457"
+        },
+        "7672684643795193088": {
+          "video_id": "7672684643795193088",
+          "title": "Bí quyết nấu bát canh trứng ngọt thanh đậm đà cực nhanh gọn",
+          "original_title": "以后要是想喝汤了，你就像我这样做个三鲜汤。汤鲜味美，做法还简单！#三鲜汤",
+          "url": "https://www.douyin.com/video/7672684643795193088",
+          "status": "done",
+          "output_file": "output/2026-10-15/nau_an/25. Bí quyết nấu bát canh trứng ngọt thanh đậm đà cực nhanh gọn.mp4",
+          "updated_at": "2026-10-15T03:05:32.747597",
+          "created_at": "2026-10-14T23:27:26.101784"
+        }
+      },
+      "author": "臧小厨家常菜",
+      "sec_user_id": "MS4wLjABAAAApE_OxG8gLR__forzl96YSuSonmUeASwQxskFei5zweI",
+      "output_dir": "output/2026-10-14/nau_an"
+    },
+    "ao_thuat": {
+      "id": "ao_thuat",
+      "name": "Ảo thuật - 魔术师TonyWang",
+      "created_at": "2026-10-15T20:48:23.751212",
+      "videos": {
+        "7666745538318859764": {
+          "video_id": "7666745538318859764",
+          "title": "",
+          "original_title": "教你一招全程不用碰牌的找牌魔术！ 零手法！超简单！学会马上惊呆妹妹！#魔术教学 #见证奇迹的时刻 #真实生活分享计划 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7666745538318859764",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.751220",
+          "created_at": "2026-10-15T20:48:23.751220"
+        },
+        "7668944018173035700": {
+          "video_id": "7668944018173035700",
+          "title": "",
+          "original_title": "教你一招突然把妹妹的魔方瞬间还原！学会直接惊呆妹妹！ #魔术教学 #见证奇迹的时刻 #生活小魔术 #真实生活分享计划 #魔术",
+          "url": "https://www.douyin.com/video/7668944018173035700",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.751921",
+          "created_at": "2026-10-15T20:48:23.751921"
+        },
+        "7659691876034832000": {
+          "video_id": "7659691876034832000",
+          "title": "",
+          "original_title": "教你用4张A精准找出观众选的牌！ #魔术教学 #纯手法魔术 #见证奇迹的时刻 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7659691876034832000",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.752375",
+          "created_at": "2026-10-15T20:48:23.752375"
+        },
+        "7661893727531911650": {
+          "video_id": "7661893727531911650",
+          "title": "",
+          "original_title": "教你一招多重连续变牌！学会直接吓哭女朋友！ #魔术教学 #纯手法魔术 #是时候展现真正的牌技了 #见证奇迹的时刻 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7661893727531911650",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.752794",
+          "created_at": "2026-10-15T20:48:23.752794"
+        },
+        "7607000219255604840": {
+          "video_id": "7607000219255604840",
+          "title": "",
+          "original_title": "过年不想打牌怎么办？学会这五招！轻松吓跑你的亲戚朋友们！ #是时候展现真正的牌技了 #我要验牌 #给我擦皮鞋 #赌神 #魔术教学",
+          "url": "https://www.douyin.com/video/7607000219255604840",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.753184",
+          "created_at": "2026-10-15T20:48:23.753184"
+        },
+        "7478996061072280872": {
+          "video_id": "7478996061072280872",
+          "title": "",
+          "original_title": "教你一招一摸就变的变牌手法！学会吓哭妹妹！ #魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #纯手法魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7478996061072280872",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.753629",
+          "created_at": "2026-10-15T20:48:23.753629"
+        },
+        "7687083342165163380": {
+          "video_id": "7687083342165163380",
+          "title": "",
+          "original_title": "教你怪盗基德同款，单手滚硬币！ #魔术教学 #怪盗基德 #是时候展现真正的技术了 #视觉魔术 #魔术",
+          "url": "https://www.douyin.com/video/7687083342165163380",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.754049",
+          "created_at": "2026-10-15T20:48:23.754049"
+        },
+        "7686049865248323828": {
+          "video_id": "7686049865248323828",
+          "title": "",
+          "original_title": "教你一招超简单实用的巧合魔术！ #魔术教学 #见证奇迹的时刻 #魔术 #纸牌魔术 #扑克魔术",
+          "url": "https://www.douyin.com/video/7686049865248323828",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.754462",
+          "created_at": "2026-10-15T20:48:23.754462"
+        },
+        "7683457940087862223": {
+          "video_id": "7683457940087862223",
+          "title": "",
+          "original_title": "教你一个谁看谁懵的4A魔术！ 不需要任何手法！不需要提前准备！#魔术教学 #见证奇迹的时刻 #纸牌魔术 #真实生活分享计划 #魔术",
+          "url": "https://www.douyin.com/video/7683457940087862223",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.754882",
+          "created_at": "2026-10-15T20:48:23.754882"
+        },
+        "7679408920167150528": {
+          "video_id": "7679408920167150528",
+          "title": "",
+          "original_title": "教你一招可以同时摸两个妹妹手的纸牌魔术流程！ 零手法！超简单！#魔术教学 #见证奇迹的时刻 #撩妹魔术 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7679408920167150528",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.755329",
+          "created_at": "2026-10-15T20:48:23.755329"
+        },
+        "7675300555733133440": {
+          "video_id": "7675300555733133440",
+          "title": "",
+          "original_title": "教你一招空手变礼物！让你七夕也能轻松撩妹！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #真实生活分享计划 #生活小魔术",
+          "url": "https://www.douyin.com/video/7675300555733133440",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.755764",
+          "created_at": "2026-10-15T20:48:23.755764"
+        },
+        "7671904282934127092": {
+          "video_id": "7671904282934127092",
+          "title": "",
+          "original_title": "教你一招不怕洗牌！零手法！不用提前准备的预言魔术！ #魔术教学 #见证奇迹的时刻 #真实生活分享计划 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7671904282934127092",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.756196",
+          "created_at": "2026-10-15T20:48:23.756196"
+        },
+        "7664499789795601251": {
+          "video_id": "7664499789795601251",
+          "title": "",
+          "original_title": "教你一招假装失误，结尾有反转效果的找牌魔术！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #真实生活分享计划 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7664499789795601251",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.756625",
+          "created_at": "2026-10-15T20:48:23.756625"
+        },
+        "7689312263270754152": {
+          "video_id": "7689312263270754152",
+          "title": "",
+          "original_title": "教你五个简单、即兴、实用的生活小魔术！ #魔术教学 #见证奇迹的时刻 #是时候展现真正的技术了 #魔术 #生活小魔术",
+          "url": "https://www.douyin.com/video/7689312263270754152",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.757066",
+          "created_at": "2026-10-15T20:48:23.757066"
+        },
+        "7677471535452676200": {
+          "video_id": "7677471535452676200",
+          "title": "",
+          "original_title": "教你一招不用提前准备！不用手法的找牌魔术！ 学会轻松吓唬妹妹！#魔术教学 #见证奇迹的时刻 #撩妹魔术 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7677471535452676200",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.757509",
+          "created_at": "2026-10-15T20:48:23.757509"
+        },
+        "7442578847234657590": {
+          "video_id": "7442578847234657590",
+          "title": "",
+          "original_title": "教你一招简单实用的三段假切牌！是学习纸牌魔术的必要手法之一！ #魔术教学 #手法魔术 #魔术 #纯手法魔术教学 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7442578847234657590",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.757985",
+          "created_at": "2026-10-15T20:48:23.757985"
+        },
+        "7427709013309148428": {
+          "video_id": "7427709013309148428",
+          "title": "",
+          "original_title": "教你一招超实用的三段假切牌！《654俱乐部》魔术流程的必要手法之一！#魔术教学 #是时候展现真正的牌技了 #手法魔术 #654俱乐部 #魔术",
+          "url": "https://www.douyin.com/video/7427709013309148428",
+          "status": "done",
+          "output_file": "",
+          "updated_at": "2026-10-15T20:48:23.758437",
+          "created_at": "2026-10-15T20:48:23.758437"
+        },
+        "7439650623995317516": {
+          "video_id": "7439650623995317516",
+          "title": "教你五个不用手法的扑克魔术！让你也可以成为一名魔术大佬！ #谁还不是一名魔术大佬了 #魔术教学 #是时候展现真正的牌技了 #魔术 #纸牌魔术",
+          "original_title": "教你五个不用手法的扑克魔术！让你也可以成为一名魔术大佬！ #谁还不是一名魔术大佬了 #魔术教学 #是时候展现真正的牌技了 #魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7439650623995317516",
+          "status": "done",
+          "output_file": "output/2026-10-15/ao_thuat/01. 5 trò ảo thuật bài siêu dễ ai cũng làm được ngay.mp4",
+          "updated_at": "2026-10-15T21:40:05",
+          "created_at": "2026-10-15T20:48:43.495789"
+        },
+        "7492323337679424768": {
+          "video_id": "7492323337679424768",
+          "title": "教你三个不用手法的撩妹魔术！让你可以轻松成为撩妹大神！ #魔术教学 #撩妹魔术 #见证奇迹的时刻 #变个魔术 #魔术",
+          "original_title": "教你三个不用手法的撩妹魔术！让你可以轻松成为撩妹大神！ #魔术教学 #撩妹魔术 #见证奇迹的时刻 #变个魔术 #魔术",
+          "url": "https://www.douyin.com/video/7492323337679424768",
+          "status": "done",
+          "output_file": "output/2026-10-15/ao_thuat/02. Bí kíp ảo thuật bài lãng mạn giúp bạn dễ dàng ghi điểm với crush.mp4",
+          "updated_at": "2026-10-15T22:12:13",
+          "created_at": "2026-10-15T20:48:43.496299"
+        },
+        "7504551081151941888": {
+          "video_id": "7504551081151941888",
+          "title": "教你五个学会能马上表演的生活小魔术！让你也轻松成为魔术大师！ #魔术教学 #生活小魔术 #见证奇迹的时刻 #神奇魔术 #魔术",
+          "original_title": "教你五个学会能马上表演的生活小魔术！让你也轻松成为魔术大师！ #魔术教学 #生活小魔术 #见证奇迹的时刻 #神奇魔术 #魔术",
+          "url": "https://www.douyin.com/video/7504551081151941888",
+          "status": "done",
+          "output_file": "output/2026-10-15/ao_thuat/03. Hô biến đồ vật quen thuộc thành màn biểu diễn cực kỳ ảo diệu.mp4",
+          "updated_at": "2026-10-15T22:29:29",
+          "created_at": "2026-10-15T20:48:43.496750"
+        },
+        "7531174873047452963": {
+          "video_id": "7531174873047452963",
+          "title": "教你9个学会就能马上装哔的变牌手法！ #魔术教学 #手法魔术 #变牌魔术教学 #纸牌魔术 #魔术",
+          "original_title": "教你9个学会就能马上装哔的变牌手法！ #魔术教学 #手法魔术 #变牌魔术教学 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7531174873047452963",
+          "status": "done",
+          "output_file": "output/2026-10-15/ao_thuat/04. Cách đổi bài siêu ảo diệu chỉ bằng vài thao tác tay khéo léo.mp4",
+          "updated_at": "2026-10-15T23:24:06",
+          "created_at": "2026-10-15T20:48:43.497202"
+        },
+        "7569214238918667456": {
+          "video_id": "7569214238918667456",
+          "title": "教你五个即兴实用生活小魔术！让你随时随地也可以化身魔术大师！ #魔术教学 #生活小魔术 #纯手法魔术 #即兴魔术 #魔术",
+          "original_title": "教你五个即兴实用生活小魔术！让你随时随地也可以化身魔术大师！ #魔术教学 #生活小魔术 #纯手法魔术 #即兴魔术 #魔术",
+          "url": "https://www.douyin.com/video/7569214238918667456",
+          "status": "done",
+          "output_file": "output/2026-10-16/ao_thuat/01. Trổ tài ảo thuật ngẫu hứng cực cuốn bằng những đồ vật quanh bạn.mp4",
+          "updated_at": "2026-10-16T00:00:28",
+          "created_at": "2026-10-15T20:48:43.497635"
+        },
+        "7556890826941730048": {
+          "video_id": "7556890826941730048",
+          "title": "一分钟教会你一招高级的变牌手法！ #魔术教学 #纯手法魔术 #见证奇迹的时刻 #纸牌魔术 #魔术",
+          "original_title": "一分钟教会你一招高级的变牌手法！ #魔术教学 #纯手法魔术 #见证奇迹的时刻 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7556890826941730048",
+          "status": "done",
+          "output_file": "output/2026-10-16/ao_thuat/02. Học nhanh kỹ thuật đổi bài chớp mắt cực mượt chỉ trong 1 phút.mp4",
+          "updated_at": "2026-10-16T00:11:17",
+          "created_at": "2026-10-15T20:48:43.498069"
+        },
+        "7489394836521438464": {
+          "video_id": "7489394836521438464",
+          "title": "教你一招纸牌瞬间互换！学会秀翻女朋友！ #纸牌魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #纯手法魔术 #魔术",
+          "original_title": "教你一招纸牌瞬间互换！学会秀翻女朋友！ #纸牌魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #纯手法魔术 #魔术",
+          "url": "https://www.douyin.com/video/7489394836521438464",
+          "status": "done",
+          "output_file": "output/2026-10-16/ao_thuat/03. Chiêu ảo thuật đổi lá bài ngay trước mắt cực dễ diễn cho bạn bè.mp4",
+          "updated_at": "2026-10-16T00:29:39",
+          "created_at": "2026-10-15T20:48:43.498498"
+        },
+        "7592563249154758498": {
+          "video_id": "7592563249154758498",
+          "title": "提前教你五个零手法、超简单的纸牌魔术！ 让你过年聚餐时可以随时随地大显身手！#魔术教学 #我要验牌 #见证奇迹的时刻 #是时候展现真正的牌技了 #魔术",
+          "original_title": "提前教你五个零手法、超简单的纸牌魔术！ 让你过年聚餐时可以随时随地大显身手！#魔术教学 #我要验牌 #见证奇迹的时刻 #是时候展现真正的牌技了 #魔术",
+          "url": "https://www.douyin.com/video/7592563249154758498",
+          "status": "done",
+          "output_file": "output/2026-10-16/ao_thuat/04. 5 trò ảo thuật bài không cần khéo tay cho bạn tha hồ biểu diễn dịp Tết.mp4",
+          "updated_at": "2026-10-16T01:49:13",
+          "created_at": "2026-10-15T20:48:43.498957"
+        },
+        "7539045348930161920": {
+          "video_id": "7539045348930161920",
+          "title": "教你一招全自动零手法即兴魔术流程！学会可以同时吓唬3个妹妹！ #魔术教学 #撩妹魔术 #见证奇迹的时刻 #纸牌魔术 #魔术",
+          "original_title": "教你一招全自动零手法即兴魔术流程！学会可以同时吓唬3个妹妹！ #魔术教学 #撩妹魔术 #见证奇迹的时刻 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7539045348930161920",
+          "status": "done",
+          "output_file": "output/2026-10-16/ao_thuat/05. Màn đoán trúng cùng lúc 3 lá bài cực ảo mà không cần dùng kỹ xảo.mp4",
+          "updated_at": "2026-10-16T02:01:17",
+          "created_at": "2026-10-15T20:48:43.499455"
+        },
+        "7476372822865038627": {
+          "video_id": "7476372822865038627",
+          "title": "教你一个零手法的扑克魔术！学会震惊女朋友！ #魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #扑克魔术 #魔术",
+          "original_title": "教你一个零手法的扑克魔术！学会震惊女朋友！ #魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7476372822865038627",
+          "status": "done",
+          "output_file": "output/2026-10-16/ao_thuat/06. Bộ bài tự lật ngửa tìm đúng lá bài vừa chọn sau cái búng tay.mp4",
+          "updated_at": "2026-10-16T02:13:47",
+          "created_at": "2026-10-15T20:48:43.499957"
+        },
+        "7447034175712021775": {
+          "video_id": "7447034175712021775",
+          "title": "教你一招可以把视觉效果拉满的变牌手法！学会秀翻女朋友！ #魔术教学 #是时候展现真正的牌技了 #魔术 #纯手法魔术教学 #手法魔术",
+          "original_title": "教你一招可以把视觉效果拉满的变牌手法！学会秀翻女朋友！ #魔术教学 #是时候展现真正的牌技了 #魔术 #纯手法魔术教学 #手法魔术",
+          "url": "https://www.douyin.com/video/7447034175712021775",
+          "status": "done",
+          "output_file": "output/2026-10-16/ao_thuat/07. Snap Change Cách đổi lá bài tức thì bằng động tác búng tay.mp4",
+          "updated_at": "2026-10-16T02:30:10",
+          "created_at": "2026-10-15T20:48:43.500553"
+        },
+        "7497849884739030324": {
+          "video_id": "7497849884739030324",
+          "title": "教你一个完全不用手法的缘分魔术！让你也可以轻松找到女朋友！ #魔术教学 #见证奇迹的时刻 #撩妹小魔术 #变个魔术 #神奇魔术",
+          "original_title": "教你一个完全不用手法的缘分魔术！让你也可以轻松找到女朋友！ #魔术教学 #见证奇迹的时刻 #撩妹小魔术 #变个魔术 #神奇魔术",
+          "url": "https://www.douyin.com/video/7497849884739030324",
+          "status": "done",
+          "output_file": "output/2026-10-16/ao_thuat/08. Thử ngay trò ghép đôi bài cực chuẩn để ghi điểm với crush.mp4",
+          "updated_at": "2026-10-16T02:56:46",
+          "created_at": "2026-10-15T20:48:43.501077"
+        },
+        "7634123457018906851": {
+          "video_id": "7634123457018906851",
+          "title": "Tuyệt chiêu ảo thuật điều khiển đèn flash điện thoại siêu dễ",
+          "original_title": "教你五个生活小魔术！简单！即兴！实用！ #魔术教学 #见证奇迹的时刻 #生活小魔术 #神奇魔术 #魔术",
+          "url": "https://www.douyin.com/video/7634123457018906851",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/01. Tuyệt chiêu ảo thuật điều khiển đèn flash điện thoại siêu dễ.mp4",
+          "updated_at": "2026-10-19T13:54:28.670545",
+          "created_at": "2026-10-15T20:48:43.501682"
+        },
+        "7426999786823372073": {
+          "video_id": "7426999786823372073",
+          "title": "Mẹo hoán đổi 4 lá Át và 4 lá K trong chớp mắt cực ảo",
+          "original_title": "教你一招超视觉化的4A4K瞬间互换！#魔术教学 #近景魔术 #扑克魔术",
+          "url": "https://www.douyin.com/video/7426999786823372073",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/02. Mẹo hoán đổi 4 lá Át và 4 lá K trong chớp mắt cực ảo.mp4",
+          "updated_at": "2026-10-19T14:03:47.416159",
+          "created_at": "2026-10-15T20:48:43.502216"
+        },
+        "7625944180254401890": {
+          "video_id": "7625944180254401890",
+          "title": "Búng tay một cái, hai lá Joker tự kẹp chuẩn xác quân bài khán giả",
+          "original_title": "教你一招超帅的三明治找牌！学会轻松吓唬妹妹！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7625944180254401890",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/03. Búng tay một cái, hai lá Joker tự kẹp chuẩn xác quân bài khán giả.mp4",
+          "updated_at": "2026-10-19T14:15:58.923531",
+          "created_at": "2026-10-15T20:48:43.502738"
+        },
+        "7572145899792321664": {
+          "video_id": "7572145899792321664",
+          "title": "Trò ảo thuật đố vui auto thắng giúp bạn dễ dàng rủ crush đi chơi",
+          "original_title": "教你一个和妹妹打赌必赢的魔术！全自动！零手法！无需提前准备！ #魔术教学 #扑克魔术 #见证奇迹的时刻 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7572145899792321664",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/04. Trò ảo thuật đố vui auto thắng giúp bạn dễ dàng rủ crush đi chơi.mp4",
+          "updated_at": "2026-10-19T14:50:54.168697",
+          "created_at": "2026-10-15T20:48:43.503267"
+        },
+        "7430695863896345867": {
+          "video_id": "7430695863896345867",
+          "title": "Học ngay cách biến 4 lá K thành 4 Át siêu mượt để tạo bất ngờ",
+          "original_title": "教你一招简单的4K变4A，学会吓跑女朋友！#魔术 #是时候展现真正的牌技了 #手法魔术 #魔术教学 #扑克魔术",
+          "url": "https://www.douyin.com/video/7430695863896345867",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/05. Học ngay cách biến 4 lá K thành 4 Át siêu mượt để tạo bất ngờ.mp4",
+          "updated_at": "2026-10-19T15:11:25.674478",
+          "created_at": "2026-10-15T20:48:43.503772"
+        },
+        "7511304923716570368": {
+          "video_id": "7511304923716570368",
+          "title": "Rút lá bài vô hình từ xa đưa về lại bộ bài cực ảo",
+          "original_title": "教你一招扑克牌隔空转移！学会轻松吓唬一堆妹妹！ #魔术教学 #纯手法魔术 #是时候展现真正的牌技了 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7511304923716570368",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/06. Rút lá bài vô hình từ xa đưa về lại bộ bài cực ảo.mp4",
+          "updated_at": "2026-10-19T15:43:06.670687",
+          "created_at": "2026-10-15T20:48:43.504252"
+        },
+        "7613710511591322216": {
+          "video_id": "7613710511591322216",
+          "title": "Chiêu đánh lừa thị giác bẻ ngón tay rồi làm liền lại cực ảo",
+          "original_title": "教你一招断指还原！学会轻松吓唬小妹妹！ #魔术教学 #生活小魔术 #见证奇迹的时刻 #是时候展现真正的技术了 #魔术",
+          "url": "https://www.douyin.com/video/7613710511591322216",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/07. Chiêu đánh lừa thị giác bẻ ngón tay rồi làm liền lại cực ảo.mp4",
+          "updated_at": "2026-10-19T15:48:43.477259",
+          "created_at": "2026-10-15T20:48:43.504751"
+        },
+        "7642271956066537359": {
+          "video_id": "7642271956066537359",
+          "title": "Bí mật màn lắc tay đổi lá bài trong tích tắc",
+          "original_title": "一分钟教你一招一晃就变的变牌手法！学会吓哭妹妹！ #魔术教学 #纯手法魔术 #见证奇迹的时刻 #纸牌魔术 #我要验牌",
+          "url": "https://www.douyin.com/video/7642271956066537359",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/08. Bí mật màn lắc tay đổi lá bài trong tích tắc.mp4",
+          "updated_at": "2026-10-19T15:54:53.049602",
+          "created_at": "2026-10-15T20:48:43.505211"
+        },
+        "7473406399603641634": {
+          "video_id": "7473406399603641634",
+          "title": "Cách làm ảo thuật tìm bài siêu chuẩn không cần dùng kỹ xảo",
+          "original_title": "教你一个完全不用手法就可以吓唬妹妹的扑克魔术！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7473406399603641634",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/01. Cách làm ảo thuật tìm bài siêu chuẩn không cần dùng kỹ xảo.mp4",
+          "updated_at": "2026-10-19T21:37:11.895416",
+          "created_at": "2026-10-19T17:02:11.610344"
+        },
+        "7435112919047736595": {
+          "video_id": "7435112919047736595",
+          "title": "Kỹ thuật lật đôi kinh điển giúp bạn biểu diễn bài không sợ bị lộ",
+          "original_title": "教你3个实战型双翻手法！新手必看！干货都在里面！ #魔术教学 #手法魔术 #是时候展现真正的牌技了 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7435112919047736595",
+          "status": "done",
+          "output_file": "output/2026-10-19/ao_thuat/02. Kỹ thuật lật đôi kinh điển giúp bạn biểu diễn bài không sợ bị lộ.mp4",
+          "updated_at": "2026-10-19T22:10:51.946125",
+          "created_at": "2026-10-19T17:02:11.611241"
+        },
+        "7595161776976436111": {
+          "video_id": "7595161776976436111",
+          "title": "Ảo thuật tiên tri con số bằng 2 tờ giấy trắng cực dễ học",
+          "original_title": "教你一招用两张白纸就可以随时随地吓唬3个妹妹的预言魔术！ 超级神奇！学会就能马上表演！#魔术教学 #见证奇迹的时刻 #生活小魔术每天学一招 #魔术 #生活小魔术",
+          "url": "https://www.douyin.com/video/7595161776976436111",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/01. Ảo thuật tiên tri con số bằng 2 tờ giấy trắng cực dễ học.mp4",
+          "updated_at": "2026-10-28T14:20:21.326393",
+          "created_at": "2026-10-19T17:02:11.611879"
+        },
+        "7457433354376465704": {
+          "video_id": "7457433354376465704",
+          "title": "Chỉ với cọng dây chun bạn có thể diễn ngay 7 trò ảo giác này",
+          "original_title": "教你七个有手就能学会的橡皮筋魔术！学会过年回家吓唬弟弟妹妹！ #魔术教学 #橡皮筋魔术 #魔术 #视觉魔术 #皮筋魔术",
+          "url": "https://www.douyin.com/video/7457433354376465704",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/06. Chỉ với cọng dây chun bạn có thể diễn ngay 7 trò ảo giác này.mp4",
+          "updated_at": "2026-10-28T14:57:57.452015",
+          "created_at": "2026-10-19T17:02:11.612512"
+        },
+        "7526442839706946816": {
+          "video_id": "7526442839706946816",
+          "title": "Bí mật ghép đôi 3 lá bài trùng khớp không cần luyện tay nghề",
+          "original_title": "教你一个不需要提前准备、不需要手法的超神奇纸牌魔术！ #魔术教学 #撩妹魔术 #见证奇迹的时刻 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7526442839706946816",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/05. Bí mật ghép đôi 3 lá bài trùng khớp không cần luyện tay nghề.mp4",
+          "updated_at": "2026-10-28T14:55:43.354900",
+          "created_at": "2026-10-19T17:02:11.613053"
+        },
+        "7470013473452297507": {
+          "video_id": "7470013473452297507",
+          "title": "Hai lá Joker tự động tóm gọn quân bài khán giả dù xáo lộn xộn",
+          "original_title": "教你一个专业级的魔术流程！学会让妹妹疯狂尖叫！ #魔术教学 #纯手法魔术 #见证奇迹的时刻 #魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7470013473452297507",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/22. Hai lá Joker tự động tóm gọn quân bài khán giả dù xáo lộn xộn.mp4",
+          "updated_at": "2026-10-28T19:36:39.430263",
+          "created_at": "2026-10-19T17:02:11.613621"
+        },
+        "7459670540878499087": {
+          "video_id": "7459670540878499087",
+          "title": "Cho khán giả tự chọn bài ngẫu nhiên vẫn ra chuẩn 4 lá Át",
+          "original_title": "教你一个非常“邪门”的魔术！学会吓哭女朋友！ #魔术教学 #纸牌魔术 #手法魔术 #神奇魔术 #魔术",
+          "url": "https://www.douyin.com/video/7459670540878499087",
+          "status": "done",
+          "output_file": "output/2026-11-03/ao_thuat/08. Cho khán giả tự chọn bài ngẫu nhiên vẫn ra chuẩn 4 lá Át.mp4",
+          "updated_at": "2026-11-09T22:14:00.990301",
+          "created_at": "2026-10-19T17:02:11.614167"
+        },
+        "7462247828954385679": {
+          "video_id": "7462247828954385679",
+          "title": "Mẹo ảo thuật bài tỏ tình siêu lãng mạn khiến người ấy rung động",
+          "original_title": "教你一个超浪漫的表白魔术流程！学会随时表白！ #魔术教学 #情人节魔术 #纸牌魔术 #变个魔术 #魔术",
+          "url": "https://www.douyin.com/video/7462247828954385679",
+          "status": "done",
+          "output_file": "output/2026-11-04/ao_thuat/01. Mẹo ảo thuật bài tỏ tình siêu lãng mạn khiến người ấy rung động.mp4",
+          "updated_at": "2026-11-09T22:14:00.991278",
+          "created_at": "2026-10-19T17:02:11.614718"
+        },
+        "7553220053500710184": {
+          "video_id": "7553220053500710184",
+          "title": "Lời tiên tri chuẩn xác đến nổi da gà dù khán giả tự tay xáo bài",
+          "original_title": "教你一个零手法、超级简单，而且效果非常震撼的魔术流程！ #魔术教学 #见证奇迹的时刻 #撩妹魔术 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7553220053500710184",
+          "status": "done",
+          "output_file": "output/2026-11-04/ao_thuat/03. Lời tiên tri chuẩn xác đến nổi da gà dù khán giả tự tay xáo bài.mp4",
+          "updated_at": "2026-11-09T22:14:00.992257",
+          "created_at": "2026-10-19T17:02:11.615341"
+        },
+        "7436624496573959487": {
+          "video_id": "7436624496573959487",
+          "title": "Búng tay một cái lá bài lập tức biến hình ngay trước mắt",
+          "original_title": "教你一招超直观的弹指变牌！学会吓哭妹妹！ #魔术教学 #是时候展现真正的牌技了 #手法魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7436624496573959487",
+          "status": "done",
+          "output_file": "output/2026-11-04/ao_thuat/02. Búng tay một cái lá bài lập tức biến hình ngay trước mắt.mp4",
+          "updated_at": "2026-11-09T22:14:00.993266",
+          "created_at": "2026-10-19T17:02:11.615899"
+        },
+        "7487482656276499752": {
+          "video_id": "7487482656276499752",
+          "title": "Tuyệt chiêu biến hóa bài liên hoàn đánh lừa góc nhìn cực đỉnh",
+          "original_title": "教你一个专业级的魔术流程！学会可以吓唬妹妹3次！ #纸牌魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #纯手法魔术 #魔术",
+          "url": "https://www.douyin.com/video/7487482656276499752",
+          "status": "done",
+          "output_file": "output/2026-11-04/ao_thuat/04. Tuyệt chiêu biến hóa bài liên hoàn đánh lừa góc nhìn cực đỉnh.mp4",
+          "updated_at": "2026-11-09T22:14:00.994253",
+          "created_at": "2026-10-19T17:02:11.616451"
+        },
+        "7582539516911062312": {
+          "video_id": "7582539516911062312",
+          "title": "Mẹo tìm lá bài đã chọn dù xáo úp ngửa lẫn lộn cực kỳ vi diệu",
+          "original_title": "教你一个简单、即兴！但效果非常震撼的纸牌魔术流程！ #魔术教学 #我要验牌 #这次我真要验牌了 #纯手法魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7582539516911062312",
+          "status": "done",
+          "output_file": "output/2026-11-04/ao_thuat/05. Mẹo tìm lá bài đã chọn dù xáo úp ngửa lẫn lộn cực kỳ vi diệu.mp4",
+          "updated_at": "2026-11-09T22:14:00.995252",
+          "created_at": "2026-10-19T17:02:11.617002"
+        },
+        "7640058316933239906": {
+          "video_id": "7640058316933239906",
+          "title": "Chớp mắt một cái là 4 lá Át và 4 lá K tự động đổi chỗ cho nhau",
+          "original_title": "教你一招超视觉化的AK瞬间交换！学会轻松吓唬女朋友！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7640058316933239906",
+          "status": "done",
+          "output_file": "output/2026-11-04/ao_thuat/06. Chớp mắt một cái là 4 lá Át và 4 lá K tự động đổi chỗ cho nhau.mp4",
+          "updated_at": "2026-11-09T22:14:00.996231",
+          "created_at": "2026-10-19T17:02:11.617574"
+        },
+        "7542020261529898274": {
+          "video_id": "7542020261529898274",
+          "title": "Ảo thuật tìm 4 lá Át hoàn toàn tự động ai cũng làm được",
+          "original_title": "一分钟教会你一招全自动、超简单、零手法的纸牌魔术！ #魔术教学 #见证奇迹的时刻 #纸牌魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7542020261529898274",
+          "status": "done",
+          "output_file": "output/2026-11-09/ao_thuat/01. Ảo thuật tìm 4 lá Át hoàn toàn tự động ai cũng làm được.mp4",
+          "updated_at": "2026-11-09T22:14:00.997412",
+          "created_at": "2026-10-19T17:02:11.618162"
+        },
+        "7601106938499695203": {
+          "video_id": "7601106938499695203",
+          "title": "Chiêu ảo thuật bài tiên tri chuẩn xác không cần kỹ năng",
+          "original_title": "教你一招可以同时吓唬两个妹妹的魔术流程！ 全自动！零手法！#魔术教学 #见证奇迹的时刻 #是时候展现真正的技术了 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7601106938499695203",
+          "status": "done",
+          "output_file": "output/2026-11-09/ao_thuat/02. Chiêu ảo thuật bài tiên tri chuẩn xác không cần kỹ năng.mp4",
+          "updated_at": "2026-11-09T22:14:00.998393",
+          "created_at": "2026-10-19T17:02:11.618781"
+        },
+        "7543681555374574863": {
+          "video_id": "7543681555374574863",
+          "title": "Dùng 2 lá Joker săn trọn 4 lá Át cực ảo và bí quyết đằng sau",
+          "original_title": "教你一招用两张鬼牌就可以吓哭妹妹的魔术流程！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7543681555374574863",
+          "status": "done",
+          "output_file": "output/2026-11-09/ao_thuat/03. Dùng 2 lá Joker săn trọn 4 lá Át cực ảo và bí quyết đằng sau.mp4",
+          "updated_at": "2026-11-09T22:14:00.999383",
+          "created_at": "2026-10-19T17:02:11.619390"
+        },
+        "7494920133689740584": {
+          "video_id": "7494920133689740584",
+          "title": "Cách đưa 4 lá Át nằm rải rác bay vút lên đầu bài trong chớp mắt",
+          "original_title": "教你两个只需要一点点练习就能学会的4A集合！ #魔术教学 #是时候展现真正的牌技了 #见证奇迹的时刻 #纯手法魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7494920133689740584",
+          "status": "done",
+          "output_file": "output/2026-11-09/ao_thuat/05. Cách đưa 4 lá Át nằm rải rác bay vút lên đầu bài trong chớp mắt.mp4",
+          "updated_at": "2026-11-09T22:14:01.000373",
+          "created_at": "2026-10-19T17:02:11.619993"
+        },
+        "7588809528683218127": {
+          "video_id": "7588809528683218127",
+          "title": "Tập ngay kỹ thuật đổi bài Jones Change vừa ảo vừa đẹp mắt",
+          "original_title": "教你一招超帅的花式变牌！ #魔术教学 #我要验牌 #是时候展现真正的牌技了 #纯手法魔术 #见证奇迹的时刻",
+          "url": "https://www.douyin.com/video/7588809528683218127",
+          "status": "done",
+          "output_file": "output/2026-11-09/ao_thuat/04. Tập ngay kỹ thuật đổi bài Jones Change vừa ảo vừa đẹp mắt.mp4",
+          "updated_at": "2026-11-09T22:14:01.001359",
+          "created_at": "2026-10-19T17:02:11.620703"
+        },
+        "7622197927847949492": {
+          "video_id": "7622197927847949492",
+          "title": "Mẹo đố bài thú vị giúp bạn luôn thắng để rủ crush đi chơi",
+          "original_title": "教你一招可以和妹妹打赌必赢的魔术！ 不需要手法！不需要提前准备！#魔术教学 #见证奇迹的时刻 #撩妹魔术 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7622197927847949492",
+          "status": "done",
+          "output_file": "output/2026-11-09/ao_thuat/06. Mẹo đố bài thú vị giúp bạn luôn thắng để rủ crush đi chơi.mp4",
+          "updated_at": "2026-11-09T22:14:01.002338",
+          "created_at": "2026-10-19T17:02:11.621381"
+        },
+        "7523804313547099432": {
+          "video_id": "7523804313547099432",
+          "title": "Búng tay một cái, bộ bài xáo lộn xộn tự tìm ra lá bài của 2 người",
+          "original_title": "教你一个效果非常特别！还可以同时吓唬两个妹妹的魔术流程！ #魔术教学 #见证奇迹的时刻 #撩妹魔术 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7523804313547099432",
+          "status": "done",
+          "output_file": "output/2026-11-09/ao_thuat/07. Búng tay một cái, bộ bài xáo lộn xộn tự tìm ra lá bài của 2 người.mp4",
+          "updated_at": "2026-11-09T22:14:01.003324",
+          "created_at": "2026-10-19T17:02:11.622029"
+        },
+        "7694878480098617570": {
+          "video_id": "7694878480098617570",
+          "title": "教你一个不用手法就可以 把妹妹搞懵逼的4A魔术！迷惑性强！互动率高！#魔术教学 #撩妹魔术 #纸牌魔术 #扑克魔术 #纸牌魔术教学",
+          "original_title": "教你一个不用手法就可以 把妹妹搞懵逼的4A魔术！迷惑性强！互动率高！#魔术教学 #撩妹魔术 #纸牌魔术 #扑克魔术 #纸牌魔术教学",
+          "url": "https://www.douyin.com/video/7694878480098617570",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/02. Ảo thuật 4 con Át tự lật cực ảo không cần tay nhanh.mp4",
+          "updated_at": "2026-10-21T21:06:37",
+          "created_at": "2026-10-21T20:18:29.518202"
+        },
+        "7692659664437119912": {
+          "video_id": "7692659664437119912",
+          "title": "教你一招可以和妹妹测试缘分的纸牌魔术！ 零手法！不需要提前准备！#魔术教学 #撩妹魔术 #见证奇迹的时刻 #纸牌魔术 #纸牌魔术教学",
+          "original_title": "教你一招可以和妹妹测试缘分的纸牌魔术！ 零手法！不需要提前准备！#魔术教学 #撩妹魔术 #见证奇迹的时刻 #纸牌魔术 #纸牌魔术教学",
+          "url": "https://www.douyin.com/video/7692659664437119912",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/01. Mẹo ảo thuật bài thử duyên cực dễ làm quen với bạn nữ.mp4",
+          "updated_at": "2026-10-21T20:26:04",
+          "created_at": "2026-10-21T20:18:29.518966"
+        },
+        "7691257115491934883": {
+          "video_id": "7691257115491934883",
+          "title": "教你一招一摸就变的变牌手法！ #魔术教学 #纯手法魔术 #纸牌手法教学 #纸牌魔术教学 #纸牌魔术",
+          "original_title": "教你一招一摸就变的变牌手法！ #魔术教学 #纯手法魔术 #纸牌手法教学 #纸牌魔术教学 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7691257115491934883",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/03. Bí mật đằng sau pha đổi bài chỉ bằng một cái chạm.mp4",
+          "updated_at": "2026-10-21T21:08:45",
+          "created_at": "2026-10-21T20:18:29.519648"
+        },
+        "7681244221063828864": {
+          "video_id": "7681244221063828864",
+          "title": "教你一个专业级的纸牌魔术流程！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #是时候展现真正的牌技了 #纸牌魔术",
+          "original_title": "教你一个专业级的纸牌魔术流程！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #是时候展现真正的牌技了 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7681244221063828864",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/04. Cách biến ra trọn bộ 4 lá bài giống hệt ảo thuật gia chuyên nghiệp.mp4",
+          "updated_at": "2026-10-21T22:07:29",
+          "created_at": "2026-10-21T20:18:29.520267"
+        },
+        "7657870446940294784": {
+          "video_id": "7657870446940294784",
+          "title": "教你六个超简单的皮筋小魔术！让你也可以随时随地吓唬妹妹！ #魔术教学 #见证奇迹的时刻 #皮筋魔术 #生活小魔术 #是时候展现真正的技术了",
+          "original_title": "教你六个超简单的皮筋小魔术！让你也可以随时随地吓唬妹妹！ #魔术教学 #见证奇迹的时刻 #皮筋魔术 #生活小魔术 #是时候展现真正的技术了",
+          "url": "https://www.douyin.com/video/7657870446940294784",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/05. Chỉ với sợi dây chun là có ngay mấy trò ảo thuật trêu bạn bè.mp4",
+          "updated_at": "2026-10-21T22:30:24",
+          "created_at": "2026-10-21T20:18:29.520860"
+        },
+        "7653319981242139235": {
+          "video_id": "7653319981242139235",
+          "title": "教你一招可以扭曲空间的四维魔术！ 超简单！学会就能马上表演！#魔术教学 #见证奇迹的时刻 #纸牌魔术 #扑克牌魔术教学 #魔术",
+          "original_title": "教你一招可以扭曲空间的四维魔术！ 超简单！学会就能马上表演！#魔术教学 #见证奇迹的时刻 #纸牌魔术 #扑克牌魔术教学 #魔术",
+          "url": "https://www.douyin.com/video/7653319981242139235",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/06. Lá bài bị bẻ cong không gian ngay trước mắt và cách thực hiện.mp4",
+          "updated_at": "2026-10-21T22:44:30",
+          "created_at": "2026-10-21T20:18:29.521462"
+        },
+        "7650064779592535011": {
+          "video_id": "7650064779592535011",
+          "title": "Chiêu tiên tri bài cực kỳ lừa mắt mà hoàn toàn không cần kỹ xảo",
+          "original_title": "教你一招效果超唬人的纸牌预言魔术！ 全自动！零手法！学会就能马上表演！#魔术教学 #见证奇迹的时刻 #纸牌魔术 #神奇魔术 #魔术",
+          "url": "https://www.douyin.com/video/7650064779592535011",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/08. Chiêu tiên tri bài cực kỳ lừa mắt mà hoàn toàn không cần kỹ xảo.mp4",
+          "updated_at": "2026-10-21T23:15:41.004035",
+          "created_at": "2026-10-21T20:18:29.522086"
+        },
+        "7648144664105692840": {
+          "video_id": "7648144664105692840",
+          "title": "Khán giả tự chọn dừng ngẫu nhiên mà vẫn trúng trọn bộ Át và K",
+          "original_title": "教你一招有双重暴击效果的纸牌魔术！ 全自动！零手法！学会就能马上表演！#魔术教学 #见证奇迹的时刻 #纸牌魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7648144664105692840",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/07. Khán giả tự chọn dừng ngẫu nhiên mà vẫn trúng trọn bộ Át và K.mp4",
+          "updated_at": "2026-10-21T23:11:55.083719",
+          "created_at": "2026-10-21T20:18:29.522713"
+        },
+        "7644901528675185320": {
+          "video_id": "7644901528675185320",
+          "title": "Đoán trước mọi lựa chọn của đối phương bằng 3 món đồ bất kỳ",
+          "original_title": "教你一招能100%预测未来的即兴魔术！学会随时随地吓哭妹妹！ #魔术教学 #见证奇迹的时刻 #生活小魔术 #神奇魔术 #魔术",
+          "url": "https://www.douyin.com/video/7644901528675185320",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/09. Đoán trước mọi lựa chọn của đối phương bằng 3 món đồ bất kỳ.mp4",
+          "updated_at": "2026-10-21T23:20:15.837023",
+          "created_at": "2026-10-21T20:18:29.523355"
+        },
+        "7637821415069325539": {
+          "video_id": "7637821415069325539",
+          "title": "Xáo bài úp ngửa lộn xộn nhưng búng tay là tìm ngay 4 lá Át",
+          "original_title": "教你一招瞬间找4A！零手法！学会就能马上表演！ #魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7637821415069325539",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/11. Xáo bài úp ngửa lộn xộn nhưng búng tay là tìm ngay 4 lá Át.mp4",
+          "updated_at": "2026-10-21T23:31:07.264695",
+          "created_at": "2026-10-21T20:18:29.523998"
+        },
+        "7628834026811459427": {
+          "video_id": "7628834026811459427",
+          "title": "Tự tin đoán đúng lá bài dù người xem tự tay xáo lộn xộn",
+          "original_title": "教你一招简单到爆的即兴预言魔术！ 零手法！不用提前准备！#魔术教学 #见证奇迹的时刻 #纸牌魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7628834026811459427",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/10. Tự tin đoán đúng lá bài dù người xem tự tay xáo lộn xộn.mp4",
+          "updated_at": "2026-10-21T23:28:59.571134",
+          "created_at": "2026-10-21T20:18:29.524655"
+        },
+        "7619233223897777140": {
+          "video_id": "7619233223897777140",
+          "title": "Mẹo thử duyên phận giúp bạn rút chuẩn 2 lá Át đỏ trước mặt crush",
+          "original_title": "教你一招超简单的缘分撩妹魔术！学会轻松吓唬女朋友！ #魔术教学 #见证奇迹的时刻 #撩妹魔术 #我要验牌 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7619233223897777140",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/12. Mẹo thử duyên phận giúp bạn rút chuẩn 2 lá Át đỏ trước mặt crush.mp4",
+          "updated_at": "2026-10-21T23:35:42.430660",
+          "created_at": "2026-10-21T20:18:29.525354"
+        },
+        "7617326236394041487": {
+          "video_id": "7617326236394041487",
+          "title": "Biến 4 lá Joker thành 4 con K cực mượt chỉ bằng tay không",
+          "original_title": "教你一招超帅的幻变4K！学会轻松秀翻全场妹妹！ #魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #纯手法魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7617326236394041487",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/13. Biến 4 lá Joker thành 4 con K cực mượt chỉ bằng tay không.mp4",
+          "updated_at": "2026-10-21T23:44:55.822399",
+          "created_at": "2026-10-21T20:18:29.526043"
+        },
+        "7612133533988957154": {
+          "video_id": "7612133533988957154",
+          "title": "Cách khiến lá bài tự lật ngửa theo đúng khẩu lệnh của bạn",
+          "original_title": "教你一招让扑克牌乖乖听你话！ 学会轻松吓唬小妹妹！ #魔术教学 #是时候展现真正的牌技了 #我要验牌 #扑克魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7612133533988957154",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/14. Cách khiến lá bài tự lật ngửa theo đúng khẩu lệnh của bạn.mp4",
+          "updated_at": "2026-10-21T23:46:37.887211",
+          "created_at": "2026-10-21T20:18:29.526712"
+        },
+        "7603606601606611124": {
+          "video_id": "7603606601606611124",
+          "title": "Trò diễn 4 lá Át hoàn toàn tự động ai cũng có thể làm ngay",
+          "original_title": "一分钟教你一招超简单的聚会魔术！ 全自动！零手法！学会就能马上表演！#魔术教学 #见证奇迹的时刻 #魔术表演 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7603606601606611124",
+          "status": "done",
+          "output_file": "output/2026-10-21/ao_thuat/15. Trò diễn 4 lá Át hoàn toàn tự động ai cũng có thể làm ngay.mp4",
+          "updated_at": "2026-10-21T23:54:43.181605",
+          "created_at": "2026-10-21T20:18:29.527376"
+        },
+        "7598060316186460148": {
+          "video_id": "7598060316186460148",
+          "title": "Trò tiên tri liên hoàn cực sốc mà không cần kỹ thuật",
+          "original_title": "教你一招效果超惊艳的连环多重预言魔术！ 全自动、零手法！学会轻松秀翻全场妹妹！#魔术教学 #见证奇迹的时刻 #纸牌魔术 #是时候展现真正的牌技了 #魔术",
+          "url": "https://www.douyin.com/video/7598060316186460148",
+          "status": "done",
+          "output_file": "output/2026-10-22/ao_thuat/02. Trò tiên tri liên hoàn cực sốc mà không cần kỹ thuật.mp4",
+          "updated_at": "2026-10-22T00:12:14.418182",
+          "created_at": "2026-10-21T20:18:29.528115"
+        },
+        "7585560256261623092": {
+          "video_id": "7585560256261623092",
+          "title": "Biến 12 lá bài lộn xộn tự lật mở để tìm đúng quân bài đã chọn",
+          "original_title": "教你一招用12张牌就能把妹妹搞懵逼的纸牌魔术！ #魔术教学 #我要验牌 #见证奇迹的时刻 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7585560256261623092",
+          "status": "done",
+          "output_file": "output/2026-10-22/ao_thuat/03. Biến 12 lá bài lộn xộn tự lật mở để tìm đúng quân bài đã chọn.mp4",
+          "updated_at": "2026-10-22T00:22:05.142673",
+          "created_at": "2026-10-21T20:18:29.528870"
+        },
+        "7579964958100924367": {
+          "video_id": "7579964958100924367",
+          "title": "Mẹo đổi bài siêu mượt chỉ với một cái chạm tay",
+          "original_title": "一分钟教你一招一摸就变的变牌手法！学会吓唬妹妹！ #魔术教学 #我要验牌 #这次我真要验牌了 #纯手法魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7579964958100924367",
+          "status": "done",
+          "output_file": "output/2026-10-22/ao_thuat/01. Mẹo đổi bài siêu mượt chỉ với một cái chạm tay.mp4",
+          "updated_at": "2026-10-22T00:07:13.748488",
+          "created_at": "2026-10-21T20:18:29.529531"
+        },
+        "7575122992801388623": {
+          "video_id": "7575122992801388623",
+          "title": "Để khán giả tự xáo bài rồi tìm ra ngay quân bài họ nhớ trong đầu",
+          "original_title": "教你一个连魔术师看了都懵B的魔术！全自动、零手法、无需准备！ #魔术教学 #见证奇迹的时刻 #纸牌魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7575122992801388623",
+          "status": "done",
+          "output_file": "output/2026-10-22/ao_thuat/05. Để khán giả tự xáo bài rồi tìm ra ngay quân bài họ nhớ trong đầu.mp4",
+          "updated_at": "2026-10-22T00:38:33.357182",
+          "created_at": "2026-10-21T20:18:29.530221"
+        },
+        "7565034828812078371": {
+          "video_id": "7565034828812078371",
+          "title": "Bắn trúng ngay lá bài khán giả chọn chỉ bằng một sợi thun",
+          "original_title": "一分钟教你一招简单又帅气的橡皮筋找牌！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7565034828812078371",
+          "status": "done",
+          "output_file": "output/2026-10-22/ao_thuat/04. Bắn trúng ngay lá bài khán giả chọn chỉ bằng một sợi thun.mp4",
+          "updated_at": "2026-10-22T00:31:15.319611",
+          "created_at": "2026-10-21T20:18:29.530901"
+        },
+        "7562878015811849487": {
+          "video_id": "7562878015811849487",
+          "title": "",
+          "original_title": "教你一个不需要练习、零手法，而且还有三重暴击效果的魔术流程！ #魔术教学 #见证奇迹的时刻 #纸牌魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7562878015811849487",
+          "status": "failed",
+          "output_file": "",
+          "updated_at": "2026-11-09T22:34:01.599243",
+          "created_at": "2026-10-21T20:18:29.531583"
+        },
+        "7559943688219397376": {
+          "video_id": "7559943688219397376",
+          "title": "Khán giả tự chia bài mà vẫn gom đủ 4 con Át nhờ quy luật này",
+          "original_title": "教你一个全自动、零手法的纸牌魔术流程！学会轻松吓唬妹妹！ #魔术教学 #见证奇迹的时刻 #纸牌魔术 #变个魔术 #魔术",
+          "url": "https://www.douyin.com/video/7559943688219397376",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/03. Khán giả tự chia bài mà vẫn gom đủ 4 con Át nhờ quy luật này.mp4",
+          "updated_at": "2026-10-28T14:28:18.775905",
+          "created_at": "2026-10-21T20:18:29.532319"
+        },
+        "7549820249145036072": {
+          "video_id": "7549820249145036072",
+          "title": "Cách làm 3 lá bài tự đổi chỗ liên tục cực kỳ vi diệu",
+          "original_title": "教你一招超简单的纸牌魔术！学会轻松吓唬妹妹！ #魔术教学 #纯手法魔术 #见证奇迹的时刻 #撩妹魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7549820249145036072",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/02. Cách làm 3 lá bài tự đổi chỗ liên tục cực kỳ vi diệu.mp4",
+          "updated_at": "2026-10-28T14:27:29.676617",
+          "created_at": "2026-10-21T20:18:29.533032"
+        },
+        "7546467707278527759": {
+          "video_id": "7546467707278527759",
+          "title": "Mẹo tìm trúng phóc lá bài khán giả chọn dù để họ xáo thoải mái",
+          "original_title": "教你一招全自动、零手法、不需要提前准备的纸牌魔术！ #魔术教学 #纸牌魔术 #见证奇迹的时刻 #撩妹魔术 #魔术",
+          "url": "https://www.douyin.com/video/7546467707278527759",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/04. Mẹo tìm trúng phóc lá bài khán giả chọn dù để họ xáo thoải mái.mp4",
+          "updated_at": "2026-10-28T14:49:42.927440",
+          "created_at": "2026-10-21T20:18:29.533726"
+        },
+        "7520617812738936116": {
+          "video_id": "7520617812738936116",
+          "title": "Tập làm ảo thuật gia với 3 chiêu bài cực ảo mà không đòi hỏi kỹ năng cao",
+          "original_title": "教你3个有手就会的超神奇纸牌魔术！让你可以轻松成为魔术大佬！ #魔术教学 #见证奇迹的时刻 #纸牌魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7520617812738936116",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/09. Tập làm ảo thuật gia với 3 chiêu bài cực ảo mà không đòi hỏi kỹ năng cao.mp4",
+          "updated_at": "2026-10-28T15:45:20.180552",
+          "created_at": "2026-10-21T20:18:29.534449"
+        },
+        "7517524824281926947": {
+          "video_id": "7517524824281926947",
+          "title": "Kỹ thuật hoán đổi 4 con Át liên tục cực mượt chỉ bằng đôi tay",
+          "original_title": "教你一招4A的空间交换！学会轻松吓哭女朋友！ #魔术教学 #纯手法魔术 #纸牌魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7517524824281926947",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/07. Kỹ thuật hoán đổi 4 con Át liên tục cực mượt chỉ bằng đôi tay.mp4",
+          "updated_at": "2026-10-28T15:26:35.056642",
+          "created_at": "2026-10-21T20:18:29.535163"
+        },
+        "7513467692175854848": {
+          "video_id": "7513467692175854848",
+          "title": "Chiêu tiên tri lá bài cực dễ giúp bạn phá băng khi làm quen người lạ",
+          "original_title": "教你一招不需要手法的预言魔术！学会轻松加陌生妹妹好友！ #魔术教学 #撩妹魔术 #纸牌魔术 #扑克魔术 #魔术",
+          "url": "https://www.douyin.com/video/7513467692175854848",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/08. Chiêu tiên tri lá bài cực dễ giúp bạn phá băng khi làm quen người lạ.mp4",
+          "updated_at": "2026-10-28T15:30:29.197833",
+          "created_at": "2026-10-21T20:18:29.535888"
+        },
+        "7508365193472003368": {
+          "video_id": "7508365193472003368",
+          "title": "Bộ bài xáo úp ngửa lộn xộn bỗng tự gom lại đúng sảnh cực ảo",
+          "original_title": "教你一招不需要手法的纸牌魔术！学会轻松吓哭妹妹！ #魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7508365193472003368",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/11. Bộ bài xáo úp ngửa lộn xộn bỗng tự gom lại đúng sảnh cực ảo.mp4",
+          "updated_at": "2026-10-28T16:03:42.239678",
+          "created_at": "2026-10-21T20:18:29.536632"
+        },
+        "7506461936277327156": {
+          "video_id": "7506461936277327156",
+          "title": "Biến ứng dụng máy tính trên điện thoại thành màn tỏ tình ngọt ngào",
+          "original_title": "教你一招“520”表白魔术！学会轻松向女神表白！ #魔术教学 #撩妹魔术 #520 #视觉魔术 #魔术",
+          "url": "https://www.douyin.com/video/7506461936277327156",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/10. Biến ứng dụng máy tính trên điện thoại thành màn tỏ tình ngọt ngào.mp4",
+          "updated_at": "2026-10-28T15:50:04.999758",
+          "created_at": "2026-10-21T20:18:29.537357"
+        },
+        "7505722271706451240": {
+          "video_id": "7505722271706451240",
+          "title": "Giao nhiệm vụ cho 2 lá Joker tìm bài của người xem cực chuẩn",
+          "original_title": "教你一个不需要手法的魔术流程！学会就能一次吓唬两个妹妹！ #魔术教学 #撩妹魔术 #见证奇迹的时刻 #纸牌魔术 #魔术",
+          "url": "https://www.douyin.com/video/7505722271706451240",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/12. Giao nhiệm vụ cho 2 lá Joker tìm bài của người xem cực chuẩn.mp4",
+          "updated_at": "2026-10-28T16:13:23.911694",
+          "created_at": "2026-10-21T20:18:29.538107"
+        },
+        "7500221886019128616": {
+          "video_id": "7500221886019128616",
+          "title": "Học cách đổi mặt lá bài ngay trước mắt người xem chỉ trong 1 giây",
+          "original_title": "教你一招说变就变的变牌手法！学会秀翻所有女朋友！ #魔术教学 #纯手法魔术 #是时候展现真正的牌技了 #见证奇迹的时刻 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7500221886019128616",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/13. Học cách đổi mặt lá bài ngay trước mắt người xem chỉ trong 1 giây.mp4",
+          "updated_at": "2026-10-28T16:15:34.543042",
+          "created_at": "2026-10-21T20:18:29.539032"
+        },
+        "7496418579899469090": {
+          "video_id": "7496418579899469090",
+          "title": "Bật mí ảo thuật: Cách dùng 2 lá phụ tá bắt trúng quân bài mục tiêu",
+          "original_title": "教你一招超简单的超酷找牌！学会秀翻全部女朋友！ #魔术教学 #见证奇迹的时刻 #纯手法魔术 #是时候展现真正的牌技了 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7496418579899469090",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/14. Bật mí ảo thuật Cách dùng 2 lá phụ tá bắt trúng quân bài mục tiêu.mp4",
+          "updated_at": "2026-10-28T16:30:16.092704",
+          "created_at": "2026-10-21T20:18:29.539788"
+        },
+        "7486007430564908323": {
+          "video_id": "7486007430564908323",
+          "title": "Bí kíp bắt bài đối phương ngay trong lòng bàn tay họ cực ngầu",
+          "original_title": "教你既即兴、又简单的超酷找牌魔术！这次学会真的能吓到妹妹了！ #魔术教学 #见证奇迹的时刻 #是时候展现真正的牌技了 #纯手法魔术 #瓜子二手车",
+          "url": "https://www.douyin.com/video/7486007430564908323",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/15. Bí kíp bắt bài đối phương ngay trong lòng bàn tay họ cực ngầu.mp4",
+          "updated_at": "2026-10-28T16:45:43.625940",
+          "created_at": "2026-10-21T20:18:29.540571"
+        },
+        "7482423056921578752": {
+          "video_id": "7482423056921578752",
+          "title": "Mẹo bốc trúng phóc số lượng lá bài bất kỳ chỉ bằng cảm giác tay",
+          "original_title": "教你马上拥有魔术师“绝对手感”的魔术，学会让妹妹想得到你的手 #魔术教学 #是时候展现真正的牌技了 #见证奇迹的时刻 #纯手法魔术 #魔术",
+          "url": "https://www.douyin.com/video/7482423056921578752",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/17. Mẹo bốc trúng phóc số lượng lá bài bất kỳ chỉ bằng cảm giác tay.mp4",
+          "updated_at": "2026-10-28T17:11:38.103555",
+          "created_at": "2026-10-21T20:18:29.541357"
+        },
+        "7464909054662479138": {
+          "video_id": "7464909054662479138",
+          "title": "Khiến người xem ngơ ngác với màn biến lá bài đổi màu lưng siêu ảo",
+          "original_title": "教你一个专业级的魔术流程！学会把妹妹震惊两次！ #魔术教学 #是时候展现真正的牌技了 #扑克魔术 #变个魔术 #魔术",
+          "url": "https://www.douyin.com/video/7464909054662479138",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/19. Khiến người xem ngơ ngác với màn biến lá bài đổi màu lưng siêu ảo.mp4",
+          "updated_at": "2026-10-28T17:16:56.585873",
+          "created_at": "2026-10-21T20:18:29.542130"
+        },
+        "7452994654313680128": {
+          "video_id": "7452994654313680128",
+          "title": "Kỹ thuật bung 4 lá Át trong nháy mắt ai nhìn cũng mê",
+          "original_title": "没有水~真的很认真的在教~🙈 #魔术教学 #视觉魔术 #是时候展现真正的牌技了 #魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7452994654313680128",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/16. Kỹ thuật bung 4 lá Át trong nháy mắt ai nhìn cũng mê.mp4",
+          "updated_at": "2026-10-28T16:54:32.060577",
+          "created_at": "2026-10-21T20:18:29.542923"
+        },
+        "7452259517158493474": {
+          "video_id": "7452259517158493474",
+          "title": "Xếp xen kẽ A và K rồi búng tay cho tự tách đôi cực ảo",
+          "original_title": "教你一招超简单的A.K分离！学会吓唬妹妹！ #魔术教学 #是时候展现真正的牌技了 #魔术 #手法魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7452259517158493474",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/18. Xếp xen kẽ A và K rồi búng tay cho tự tách đôi cực ảo.mp4",
+          "updated_at": "2026-10-28T17:13:11.984294",
+          "created_at": "2026-10-21T20:18:29.543782"
+        },
+        "7450745039099137315": {
+          "video_id": "7450745039099137315",
+          "title": "Cách thả tim từ lá bài biến thành quà tặng người yêu siêu ngọt ngào",
+          "original_title": "圣诞节到了！快用这招人人都能学会的牌变礼物去哄女朋友开心吧！ #魔术教学 #惊喜跟礼物都是来自爱你的人 #圣诞礼物 #魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7450745039099137315",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/21. Cách thả tim từ lá bài biến thành quà tặng người yêu siêu ngọt ngào.mp4",
+          "updated_at": "2026-10-28T17:39:58.570156",
+          "created_at": "2026-10-21T20:18:29.544654"
+        },
+        "7449616872296680704": {
+          "video_id": "7449616872296680704",
+          "title": "Buộc chặt cả bộ bài mà lá bài vẫn tự bật ra ngoài cực ảo",
+          "original_title": "教你一招超酷的橡皮筋找牌！学会帅翻天！ #魔术教学 #是时候展现真正的牌技了 #纯手法魔术 #魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7449616872296680704",
+          "status": "done",
+          "output_file": "output/2026-11-03/ao_thuat/02. Buộc chặt cả bộ bài mà lá bài vẫn tự bật ra ngoài cực ảo.mp4",
+          "updated_at": "2026-11-09T22:14:00.983149",
+          "created_at": "2026-10-21T20:18:29.545523"
+        },
+        "7444445999054998847": {
+          "video_id": "7444445999054998847",
+          "title": "Biến chớp nhoáng 4 lá K thành 4 lá Át ngay trước mặt người xem",
+          "original_title": "教你一招超视觉化的4K变4A！学会吓唬女朋友！ #魔术教学 #是时候展现真正的牌技了 #纯手法魔术教学 #魔术 #纸牌魔术",
+          "url": "https://www.douyin.com/video/7444445999054998847",
+          "status": "done",
+          "output_file": "output/2026-10-28/ao_thuat/20. Biến chớp nhoáng 4 lá K thành 4 lá Át ngay trước mặt người xem.mp4",
+          "updated_at": "2026-10-28T17:34:25.562930",
+          "created_at": "2026-10-21T20:18:29.546377"
+        },
+        "7443323449054940452": {
+          "video_id": "7443323449054940452",
+          "title": "Hướng dẫn ảo thuật tìm bài cực ảo chỉ bằng vài động tác tay",
+          "original_title": "教你一招超神奇的找牌魔术！学会妹妹到手！ #魔术教学 #纯手法魔术教学 #手法魔术 #魔术 #是时候展现真正的牌技了",
+          "url": "https://www.douyin.com/video/7443323449054940452",
+          "status": "done",
+          "output_file": "output/2026-11-03/ao_thuat/01. Hướng dẫn ảo thuật tìm bài cực ảo chỉ bằng vài động tác tay.mp4",
+          "updated_at": "2026-11-09T22:14:00.984316",
+          "created_at": "2026-10-21T20:18:29.547235"
+        },
+        "7437364719603780918": {
+          "video_id": "7437364719603780918",
+          "title": "Biểu diễn màn ảo thuật mê hoặc người xem chỉ với 4 lá Át",
+          "original_title": "教你一招只用4张A就能表演的神奇魔术！学会秀翻全场！ #魔术 #手法魔术 #是时候展现真正的牌技了 #魔术教学 #扑克魔术",
+          "url": "https://www.douyin.com/video/7437364719603780918",
+          "status": "done",
+          "output_file": "output/2026-11-03/ao_thuat/03. Biểu diễn màn ảo thuật mê hoặc người xem chỉ với 4 lá Át.mp4",
+          "updated_at": "2026-11-09T22:14:00.985338",
+          "created_at": "2026-10-21T20:18:29.548112"
+        },
+        "7432166079805328703": {
+          "video_id": "7432166079805328703",
+          "title": "Bí kíp bắt chuẩn lá bài khán giả chọn trong nháy mắt",
+          "original_title": "教你一招全宇宙第二快的瞬间找牌！学会妹妹到手！ #魔术 #是时候展现真正的牌技了 #魔术教学 #手法魔术 #扑克魔术",
+          "url": "https://www.douyin.com/video/7432166079805328703",
+          "status": "done",
+          "output_file": "output/2026-11-03/ao_thuat/04. Bí kíp bắt chuẩn lá bài khán giả chọn trong nháy mắt.mp4",
+          "updated_at": "2026-11-09T22:14:00.986336",
+          "created_at": "2026-10-21T20:18:29.549005"
+        },
+        "7429584661380173075": {
+          "video_id": "7429584661380173075",
+          "title": "Mẹo rút lá bài khán giả chọn với tốc độ tia chớp ai cũng làm được",
+          "original_title": "教你一招闪电找出观众的牌！学会可以随时随地装逼！#魔术 #是时候展现真正的牌技了 #手法魔术 #魔术教学 #扑克魔术",
+          "url": "https://www.douyin.com/video/7429584661380173075",
+          "status": "done",
+          "output_file": "output/2026-11-03/ao_thuat/06. Mẹo rút lá bài khán giả chọn với tốc độ tia chớp ai cũng làm được.mp4",
+          "updated_at": "2026-11-09T22:14:00.989299",
+          "created_at": "2026-10-21T20:18:29.549885"
+        },
+        "7428453743978466623": {
+          "video_id": "7428453743978466623",
+          "title": "Biến hoá 4 lá Át xuất hiện chớp nhoáng khiến người xem trầm trồ",
+          "original_title": "教你一招闪现变出4A，学会帅炸天！#魔术 #手法魔术 #是时候展现真正的牌技了 #魔术教学 #扑克魔术",
+          "url": "https://www.douyin.com/video/7428453743978466623",
+          "status": "done",
+          "output_file": "output/2026-11-03/ao_thuat/07. Biến hoá 4 lá Át xuất hiện chớp nhoáng khiến người xem trầm trồ.mp4",
+          "updated_at": "2026-11-09T22:14:00.988311",
+          "created_at": "2026-10-21T20:18:29.550768"
+        },
+        "7427347051857431862": {
+          "video_id": "7427347051857431862",
+          "title": "Cách lật lá bài nhanh đến mức mắt không kịp chớp",
+          "original_title": "教你一招史上最快的变牌手法！#魔术 #魔术教学 #手法魔术 #扑克魔术 #神奇魔术",
+          "url": "https://www.douyin.com/video/7427347051857431862",
+          "status": "done",
+          "output_file": "output/2026-11-03/ao_thuat/05. Cách lật lá bài nhanh đến mức mắt không kịp chớp.mp4",
+          "updated_at": "2026-11-09T22:14:00.987327",
+          "created_at": "2026-10-21T20:18:29.551664"
+        }
+      }
+    }
+  }
+}

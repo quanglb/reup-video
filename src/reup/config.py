@@ -96,6 +96,7 @@ class TTSConfig:
     pause_every: int = 12
     pause_seconds: float = 2.0
     allow_edge_fallback: bool = True
+    edge_only: bool = False  # true: bỏ qua CapCut, dùng thẳng edge-tts (khi CapCut đang chặn)
     pronunciation_rules_path: str = "docs/tts_pronunciation_rules.md"
 
 
@@ -180,8 +181,8 @@ class DiscoverConfig:
     youtube: PlatformDiscoverConfig = PlatformDiscoverConfig(query="#shorts")
     tiktok: PlatformDiscoverConfig = PlatformDiscoverConfig(query="xuhuong")
     douyin: PlatformDiscoverConfig = PlatformDiscoverConfig()
-
     bilibili: PlatformDiscoverConfig = PlatformDiscoverConfig(query="搞笑")
+
     def for_platform(self, name: str) -> PlatformDiscoverConfig:
         if name not in PLATFORMS:
             raise ValueError(

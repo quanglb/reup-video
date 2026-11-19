@@ -30,6 +30,7 @@ def make_tts(cfg: Config):
             pause_every=cfg.tts.pause_every,
             pause_seconds=cfg.tts.pause_seconds,
             allow_edge_fallback=cfg.tts.allow_edge_fallback,
+            edge_only=getattr(cfg.tts, "edge_only", False),
         )
     raise ValueError(f"không có TTS engine {engine!r}")
 
@@ -114,8 +115,8 @@ def make_source(cfg: Config, platform: str, query: str | None = None):
         from reup.adapters.douyin import DouyinSource
 
         return DouyinSource(q, cookies_from_browser=cookies, cookie_file=cookie_file)
-    raise ValueError(f"không có crawler cho nền tảng {platform!r}")
     if platform == "bilibili":
         from reup.adapters.bilibili import BilibiliSource
 
         return BilibiliSource(q, cookies_from_browser=cookies, cookie_file=cookie_file)
+    raise ValueError(f"không có crawler cho nền tảng {platform!r}")

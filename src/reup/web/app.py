@@ -261,6 +261,9 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
                 raise HTTPException(status_code=404, detail=f"không có job {job_id}")
             s.delete_job(job_id)  # chỉ còn dòng mồ côi trong sổ cái
             return
+        from reup.web import channel_log
+
+        channel_log.sync(app.state.jobs_dir.parent / "douyin-exports", s.list_jobs())
         service.delete_job(job, s, c)
 
     def delete_many(job_ids: list[str]) -> dict:
@@ -811,6 +814,57 @@ def create_app(config_path: Path, jobs_dir: Path, db_path: Path) -> FastAPI:
         finally:
             s.close()
         return {"saved": bool(payload.get("saved", True)), "count": count}
+
+    def _jobs_snapshot() -> list[dict]:
+        s = store()
+        try:
+            return s.list_jobs()
+        finally:
+            s.close()
+
+    @app.get("/channels/{uid}/cover/{vid}")
+    def channel_cover(uid: str, vid: str):
+        """Bìa video Douyin: CDN chặn hotlink nên tải kèm Referer rồi cache ra đĩa."""
+        import urllib.request
+
+        from reup.adapters.douyin_export import REFERER, USER_AGENT
+        from reup.web import channel_log
+
+        if not vid.isdigit():
+            raise HTTPException(status_code=404)
+        dest = exports_dir() / "covers" / f"{vid}.jpg"
+        if not dest.exists():
+            raw = channel_log.latest_exports(exports_dir()).get(uid) or {}
+            url = next((v.get("cover") for v in raw.get("videos", []) if str(v.get("aweme_id")) == vid), "")
+            if not url:
+                raise HTTPException(status_code=404)
+            try:
+                req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Referer": REFERER})
+                data = urllib.request.urlopen(req, timeout=15).read()
+            except OSError:
+                raise HTTPException(status_code=404)
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(data)
+        return FileResponse(dest, media_type="image/jpeg", headers={"Cache-Control": "max-age=86400"})
+
+    @app.get("/channels/{uid}", response_class=HTMLResponse)
+    def channel_page(request: Request, uid: str, show: str = ""):
+        from reup.web import channel_log
+
+        info = channel_log.channel_rows(exports_dir(), uid, _jobs_snapshot(), series="ao_thuat")
+        if info is None:
+            raise HTTPException(status_code=404, detail="không có file xuất của kênh này")
+        c = cfg()
+        for r in info["rows"]:
+            r["pct"], r["stage_label"] = (
+                service.calculate_progress(r["job_status"], r["job_stage"], c) if r["has_job"] else (0, "")
+            )
+        info["active"] = info["counts"]["running"] + info["counts"]["ready"] + info["counts"]["downloading"]
+        if show:
+            info["rows"] = [r for r in info["rows"] if r["state"] == show]
+        return templates.TemplateResponse(
+            request, "channel.html", {**info, "show": show, "tab": "channels", "title": info["author"]},
+        )
 
     @app.get("/saved", response_class=HTMLResponse)
     def saved_page(request: Request, platform: str = ""):

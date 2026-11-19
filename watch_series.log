@@ -1,0 +1,31 @@
+01:46:53 runner thoát (done=6), chạy lại lần 1
+02:56:59 đủ 11 video, đã dừng runner
+13:35:29 runner thoát (done=11), chạy lại lần 1
+15:54:56 đủ 19 video, đã dừng runner
+17:02:11 runner thoát (done=), chạy lại lần 1
+17:02:41 runner thoát (done=0), chạy lại lần 2
+17:03:11 runner thoát (done=0), chạy lại lần 3
+17:03:41 runner thoát, đã thử lại 3 lần, bỏ cuộc (done=0)
+21:13:54 runner thoát (done=0
+0), chạy lại lần 1
+21:07:14 khởi động lại sau khi tắt edge fallback
+21:07:14 runner thoát (done=2), chạy lại lần 1
+21:18:31 runner thoát (done=3), chạy lại lần 1
+21:49:33 runner thoát (done=3), chạy lại lần 2
+22:08:15 bật edge_only, khởi động lại
+22:08:15 runner thoát (done=4), chạy lại lần 1
+22:45:02 tăng --jobs 3
+22:45:02 runner thoát (done=6), chạy lại lần 1
+22:50:23 đổi mục tiêu: dừng khi đủ 20 video (đã 6)
+00:39:00 đủ 20 video, đã dừng runner
+13:57:46 runner thoát (done=0
+0), chạy lại lần 1
+17:40:26 đủ 21 video, đã dừng runner
+19:01:04 runner thoát (done=0), chạy lại lần 1
+19:37:06 đủ 1 video, đã dừng runner
+21:30:59 runner thoát (done=0), chạy lại lần 1
+22:27:34 runner thoát (done=7), chạy lại lần 2
+18:49:14 runner thoát (done=8), chạy lại lần 1
+19:46:28 đủ 14 video, đã dừng runner
+21:13:24 runner thoát (done=14), chạy lại lần 1
+22:14:00 runner thoát (done=21), chạy lại lần 2

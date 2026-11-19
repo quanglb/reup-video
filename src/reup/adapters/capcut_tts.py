@@ -48,6 +48,7 @@ class CapCutTTS:
         pause_every: int = 12,
         pause_seconds: float = 2.0,
         allow_edge_fallback: bool = True,
+        edge_only: bool = False,
     ) -> None:
         self.capcut_dir = Path(capcut_dir)
         self.sleep = sleep
@@ -63,6 +64,7 @@ class CapCutTTS:
         # được âm thầm đổi sang edge-tts nữa — lỗi phải nổi lên thành
         # CapCutError thật để retry đúng nghĩa (xem capcut_driver.py).
         self.allow_edge_fallback = allow_edge_fallback
+        self.edge_only = edge_only
         self._request_count = 0
         self._lock = threading.Lock()
 
@@ -180,10 +182,10 @@ class CapCutTTS:
             str(self.max_polls),
             "--allow-fallback",
             "1" if self.allow_edge_fallback else "0",
-        ])
+        ] + (["--edge-only"] if self.edge_only else []))
 
         # Buffer: bù cho request POST tts-new, tải N file mp3, và thời gian chạy fallback edge-tts nếu CapCut lỗi
-        fallback_allowance = len(non_empty_indices) * 15.0 if self.allow_edge_fallback else len(non_empty_indices) * 2.0
+        fallback_allowance = len(non_empty_indices) * 70.0 if self.allow_edge_fallback else len(non_empty_indices) * 2.0
         buffer = 20.0 + fallback_allowance
         outer_timeout = max(60.0, self.max_polls * self.poll_interval + buffer)
 
@@ -292,9 +294,9 @@ class CapCutTTS:
             str(self.max_polls),
             "--allow-fallback",
             "1" if self.allow_edge_fallback else "0",
-        ]
+        ] + (["--edge-only"] if self.edge_only else [])
 
-        fallback_allowance = 20.0 if self.allow_edge_fallback else 2.0
+        fallback_allowance = 70.0 if self.allow_edge_fallback else 2.0
         buffer = 15.0 + fallback_allowance
         outer_timeout = max(50.0, self.max_polls * self.poll_interval + buffer)
 

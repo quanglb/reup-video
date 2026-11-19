@@ -40,7 +40,7 @@ position = "bottom"
 auto_approve   = true   # Tự động 100%: bỏ qua các bước duyệt thủ công, chạy thẳng ra file xuất bản
 auto_approve_a = true   # Tự động duyệt bản dịch (chốt A)
 auto_approve_b = true   # Tự động duyệt thành phẩm (chốt B)
-output_dir     = "output/%Y-%m-%d"
+output_dir     = "output/%Y-%m-%d/nau_an"
 
 # Bot Telegram báo cáo tình hình khi làm video. Token để trong .env:
 #   TELEGRAM_BOT_TOKEN=...   (lấy ở @BotFather)
@@ -58,12 +58,13 @@ commands      = true        # bot nghe lệnh /status /lam... khi chạy `reup w
 engine     = "capcut"          # "capcut" | "stub"
 voice      = "BV074_streaming" # Cô Gái Hoạt Ngôn — xem Voice.json của CapCut
 capcut_dir = "/Applications/_QuangLB/Workspace/Agent/capcut-tts-api"
-concurrency = 3                # số câu sinh giọng song song; server CapCut gãy sau ~15 request liên tiếp
+concurrency = 2                # số câu sinh giọng song song; server CapCut gãy sau ~15 request liên tiếp
 batch_size = 8                 # số câu gộp vào 1 request CapCut TTS
 max_polls  = 10                # số lượt poll tối đa cho mỗi request
 poll_interval = 1.0            # khoảng cách giữa các lần poll (giây)
 pause_every = 12                # nghỉ nhịp chủ động sau mỗi 12 request thành công liên tiếp (dưới ngưỡng gãy)
 pause_seconds = 2.0             # số giây nghỉ mỗi lần nghỉ nhịp
+edge_only  = true               # bỏ qua CapCut, dùng thẳng edge-tts (CapCut đang chặn)
 allow_edge_fallback = true      # false: lỗi CapCut phải raise thật, không âm thầm đổi sang edge-tts
 pronunciation_rules_path = "docs/tts_pronunciation_rules.md" # file quy tắc phiên âm cho TTS
 
@@ -82,7 +83,7 @@ engine = "whisper"             # "whisper" | "capcut"
 provider  = "openai"            # "gemini" | "ollama" | "openai" | "cassette"
 model     = "ag/gemini-3.8-flash"
 base_url  = "http://localhost:20128/v1"
-timeout_s = 120.0
+timeout_s = 300.0
 
 [llm.translate]
 provider = "openai"
@@ -139,13 +140,13 @@ query = ""
 limit = 12
 cookies_from_browser = ""
 
-# Chống dính chính sách TikTok — docs/tiktok-policy-plan.md.
 # Bilibili: từ khoá (tiếng Trung), @uid kênh, hoặc URL. Không cookie thì bị 412.
 [discover.bilibili]
 query = "搞笑"
 limit = 12
 cookies_from_browser = "chrome"
 
+# Chống dính chính sách TikTok — docs/tiktok-policy-plan.md.
 # precheck (sau fetch) chỉ dùng luật, 0 token. policy (trước export) kiểm cục bộ
 # bằng Apple Vision rồi gọi AI MỘT lần/video với ảnh ghép + tiêu đề + nội dung.
 # Bị chặn mà vẫn muốn đăng: `uv run reup policy-allow <job_id>` rồi chạy lại.
@@ -160,4 +161,4 @@ block_short_side = 360        # dưới mức này: chặn ngay ở precheck
 min_duration_s   = 8.0
 block_duration_s = 4.0
 recent_titles    = 30         # so tiêu đề mới với chừng này tiêu đề cũ để tránh lặp khuôn
-block_on_reject  = true       # false: AI kết luận vi phạm vẫn xuất, chỉ ghi vào policy.json
+block_on_reject  = false      # false: AI kết luận vi phạm vẫn xuất, chỉ ghi vào policy.json

@@ -82,10 +82,10 @@ def fallback_edge_tts_one(text, out_path, voice):
     else:
         voices.append("vi-VN-HoaiMyNeural")
 
-    for v_try in voices:
+    for v_try in voices * 2:
         async def _run(vt=v_try):
             comm = edge_tts.Communicate(text, vt)
-            await asyncio.wait_for(comm.save(tmp), timeout=15.0)
+            await asyncio.wait_for(comm.save(tmp), timeout=30.0)
         try:
             asyncio.run(_run())
             if os.path.exists(tmp) and os.path.getsize(tmp) > 100:
@@ -124,11 +124,15 @@ def main():
     ap.add_argument("--max-polls", type=int, default=10)
     ap.add_argument("--poll-interval", type=float, default=0.5)
     ap.add_argument("--allow-fallback", type=int, default=1)
+    ap.add_argument("--edge-only", action="store_true")
     args = ap.parse_args()
     allow_fallback = bool(args.allow_fallback)
 
     if len(args.text) != len(args.out):
         raise SystemExit("Số lượng --text (%d) và --out (%d) không khớp" % (len(args.text), len(args.out)))
+
+    if args.edge_only and fallback_batch(args.text, args.out, args.voice):
+        return
 
     sys.path.insert(0, args.capcut_dir)
     import capcut_common_task_client as capcut

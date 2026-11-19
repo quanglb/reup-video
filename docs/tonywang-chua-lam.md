@@ -1,0 +1,98 @@
+# Tony Wang — video chưa làm
+
+Cập nhật 2026-10-15 · đã làm 17/103 (đã bỏ 8 video lạc đề #22–29 trong douyin-exports/_excluded.json).
+
+Cách xác minh: so ảnh bìa TikTok @easy.magicaly (47 video) với ảnh bìa Douyin. Bìa TikTok có chữ banner dịch từ banner tiếng Trung và cùng bối cảnh nền đen.
+- T1–T20 (nền đen) là của Tony Wang → khớp 17 video Douyin (6 có job trong dự án, 11 khớp bằng bìa; vài video bị chia 2–3 phần nên 20 video TikTok chỉ ứng 17 video Douyin).
+- T21–T47 là kênh khác (nền vải đỏ, quân cờ/đồng xu, người nói chuyện…) — không tính.
+- Chưa khớp: T8 (tìm bài 'không cần kỹ xảo', phần 1, bộ bài xanh có ô 'I') — giống #13 nhưng có thể là video ngoài danh sách export.
+- Kênh chỉ có 20 video trên TikTok của bạn, không phải ~30.
+
+## Chưa làm (vị trí trong file export · like · tiêu đề)
+
+- #3 · 131000 like · 教你9个学会就能马上装哔的变牌手法！ · https://www.douyin.com/video/7531174873047452963
+- #4 · 251 like · 教你一个不用手法就可以 把妹妹搞懵逼的4A魔术！迷惑性强！互动率高！ · https://www.douyin.com/video/7694878480098617570
+- #5 · 1641 like · 教你一招可以和妹妹测试缘分的纸牌魔术！ 零手法！不需要提前准备！ · https://www.douyin.com/video/7692659664437119912
+- #6 · 3211 like · 教你一招一摸就变的变牌手法！ · https://www.douyin.com/video/7691257115491934883
+- #11 · 2800 like · 教你一个专业级的纸牌魔术流程！ · https://www.douyin.com/video/7681244221063828864
+- #21 · 6192 like · 教你六个超简单的皮筋小魔术！让你也可以随时随地吓唬妹妹！ · https://www.douyin.com/video/7657870446940294784
+- #30 · 6593 like · 教你一招可以扭曲空间的四维魔术！ 超简单！学会就能马上表演！ · https://www.douyin.com/video/7653319981242139235
+- #31 · 568 like · 教你一招效果超唬人的纸牌预言魔术！ 全自动！零手法！学会就能马上表演！ · https://www.douyin.com/video/7650064779592535011
+- #32 · 1780 like · 教你一招有双重暴击效果的纸牌魔术！ 全自动！零手法！学会就能马上表演！ · https://www.douyin.com/video/7648144664105692840
+- #33 · 2907 like · 教你一招能100%预测未来的即兴魔术！学会随时随地吓哭妹妹！ · https://www.douyin.com/video/7644901528675185320
+- #34 · 29000 like · 一分钟教你一招一晃就变的变牌手法！学会吓哭妹妹！ · https://www.douyin.com/video/7642271956066537359
+- #35 · 14000 like · 教你一招超视觉化的AK瞬间交换！学会轻松吓唬女朋友！ · https://www.douyin.com/video/7640058316933239906
+- #36 · 4600 like · 教你一招瞬间找4A！零手法！学会就能马上表演！ · https://www.douyin.com/video/7637821415069325539
+- #37 · 40000 like · 教你五个生活小魔术！简单！即兴！实用！ · https://www.douyin.com/video/7634123457018906851
+- #38 · 8552 like · 教你一招简单到爆的即兴预言魔术！ 零手法！不用提前准备！ · https://www.douyin.com/video/7628834026811459427
+- #39 · 39000 like · 教你一招超帅的三明治找牌！学会轻松吓唬妹妹！ · https://www.douyin.com/video/7625944180254401890
+- #40 · 11000 like · 教你一招可以和妹妹打赌必赢的魔术！ 不需要手法！不需要提前准备！ · https://www.douyin.com/video/7622197927847949492
+- #41 · 1116 like · 教你一招超简单的缘分撩妹魔术！学会轻松吓唬女朋友！ · https://www.douyin.com/video/7619233223897777140
+- #42 · 2722 like · 教你一招超帅的幻变4K！学会轻松秀翻全场妹妹！ · https://www.douyin.com/video/7617326236394041487
+- #43 · 33000 like · 教你一招断指还原！学会轻松吓唬小妹妹！ · https://www.douyin.com/video/7613710511591322216
+- #44 · 2297 like · 教你一招让扑克牌乖乖听你话！ 学会轻松吓唬小妹妹！ · https://www.douyin.com/video/7612133533988957154
+- #45 · 5505 like · 一分钟教你一招超简单的聚会魔术！ 全自动！零手法！学会就能马上表演！ · https://www.douyin.com/video/7603606601606611124
+- #46 · 14000 like · 教你一招可以同时吓唬两个妹妹的魔术流程！ 全自动！零手法！ · https://www.douyin.com/video/7601106938499695203
+- #47 · 2548 like · 教你一招效果超惊艳的连环多重预言魔术！ 全自动、零手法！学会轻松秀翻全场妹妹！ · https://www.douyin.com/video/7598060316186460148
+- #48 · 28000 like · 教你一招用两张白纸就可以随时随地吓唬3个妹妹的预言魔术！ 超级神奇！学会就能马上表演！ · https://www.douyin.com/video/7595161776976436111
+- #49 · 72000 like · 提前教你五个零手法、超简单的纸牌魔术！ 让你过年聚餐时可以随时随地大显身手！ · https://www.douyin.com/video/7592563249154758498
+- #50 · 12000 like · 教你一招超帅的花式变牌！ · https://www.douyin.com/video/7588809528683218127
+- #51 · 5313 like · 教你一招用12张牌就能把妹妹搞懵逼的纸牌魔术！ · https://www.douyin.com/video/7585560256261623092
+- #52 · 15000 like · 教你一个简单、即兴！但效果非常震撼的纸牌魔术流程！ · https://www.douyin.com/video/7582539516911062312
+- #53 · 5839 like · 一分钟教你一招一摸就变的变牌手法！学会吓唬妹妹！ · https://www.douyin.com/video/7579964958100924367
+- #54 · 9242 like · 教你一个连魔术师看了都懵B的魔术！全自动、零手法、无需准备！ · https://www.douyin.com/video/7575122992801388623
+- #55 · 36000 like · 教你一个和妹妹打赌必赢的魔术！全自动！零手法！无需提前准备！ · https://www.douyin.com/video/7572145899792321664
+- #56 · 128000 like · 教你五个即兴实用生活小魔术！让你随时随地也可以化身魔术大师！ · https://www.douyin.com/video/7569214238918667456
+- #57 · 2874 like · 一分钟教你一招简单又帅气的橡皮筋找牌！ · https://www.douyin.com/video/7565034828812078371
+- #58 · 2757 like · 教你一个不需要练习、零手法，而且还有三重暴击效果的魔术流程！ · https://www.douyin.com/video/7562878015811849487
+- #59 · 3819 like · 教你一个全自动、零手法的纸牌魔术流程！学会轻松吓唬妹妹！ · https://www.douyin.com/video/7559943688219397376
+- #60 · 111000 like · 一分钟教会你一招高级的变牌手法！ · https://www.douyin.com/video/7556890826941730048
+- #61 · 15000 like · 教你一个零手法、超级简单，而且效果非常震撼的魔术流程！ · https://www.douyin.com/video/7553220053500710184
+- #62 · 4409 like · 教你一招超简单的纸牌魔术！学会轻松吓唬妹妹！ · https://www.douyin.com/video/7549820249145036072
+- #63 · 8376 like · 教你一招全自动、零手法、不需要提前准备的纸牌魔术！ · https://www.douyin.com/video/7546467707278527759
+- #64 · 13000 like · 教你一招用两张鬼牌就可以吓哭妹妹的魔术流程！ · https://www.douyin.com/video/7543681555374574863
+- #65 · 14000 like · 一分钟教会你一招全自动、超简单、零手法的纸牌魔术！ · https://www.douyin.com/video/7542020261529898274
+- #66 · 70000 like · 教你一招全自动零手法即兴魔术流程！学会可以同时吓唬3个妹妹！ · https://www.douyin.com/video/7539045348930161920
+- #67 · 21000 like · 教你一个不需要提前准备、不需要手法的超神奇纸牌魔术！ · https://www.douyin.com/video/7526442839706946816
+- #68 · 9668 like · 教你一个效果非常特别！还可以同时吓唬两个妹妹的魔术流程！ · https://www.douyin.com/video/7523804313547099432
+- #69 · 3686 like · 教你3个有手就会的超神奇纸牌魔术！让你可以轻松成为魔术大佬！ · https://www.douyin.com/video/7520617812738936116
+- #70 · 5239 like · 教你一招4A的空间交换！学会轻松吓哭女朋友！ · https://www.douyin.com/video/7517524824281926947
+- #71 · 3610 like · 教你一招不需要手法的预言魔术！学会轻松加陌生妹妹好友！ · https://www.douyin.com/video/7513467692175854848
+- #72 · 34000 like · 教你一招扑克牌隔空转移！学会轻松吓唬一堆妹妹！ · https://www.douyin.com/video/7511304923716570368
+- #73 · 6920 like · 教你一招不需要手法的纸牌魔术！学会轻松吓哭妹妹！ · https://www.douyin.com/video/7508365193472003368
+- #74 · 1318 like · 教你一招“520”表白魔术！学会轻松向女神表白！ · https://www.douyin.com/video/7506461936277327156
+- #75 · 6898 like · 教你一个不需要手法的魔术流程！学会就能一次吓唬两个妹妹！ · https://www.douyin.com/video/7505722271706451240
+- #76 · 147000 like · 教你五个学会能马上表演的生活小魔术！让你也轻松成为魔术大师！ · https://www.douyin.com/video/7504551081151941888
+- #77 · 8930 like · 教你一招说变就变的变牌手法！学会秀翻所有女朋友！ · https://www.douyin.com/video/7500221886019128616
+- #78 · 48000 like · 教你一个完全不用手法的缘分魔术！让你也可以轻松找到女朋友！ · https://www.douyin.com/video/7497849884739030324
+- #79 · 8319 like · 教你一招超简单的超酷找牌！学会秀翻全部女朋友！ · https://www.douyin.com/video/7496418579899469090
+- #80 · 13000 like · 教你两个只需要一点点练习就能学会的4A集合！ · https://www.douyin.com/video/7494920133689740584
+- #81 · 171000 like · 教你三个不用手法的撩妹魔术！让你可以轻松成为撩妹大神！ · https://www.douyin.com/video/7492323337679424768
+- #82 · 84000 like · 教你一招纸牌瞬间互换！学会秀翻女朋友！ · https://www.douyin.com/video/7489394836521438464
+- #83 · 15000 like · 教你一个专业级的魔术流程！学会可以吓唬妹妹3次！ · https://www.douyin.com/video/7487482656276499752
+- #84 · 2615 like · 教你既即兴、又简单的超酷找牌魔术！这次学会真的能吓到妹妹了！ · https://www.douyin.com/video/7486007430564908323
+- #85 · 8789 like · 教你马上拥有魔术师“绝对手感”的魔术，学会让妹妹想得到你的手 · https://www.douyin.com/video/7482423056921578752
+- #86 · 69000 like · 教你一个零手法的扑克魔术！学会震惊女朋友！ · https://www.douyin.com/video/7476372822865038627
+- #87 · 29000 like · 教你一个完全不用手法就可以吓唬妹妹的扑克魔术！ · https://www.douyin.com/video/7473406399603641634
+- #88 · 19000 like · 教你一个专业级的魔术流程！学会让妹妹疯狂尖叫！ · https://www.douyin.com/video/7470013473452297507
+- #89 · 8897 like · 教你一个专业级的魔术流程！学会把妹妹震惊两次！ · https://www.douyin.com/video/7464909054662479138
+- #90 · 16000 like · 教你一个超浪漫的表白魔术流程！学会随时表白！ · https://www.douyin.com/video/7462247828954385679
+- #91 · 16000 like · 教你一个非常“邪门”的魔术！学会吓哭女朋友！ · https://www.douyin.com/video/7459670540878499087
+- #92 · 26000 like · 教你七个有手就能学会的橡皮筋魔术！学会过年回家吓唬弟弟妹妹！ · https://www.douyin.com/video/7457433354376465704
+- #93 · 1380 like · 没有水~真的很认真的在教~🙈 · https://www.douyin.com/video/7452994654313680128
+- #94 · 1286 like · 教你一招超简单的A.K分离！学会吓唬妹妹！ · https://www.douyin.com/video/7452259517158493474
+- #95 · 3784 like · 圣诞节到了！快用这招人人都能学会的牌变礼物去哄女朋友开心吧！ · https://www.douyin.com/video/7450745039099137315
+- #96 · 3233 like · 教你一招超酷的橡皮筋找牌！学会帅翻天！ · https://www.douyin.com/video/7449616872296680704
+- #97 · 59000 like · 教你一招可以把视觉效果拉满的变牌手法！学会秀翻女朋友！ · https://www.douyin.com/video/7447034175712021775
+- #98 · 1907 like · 教你一招超视觉化的4K变4A！学会吓唬女朋友！ · https://www.douyin.com/video/7444445999054998847
+- #99 · 2133 like · 教你一招超神奇的找牌魔术！学会妹妹到手！ · https://www.douyin.com/video/7443323449054940452
+- #101 · 184000 like · 教你五个不用手法的扑克魔术！让你也可以成为一名魔术大佬！ · https://www.douyin.com/video/7439650623995317516
+- #102 · 2714 like · 教你一招只用4张A就能表演的神奇魔术！学会秀翻全场！ · https://www.douyin.com/video/7437364719603780918
+- #103 · 15000 like · 教你一招超直观的弹指变牌！学会吓哭妹妹！ · https://www.douyin.com/video/7436624496573959487
+- #104 · 28000 like · 教你3个实战型双翻手法！新手必看！干货都在里面！ · https://www.douyin.com/video/7435112919047736595
+- #105 · 9465 like · 教你一招全宇宙第二快的瞬间找牌！学会妹妹到手！ · https://www.douyin.com/video/7432166079805328703
+- #106 · 35000 like · 教你一招简单的4K变4A，学会吓跑女朋友！ · https://www.douyin.com/video/7430695863896345867
+- #107 · 1687 like · 教你一招闪电找出观众的牌！学会可以随时随地装逼！ · https://www.douyin.com/video/7429584661380173075
+- #108 · 2786 like · 教你一招闪现变出4A，学会帅炸天！ · https://www.douyin.com/video/7428453743978466623
+- #110 · 7407 like · 教你一招史上最快的变牌手法！ · https://www.douyin.com/video/7427347051857431862
+- #111 · 40000 like · 教你一招超视觉化的4A4K瞬间互换！ · https://www.douyin.com/video/7426999786823372073

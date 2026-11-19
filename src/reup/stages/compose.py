@@ -665,7 +665,10 @@ def run(job: Job, cfg: Config) -> None:
         overlays += label_overlays(job, cfg, regions, source_info.width, source_info.height)
     first_overlay_input = len(inputs) // 2
     for ov in overlays:
-        inputs += ["-i", str(ov.path)]
+        # -threads 1 trước -i: mỗi PNG phụ đề là một decoder riêng, mặc định mỗi
+        # decoder mở cả chục thread. Video dài có ~340 PNG → vượt giới hạn thread
+        # của người dùng macOS ("pthread_create() failed", ffmpeg thoát 221).
+        inputs += ["-threads", "1", "-i", str(ov.path)]
 
     tmp_mp4 = job.final_mp4.with_suffix(".tmp.mp4")
     if tmp_mp4.exists():
